@@ -1,0 +1,70 @@
+[project]
+name = "auto-mcp"
+version = "0.1.0"
+description = "Automatically generate MCP servers from Python modules using LLM-powered documentation"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=1.0",
+    "click>=8.0",
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    "watchdog>=3.0",
+    "ollama>=0.3",
+    "openai>=1.0",
+    "anthropic>=0.20",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.1.0",
+    "mypy>=1.8.0",
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "pre-commit>=3.6.0",
+]
+
+[project.scripts]
+auto-mcp = "auto_mcp.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/auto_mcp"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "--cov=src/auto_mcp --cov-report=term-missing --cov-report=html"
+
+[tool.coverage.run]
+source = ["src/auto_mcp"]
+omit = ["*/tests/*", "*/__init__.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+fail_under = 90
