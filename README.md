@@ -5,8 +5,10 @@ Automatically generate MCP (Model Context Protocol) servers from Python modules 
 ## Features
 
 - **Automatic Tool Generation**: Exposes public functions as MCP tools
+- **Package Analysis**: Recursively analyze installed packages (requests, pandas, etc.)
 - **LLM-Powered Descriptions**: Uses local (Ollama) or cloud (OpenAI, Anthropic) LLMs to generate tool descriptions
 - **Multiple Output Formats**: Standalone file, Python package, or in-memory server
+- **Multiple Transports**: stdio, SSE, and Streamable HTTP with stateless/stateful modes
 - **Decorator Support**: Fine-grained control with `@mcp_tool`, `@mcp_exclude`, `@mcp_resource`, `@mcp_prompt`
 - **Async Support**: Full support for async functions
 - **Hot Reload**: Watch for file changes during development
@@ -63,6 +65,319 @@ server = auto.create_server([math_utils])
 server.run()
 ```
 
+### 3. Or generate from an installed package
+
+```bash
+# Check what would be exposed from the requests package
+auto-mcp package check requests
+
+# Generate a server from the json stdlib package
+auto-mcp package generate json -o json_server.py --no-llm
+
+# Serve directly
+auto-mcp package serve json --no-llm
+```
+
+---
+
+## MCP Transports
+
+auto-mcp supports multiple transport protocols for MCP communication.
+
+### stdio (Default)
+
+Standard input/output transport. Used by Claude Desktop and most MCP clients.
+
+**CLI:**
+```bash
+# Explicit (default)
+auto-mcp serve mymodule.py --transport stdio
+
+# Implicit (stdio is default)
+auto-mcp serve mymodule.py
+```
+
+**Python API:**
+```python
+server = auto.create_server([mymodule])
+server.run()  # stdio by default
+server.run(transport="stdio")  # explicit
+```
+
+**Claude Desktop configuration:**
+```json
+{
+  "mcpServers": {
+    "my-tools": {
+      "command": "auto-mcp",
+      "args": ["serve", "mymodule.py", "--no-llm"]
+    }
+  }
+}
+```
+
+### SSE (Server-Sent Events)
+
+HTTP-based transport using Server-Sent Events. Useful for web clients.
+
+**CLI:**
+```bash
+# Basic SSE server
+auto-mcp serve mymodule.py --transport sse
+
+# Custom host and port
+auto-mcp serve mymodule.py --transport sse --host 127.0.0.1 --port 3000
+```
+
+**Python API:**
+```python
+server = auto.create_server([mymodule])
+server.run(transport="sse")
+```
+
+**Client connection:**
+```bash
+# The SSE endpoint will be available at:
+# http://localhost:8080/sse
+```
+
+### Streamable HTTP
+
+Modern HTTP transport with streaming support. Supports both stateless and stateful modes.
+
+**CLI:**
+```bash
+# Streamable HTTP (stateless by default)
+auto-mcp serve mymodule.py --transport streamable-http
+
+# With custom settings
+auto-mcp serve mymodule.py --transport streamable-http --port 8080
+```
+
+**Python API:**
+```python
+server = auto.create_server([mymodule])
+server.run(transport="streamable-http")
+```
+
+### Stateless vs Stateful HTTP
+
+MCP HTTP transports can operate in two modes:
+
+#### Stateless Mode (Default)
+
+Each request is independent. No session state is maintained between requests.
+
+```python
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP(name="my-server", stateless_http=True)  # Default
+
+# Or via auto-mcp
+server = auto.create_server([mymodule])
+server.run(transport="streamable-http")  # Stateless by default
+```
+
+**Characteristics:**
+- Each request is independent
+- No session management overhead
+- Scales horizontally easily
+- Best for simple, stateless tools
+
+#### Stateful Mode
+
+Maintains session state across requests. Useful for tools that need context.
+
+```python
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP(name="my-server", stateless_http=False)
+
+# For more control, use the underlying server directly
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP(name="stateful-server")
+
+@mcp.tool()
+def increment_counter() -> int:
+    """Increment and return the session counter."""
+    # State is maintained per session
+    if not hasattr(increment_counter, '_count'):
+        increment_counter._count = 0
+    increment_counter._count += 1
+    return increment_counter._count
+```
+
+**Characteristics:**
+- Session state persists across requests
+- Requires session management
+- Better for conversational or contextual tools
+- Higher memory usage per session
+
+### Transport Comparison
+
+| Transport | Protocol | Streaming | Use Case |
+|-----------|----------|-----------|----------|
+| `stdio` | stdin/stdout | Yes | CLI tools, Claude Desktop |
+| `sse` | HTTP + SSE | Yes | Web clients, browsers |
+| `streamable-http` | HTTP | Yes | Modern HTTP clients, APIs |
+
+### Environment Variables for Transports
+
+```bash
+# Default transport
+AUTO_MCP_TRANSPORT=stdio
+
+# HTTP settings (for sse and streamable-http)
+AUTO_MCP_HOST=0.0.0.0
+AUTO_MCP_PORT=8080
+```
+
+---
+
+## Package Analysis
+
+Generate MCP servers from installed Python packages without writing any code.
+
+### CLI Commands
+
+#### Check a Package
+
+Preview what would be exposed without generating anything:
+
+```bash
+# Basic check
+auto-mcp package check requests
+
+# With verbose output (shows module tree)
+auto-mcp package check requests -v
+
+# Check only public API (__all__ exports)
+auto-mcp package check requests --public-api-only
+
+# Limit recursion depth
+auto-mcp package check boto3 --max-depth 2
+
+# Filter modules with patterns
+auto-mcp package check requests --include 'requests.api.*' --exclude 'requests.compat.*'
+```
+
+#### Generate from a Package
+
+```bash
+# Generate server file
+auto-mcp package generate json -o json_server.py --no-llm
+
+# With LLM descriptions
+auto-mcp package generate requests -o requests_server.py --llm-provider ollama
+
+# Only public API
+auto-mcp package generate pandas -o pandas_server.py --public-api-only
+
+# With filtering
+auto-mcp package generate boto3 -o s3_tools.py \
+    --include 'boto3.s3.*' \
+    --max-depth 2 \
+    --no-llm
+```
+
+#### Serve a Package Directly
+
+```bash
+# Serve with stdio transport (for Claude Desktop)
+auto-mcp package serve json --no-llm
+
+# Serve with SSE transport
+auto-mcp package serve requests --transport sse --port 3000
+
+# Serve with streamable HTTP
+auto-mcp package serve json --transport streamable-http
+
+# With options
+auto-mcp package serve requests \
+    --name "HTTP Tools" \
+    --public-api-only \
+    --no-llm
+```
+
+### Python API
+
+```python
+from auto_mcp import AutoMCP, quick_server_from_package
+
+# Quick one-liner
+server = quick_server_from_package("json", name="JSON Tools")
+server.run()
+
+# With more control
+auto = AutoMCP(
+    use_llm=False,
+    public_api_only=True,
+    max_depth=2,
+    include_patterns=["requests.api.*"],
+    exclude_patterns=["requests.compat.*"],
+)
+
+# Analyze a package
+metadata = auto.analyze_package("requests")
+print(f"Found {metadata.module_count} modules")
+print(f"Found {metadata.method_count} methods")
+
+# Create server from package
+server = auto.create_server_from_package("requests")
+server.run()
+
+# Generate file from package
+auto.generate_file_from_package("json", "json_server.py")
+```
+
+### Package Analysis Options
+
+| Option | Description |
+|--------|-------------|
+| `--max-depth` | Maximum recursion depth for submodule discovery |
+| `--public-api-only` | Only expose functions in `__all__` |
+| `--include-private` | Include private modules (starting with `_`) |
+| `--include PATTERN` | Glob patterns for modules to include |
+| `--exclude PATTERN` | Glob patterns for modules to exclude |
+
+### Example: Creating a JSON Tools Server
+
+```bash
+# 1. Check what's available
+auto-mcp package check json -v
+
+# Output:
+# Package: json
+# Modules discovered: 3
+#
+# Tools (4)
+# ┏━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━┓
+# ┃ Name   ┃ Module ┃ Async ┃ Parameters     ┃
+# ┡━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━┩
+# │ dump   │ json   │       │ obj, fp, ...   │
+# │ dumps  │ json   │       │ obj, ...       │
+# │ load   │ json   │       │ fp, ...        │
+# │ loads  │ json   │       │ s, ...         │
+# └────────┴────────┴───────┴────────────────┘
+
+# 2. Generate and run
+auto-mcp package serve json --no-llm
+
+# 3. Or for Claude Desktop, add to config:
+```
+
+```json
+{
+  "mcpServers": {
+    "json-tools": {
+      "command": "auto-mcp",
+      "args": ["package", "serve", "json", "--no-llm"]
+    }
+  }
+}
+```
+
 ---
 
 ## CLI Reference
@@ -107,8 +422,11 @@ Run an MCP server directly from Python modules.
 # Basic usage (stdio transport)
 auto-mcp serve mymodule.py
 
-# With SSE transport on custom port
+# With SSE transport
 auto-mcp serve mymodule.py --transport sse --port 8080
+
+# With streamable HTTP transport
+auto-mcp serve mymodule.py --transport streamable-http --port 3000
 
 # With hot-reload for development
 auto-mcp serve mymodule.py --watch
@@ -121,9 +439,9 @@ auto-mcp serve mymodule.py --llm-provider ollama --llm-model qwen2.5-coder:7b
 | Option | Description |
 |--------|-------------|
 | `--name` | Server name |
-| `--transport` | Transport type: stdio, sse (default: stdio) |
-| `--port` | Port for SSE transport (default: 8080) |
-| `--host` | Host for SSE transport (default: 0.0.0.0) |
+| `--transport` | Transport: stdio, sse, streamable-http (default: stdio) |
+| `--port` | Port for HTTP transports (default: 8080) |
+| `--host` | Host for HTTP transports (default: 0.0.0.0) |
 | `--watch` | Enable hot-reload on file changes |
 | `--llm-provider` | LLM provider |
 | `--llm-model` | Model name |
@@ -166,6 +484,72 @@ auto-mcp config show
 # Show environment variable reference
 auto-mcp config env
 ```
+
+### `auto-mcp package`
+
+Commands for working with installed Python packages.
+
+#### `auto-mcp package check`
+
+Analyze a package and show what would be exposed.
+
+```bash
+auto-mcp package check requests
+auto-mcp package check requests -v
+auto-mcp package check boto3 --max-depth 2 --public-api-only
+```
+
+**Options:**
+| Option | Description |
+|--------|-------------|
+| `--max-depth` | Maximum recursion depth |
+| `--public-api-only` | Only show `__all__` exports |
+| `--include-private` | Include private modules |
+| `--include PATTERN` | Glob pattern for modules to include |
+| `--exclude PATTERN` | Glob pattern for modules to exclude |
+| `-v, --verbose` | Show module tree and details |
+
+#### `auto-mcp package generate`
+
+Generate an MCP server from a package.
+
+```bash
+auto-mcp package generate json -o server.py --no-llm
+auto-mcp package generate requests -o server.py --public-api-only
+```
+
+**Options:**
+| Option | Description |
+|--------|-------------|
+| `-o, --output` | Output file path (required) |
+| `--name` | Server name |
+| `--max-depth` | Maximum recursion depth |
+| `--public-api-only` | Only expose `__all__` exports |
+| `--include PATTERN` | Glob pattern for modules to include |
+| `--exclude PATTERN` | Glob pattern for modules to exclude |
+| `--llm-provider` | LLM provider |
+| `--no-llm` | Disable LLM descriptions |
+
+#### `auto-mcp package serve`
+
+Run an MCP server from a package.
+
+```bash
+auto-mcp package serve json --no-llm
+auto-mcp package serve requests --transport sse --port 3000
+```
+
+**Options:**
+| Option | Description |
+|--------|-------------|
+| `--name` | Server name |
+| `--transport` | Transport: stdio, sse, streamable-http |
+| `--max-depth` | Maximum recursion depth |
+| `--public-api-only` | Only expose `__all__` exports (default: True) |
+| `--include PATTERN` | Glob pattern for modules to include |
+| `--exclude PATTERN` | Glob pattern for modules to exclude |
+| `--llm-provider` | LLM provider |
+| `--no-llm` | Disable LLM descriptions |
 
 ---
 
@@ -447,7 +831,7 @@ All settings can be configured via environment variables with the `AUTO_MCP_` pr
 | `AUTO_MCP_CACHE_ENABLED` | `true` | Enable prompt caching |
 | `AUTO_MCP_CACHE_DIR` | | Custom cache directory |
 | `AUTO_MCP_SERVER_NAME` | `auto-mcp-server` | Default server name |
-| `AUTO_MCP_TRANSPORT` | `stdio` | MCP transport: stdio, sse |
+| `AUTO_MCP_TRANSPORT` | `stdio` | Transport: stdio, sse, streamable-http |
 | `AUTO_MCP_HOST` | `0.0.0.0` | Server host for HTTP transports |
 | `AUTO_MCP_PORT` | `8080` | Server port for HTTP transports |
 | `AUTO_MCP_INCLUDE_PRIVATE` | `false` | Include private functions |
