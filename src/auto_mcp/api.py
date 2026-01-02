@@ -11,6 +11,7 @@ from mcp.server.fastmcp import FastMCP
 
 from auto_mcp.cache import PromptCache
 from auto_mcp.core.generator import GeneratorConfig, MCPGenerator
+from auto_mcp.core.package import PackageMetadata
 from auto_mcp.llm import LLMProvider, create_provider
 
 if TYPE_CHECKING:
@@ -61,6 +62,10 @@ class AutoMCP:
         include_private: bool = False,
         generate_resources: bool = True,
         generate_prompts: bool = True,
+        max_depth: int | None = None,
+        public_api_only: bool = False,
+        include_patterns: list[str] | None = None,
+        exclude_patterns: list[str] | None = None,
     ) -> None:
         """Initialize AutoMCP.
 
@@ -78,6 +83,10 @@ class AutoMCP:
             include_private: Whether to include private methods (starting with _).
             generate_resources: Whether to generate MCP resources.
             generate_prompts: Whether to generate MCP prompts.
+            max_depth: Maximum recursion depth for package analysis.
+            public_api_only: Only expose functions in __all__ (public API).
+            include_patterns: Glob patterns for modules to include.
+            exclude_patterns: Glob patterns for modules to exclude.
         """
         self._use_llm = use_llm
         self._use_cache = use_cache
@@ -105,6 +114,10 @@ class AutoMCP:
             generate_prompts=generate_prompts,
             use_cache=use_cache,
             use_llm=use_llm and self._llm is not None,
+            max_depth=max_depth,
+            public_api_only=public_api_only,
+            include_patterns=include_patterns,
+            exclude_patterns=exclude_patterns,
         )
 
         # Create generator
@@ -258,6 +271,144 @@ class AutoMCP:
         """
         return asyncio.run(self.analyze(modules, context=context))
 
+    # Package-based methods
+
+    def create_server_from_package(
+        self,
+        package: str | ModuleType,
+        *,
+        name: str | None = None,
+        context: str | None = None,
+    ) -> FastMCP:
+        """Create an in-memory MCP server from a package.
+
+        This method recursively analyzes all submodules of a package
+        and exposes their functions as MCP tools.
+
+        Args:
+            package: Package name (e.g., "requests") or module object.
+            name: Override the server name.
+            context: Additional context for LLM description generation.
+
+        Returns:
+            A configured FastMCP server instance ready to run.
+
+        Example:
+            >>> server = auto.create_server_from_package("requests")
+            >>> server.run()
+
+            >>> # With filtering
+            >>> auto = AutoMCP(
+            ...     include_patterns=["requests.api.*"],
+            ...     exclude_patterns=["requests.compat.*"],
+            ... )
+            >>> server = auto.create_server_from_package("requests")
+        """
+        if name:
+            original_name = self._config.server_name
+            self._config.server_name = name
+            try:
+                return self._generator.create_server_from_package(package, context)
+            finally:
+                self._config.server_name = original_name
+        return self._generator.create_server_from_package(package, context)
+
+    def generate_file_from_package(
+        self,
+        package: str | ModuleType,
+        output: Path | str,
+        *,
+        name: str | None = None,
+        context: str | None = None,
+    ) -> Path:
+        """Generate a standalone MCP server file from a package.
+
+        Args:
+            package: Package name (e.g., "requests") or module object.
+            output: Output path for the generated file.
+            name: Override the server name.
+            context: Additional context for LLM description generation.
+
+        Returns:
+            Path to the generated file.
+
+        Example:
+            >>> auto.generate_file_from_package("requests", "requests_server.py")
+        """
+        if name:
+            original_name = self._config.server_name
+            self._config.server_name = name
+            try:
+                return self._generator.generate_standalone_from_package(
+                    package, Path(output), context
+                )
+            finally:
+                self._config.server_name = original_name
+        return self._generator.generate_standalone_from_package(
+            package, Path(output), context
+        )
+
+    def analyze_package(
+        self,
+        package: str | ModuleType,
+    ) -> PackageMetadata:
+        """Analyze a package and return detailed metadata.
+
+        This is useful for inspecting what would be exposed without
+        actually creating a server.
+
+        Args:
+            package: Package name (e.g., "requests") or module object.
+
+        Returns:
+            PackageMetadata with all discovered modules and methods.
+
+        Example:
+            >>> metadata = auto.analyze_package("requests")
+            >>> print(f"Found {metadata.module_count} modules")
+            >>> print(f"Found {metadata.method_count} methods")
+            >>> for mod_name, mod_info in metadata.modules.items():
+            ...     print(f"  {mod_name}: {len(mod_info.submodules)} submodules")
+        """
+        return self._generator.analyze_package(package)
+
+    async def analyze_package_async(
+        self,
+        package: str | ModuleType,
+        *,
+        context: str | None = None,
+    ) -> tuple[list[GeneratedTool], list[GeneratedResource], list[GeneratedPrompt]]:
+        """Analyze a package and generate MCP component metadata.
+
+        This is useful for inspecting what tools/resources/prompts would
+        be generated from a package.
+
+        Args:
+            package: Package name (e.g., "requests") or module object.
+            context: Additional context for LLM description generation.
+
+        Returns:
+            Tuple of (tools, resources, prompts) that would be generated.
+        """
+        return await self._generator.analyze_and_generate_from_package(package, context)
+
+    def analyze_package_sync(
+        self,
+        package: str | ModuleType,
+        *,
+        context: str | None = None,
+    ) -> tuple[list[GeneratedTool], list[GeneratedResource], list[GeneratedPrompt]]:
+        """Synchronous version of analyze_package_async().
+
+        Args:
+            package: Package name (e.g., "requests") or module object.
+            context: Additional context for LLM description generation.
+
+        Returns:
+            Tuple of (tools, resources, prompts) that would be generated.
+        """
+        return asyncio.run(self.analyze_package_async(package, context=context))
+
     def save_cache(self, modules: list[ModuleType] | None = None) -> None:
         """Save cache to disk.
 
@@ -334,3 +485,56 @@ def quick_server(
     """
     auto = AutoMCP(use_llm=use_llm, use_cache=False, server_name=name)
     return auto.create_server(list(modules))
+
+
+def quick_server_from_package(
+    package: str | ModuleType,
+    *,
+    name: str = "auto-mcp-server",
+    use_llm: bool = False,
+    public_api_only: bool = True,
+    max_depth: int | None = None,
+    include_patterns: list[str] | None = None,
+    exclude_patterns: list[str] | None = None,
+) -> FastMCP:
+    """Quickly create an MCP server from an installed package.
+
+    This is a convenience function for creating servers from packages
+    like `requests`, `json`, etc. without fine-grained control.
+
+    Args:
+        package: Package name (e.g., "requests") or module object.
+        name: Name for the server.
+        use_llm: Whether to use LLM for descriptions (default: False for speed).
+        public_api_only: Only expose functions in __all__ (recommended).
+        max_depth: Maximum recursion depth for submodule discovery.
+        include_patterns: Glob patterns for modules to include.
+        exclude_patterns: Glob patterns for modules to exclude.
+
+    Returns:
+        A configured FastMCP server.
+
+    Example:
+        >>> from auto_mcp import quick_server_from_package
+        >>>
+        >>> # Create server from requests library
+        >>> server = quick_server_from_package("requests", name="HTTP Server")
+        >>> server.run()
+        >>>
+        >>> # Create server with filtering
+        >>> server = quick_server_from_package(
+        ...     "requests",
+        ...     include_patterns=["requests.api.*"],
+        ...     max_depth=2,
+        ... )
+    """
+    auto = AutoMCP(
+        use_llm=use_llm,
+        use_cache=False,
+        server_name=name,
+        public_api_only=public_api_only,
+        max_depth=max_depth,
+        include_patterns=include_patterns,
+        exclude_patterns=exclude_patterns,
+    )
+    return auto.create_server_from_package(package)

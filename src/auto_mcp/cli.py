@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import importlib.util
 import sys
 from pathlib import Path
@@ -12,11 +13,13 @@ import click
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from rich.tree import Tree
 
 from auto_mcp.cache import PromptCache
 from auto_mcp.config import Settings, get_settings
 from auto_mcp.core.analyzer import ModuleAnalyzer
 from auto_mcp.core.generator import GeneratorConfig, MCPGenerator
+from auto_mcp.core.package import PackageAnalyzer
 from auto_mcp.llm import LLMProvider, create_provider
 from auto_mcp.watcher import HotReloadServer
 
@@ -713,6 +716,523 @@ def config_env(ctx: click.Context) -> None:
         table.add_row(var, desc)
 
     console.print(table)
+
+
+# Package commands for analyzing installed packages
+@cli.group()
+def package() -> None:
+    """Analyze and generate servers from installed Python packages.
+
+    These commands work with installed packages (e.g., requests, json)
+    rather than local Python files.
+    """
+    pass
+
+
+@package.command(name="check")
+@click.argument("package_name", required=True)
+@click.option(
+    "--max-depth",
+    type=int,
+    default=None,
+    help="Maximum recursion depth for submodule discovery",
+)
+@click.option(
+    "--include-private",
+    is_flag=True,
+    help="Include private modules and methods",
+)
+@click.option(
+    "--public-api-only",
+    is_flag=True,
+    help="Only show functions in __all__ (public API)",
+)
+@click.option(
+    "--include",
+    "include_patterns",
+    multiple=True,
+    help="Glob patterns for modules to include (e.g., 'requests.api.*')",
+)
+@click.option(
+    "--exclude",
+    "exclude_patterns",
+    multiple=True,
+    help="Glob patterns for modules to exclude (e.g., 'requests.compat.*')",
+)
+@click.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    help="Show detailed information about each method",
+)
+@click.pass_context
+def package_check(
+    ctx: click.Context,
+    package_name: str,
+    max_depth: int | None,
+    include_private: bool,
+    public_api_only: bool,
+    include_patterns: tuple[str, ...],
+    exclude_patterns: tuple[str, ...],
+    verbose: bool,
+) -> None:
+    """Analyze an installed package and show what would be exposed.
+
+    PACKAGE_NAME: Name of the installed package (e.g., 'requests', 'json')
+
+    Examples:
+
+        # Check requests package
+        auto-mcp package check requests
+
+        # Check with depth limit
+        auto-mcp package check boto3 --max-depth 2
+
+        # Check only public API
+        auto-mcp package check requests --public-api-only
+
+        # Check with module filtering
+        auto-mcp package check requests --include 'requests.api.*'
+
+        # Verbose output
+        auto-mcp package check requests -v
+    """
+    # Try to import the package
+    with console.status(f"[bold blue]Analyzing package '{package_name}'..."):
+        try:
+            analyzer = PackageAnalyzer(
+                include_private=include_private,
+                max_depth=max_depth,
+            )
+            metadata = analyzer.analyze_package(
+                package_name,
+                include_patterns=list(include_patterns) if include_patterns else None,
+                exclude_patterns=list(exclude_patterns) if exclude_patterns else None,
+            )
+        except ImportError as e:
+            raise click.ClickException(f"Cannot import package '{package_name}': {e}") from None
+        except ValueError as e:
+            raise click.ClickException(str(e)) from None
+
+    # Display package overview
+    console.print(f"\n[bold]Package: {metadata.name}[/bold]")
+    console.print(f"[dim]Modules discovered: {metadata.module_count}[/dim]")
+    console.print(f"[dim]Public modules: {metadata.public_module_count}[/dim]")
+
+    # Show module tree
+    if verbose:
+        console.print("\n[bold]Module Structure:[/bold]")
+        tree = Tree(f"[cyan]{metadata.name}[/cyan]")
+        _build_module_tree(tree, metadata.name, metadata.module_graph, set())
+        console.print(tree)
+
+    # Get methods to display
+    methods = analyzer.get_public_methods(metadata) if public_api_only else metadata.methods
+
+    # Categorize methods
+    tools = []
+    resources = []
+    prompts = []
+
+    for method in methods:
+        if method.is_resource:
+            resources.append(method)
+        elif method.is_prompt:
+            prompts.append(method)
+        else:
+            tools.append(method)
+
+    # Display tools
+    if tools:
+        table = Table(title=f"Tools ({len(tools)})", show_header=True)
+        table.add_column("Name", style="cyan")
+        table.add_column("Module", style="dim")
+        table.add_column("Async", style="yellow")
+        table.add_column("Parameters")
+        if verbose:
+            table.add_column("Docstring")
+
+        for tool in tools[:50]:  # Limit display to 50
+            params = ", ".join(p["name"] for p in tool.parameters)
+            row = [
+                tool.name,
+                tool.module_name.replace(f"{metadata.name}.", ""),
+                "✓" if tool.is_async else "",
+                params[:30] + "..." if len(params) > 30 else params or "(none)",
+            ]
+            if verbose:
+                doc = tool.docstring or ""
+                doc_display = doc[:40] + "..." if len(doc) > 40 else doc
+                row.append(doc_display)
+            table.add_row(*row)
+
+        if len(tools) > 50:
+            table.add_row("[dim]...[/dim]", f"[dim]+{len(tools) - 50} more[/dim]", "", "")
+
+        console.print(table)
+
+    # Display resources
+    if resources:
+        table = Table(title=f"Resources ({len(resources)})", show_header=True)
+        table.add_column("Name", style="cyan")
+        table.add_column("Module", style="dim")
+        table.add_column("URI", style="green")
+
+        for resource in resources[:20]:
+            uri = resource.mcp_metadata.get("resource_uri", f"auto://{resource.name}")
+            table.add_row(
+                resource.name,
+                resource.module_name.replace(f"{metadata.name}.", ""),
+                uri,
+            )
+
+        console.print(table)
+
+    # Display prompts
+    if prompts:
+        table = Table(title=f"Prompts ({len(prompts)})", show_header=True)
+        table.add_column("Name", style="cyan")
+        table.add_column("Module", style="dim")
+        table.add_column("Parameters")
+
+        for prompt in prompts[:20]:
+            params = ", ".join(p["name"] for p in prompt.parameters)
+            table.add_row(
+                prompt.name,
+                prompt.module_name.replace(f"{metadata.name}.", ""),
+                params or "(none)",
+            )
+
+        console.print(table)
+
+    if not tools and not resources and not prompts:
+        console.print("[yellow]No public methods found[/yellow]")
+
+    # Summary
+    console.print("\n" + "─" * 50)
+    console.print(
+        f"[bold]Summary:[/bold] {len(tools)} tool(s), "
+        f"{len(resources)} resource(s), {len(prompts)} prompt(s)"
+    )
+
+    if metadata.public_api:
+        console.print(f"[dim]Public API symbols (__all__): {len(metadata.public_api)}[/dim]")
+
+
+def _build_module_tree(
+    tree: Tree,
+    module_name: str,
+    graph: dict[str, list[str]],
+    visited: set[str],
+) -> None:
+    """Build a rich Tree from the module graph."""
+    if module_name in visited:
+        return
+    visited.add(module_name)
+
+    submodules = graph.get(module_name, [])
+    for submodule in sorted(submodules):
+        sub_name = submodule.split(".")[-1]
+        is_private = sub_name.startswith("_")
+        style = "dim" if is_private else "cyan"
+        branch = tree.add(f"[{style}]{sub_name}[/{style}]")
+        _build_module_tree(branch, submodule, graph, visited)
+
+
+@package.command(name="generate")
+@click.argument("package_name", required=True)
+@click.option(
+    "-o",
+    "--output",
+    type=click.Path(),
+    required=True,
+    help="Output path for generated file",
+)
+@click.option(
+    "--name",
+    type=str,
+    default=None,
+    help="Name for the generated server (defaults to package name)",
+)
+@click.option(
+    "--max-depth",
+    type=int,
+    default=None,
+    help="Maximum recursion depth for submodule discovery",
+)
+@click.option(
+    "--include-private",
+    is_flag=True,
+    help="Include private modules and methods",
+)
+@click.option(
+    "--public-api-only",
+    is_flag=True,
+    help="Only expose functions in __all__ (public API)",
+)
+@click.option(
+    "--include",
+    "include_patterns",
+    multiple=True,
+    help="Glob patterns for modules to include",
+)
+@click.option(
+    "--exclude",
+    "exclude_patterns",
+    multiple=True,
+    help="Glob patterns for modules to exclude",
+)
+@click.option(
+    "--llm-provider",
+    type=click.Choice(["ollama", "openai", "anthropic"]),
+    help="LLM provider for description generation",
+)
+@click.option(
+    "--llm-model",
+    type=str,
+    help="Model name for description generation",
+)
+@click.option(
+    "--no-llm",
+    is_flag=True,
+    help="Disable LLM description generation (use docstrings only)",
+)
+@click.option(
+    "--no-cache",
+    is_flag=True,
+    help="Disable caching of generated descriptions",
+)
+@click.option(
+    "--context",
+    type=str,
+    help="Additional context for LLM description generation",
+)
+@click.pass_context
+def package_generate(
+    ctx: click.Context,
+    package_name: str,
+    output: str,
+    name: str | None,
+    max_depth: int | None,
+    include_private: bool,
+    public_api_only: bool,
+    include_patterns: tuple[str, ...],
+    exclude_patterns: tuple[str, ...],
+    llm_provider: str | None,
+    llm_model: str | None,
+    no_llm: bool,
+    no_cache: bool,
+    context: str | None,
+) -> None:
+    """Generate an MCP server from an installed package.
+
+    PACKAGE_NAME: Name of the installed package (e.g., 'requests', 'json')
+
+    Examples:
+
+        # Generate server from requests
+        auto-mcp package generate requests -o requests_server.py
+
+        # Generate with custom name
+        auto-mcp package generate requests -o server.py --name "HTTP Server"
+
+        # Generate with filtering
+        auto-mcp package generate requests -o server.py --public-api-only
+
+        # Generate without LLM
+        auto-mcp package generate json -o json_server.py --no-llm
+    """
+    settings: Settings = ctx.obj["settings"]
+    server_name = name or f"{package_name}-mcp-server"
+
+    # Create LLM provider if enabled
+    llm = None
+    if not no_llm:
+        with console.status("[bold blue]Initializing LLM provider..."):
+            llm = get_llm_provider(llm_provider, llm_model, settings)
+        if llm:
+            console.print(f"[green]✓[/green] Using LLM: {llm.model_name}")
+        else:
+            console.print("[yellow]![/yellow] LLM disabled, using docstrings only")
+
+    # Create cache
+    cache = PromptCache() if not no_cache else PromptCache(cache_dir=None)
+
+    # Create generator config
+    config = GeneratorConfig(
+        server_name=server_name,
+        include_private=include_private,
+        use_cache=not no_cache,
+        use_llm=not no_llm and llm is not None,
+        max_depth=max_depth,
+        public_api_only=public_api_only,
+        include_patterns=list(include_patterns) if include_patterns else None,
+        exclude_patterns=list(exclude_patterns) if exclude_patterns else None,
+    )
+
+    # Create generator
+    generator = MCPGenerator(llm=llm, cache=cache, config=config)
+
+    # Generate
+    output_path = Path(output)
+    with console.status(f"[bold blue]Analyzing and generating from '{package_name}'..."):
+        try:
+            result = generator.generate_standalone_from_package(
+                package_name,
+                output_path,
+                context=context,
+            )
+        except ImportError as e:
+            raise click.ClickException(f"Cannot import package '{package_name}': {e}") from None
+        except ValueError as e:
+            raise click.ClickException(str(e)) from None
+
+    console.print(f"[green]✓[/green] Generated server at: {result}")
+    console.print(f"\n[dim]To run: python {result}[/dim]")
+
+    # Save cache if enabled
+    if not no_cache:
+        cache.save(package_name)
+
+
+@package.command(name="serve")
+@click.argument("package_name", required=True)
+@click.option(
+    "--name",
+    type=str,
+    default=None,
+    help="Name for the server (defaults to package name)",
+)
+@click.option(
+    "--max-depth",
+    type=int,
+    default=None,
+    help="Maximum recursion depth for submodule discovery",
+)
+@click.option(
+    "--include-private",
+    is_flag=True,
+    help="Include private modules and methods",
+)
+@click.option(
+    "--public-api-only",
+    is_flag=True,
+    default=True,
+    help="Only expose functions in __all__ (public API) [default: True]",
+)
+@click.option(
+    "--include",
+    "include_patterns",
+    multiple=True,
+    help="Glob patterns for modules to include",
+)
+@click.option(
+    "--exclude",
+    "exclude_patterns",
+    multiple=True,
+    help="Glob patterns for modules to exclude",
+)
+@click.option(
+    "--llm-provider",
+    type=click.Choice(["ollama", "openai", "anthropic"]),
+    help="LLM provider for description generation",
+)
+@click.option(
+    "--llm-model",
+    type=str,
+    help="Model name for description generation",
+)
+@click.option(
+    "--no-llm",
+    is_flag=True,
+    help="Disable LLM description generation",
+)
+@click.option(
+    "--no-cache",
+    is_flag=True,
+    help="Disable caching of generated descriptions",
+)
+@click.option(
+    "--transport",
+    type=click.Choice(["stdio", "sse"]),
+    default="stdio",
+    help="MCP transport to use",
+)
+@click.pass_context
+def package_serve(
+    ctx: click.Context,
+    package_name: str,
+    name: str | None,
+    max_depth: int | None,
+    include_private: bool,
+    public_api_only: bool,
+    include_patterns: tuple[str, ...],
+    exclude_patterns: tuple[str, ...],
+    llm_provider: str | None,
+    llm_model: str | None,
+    no_llm: bool,
+    no_cache: bool,
+    transport: Literal["stdio", "sse"],
+) -> None:
+    """Run an MCP server from an installed package.
+
+    PACKAGE_NAME: Name of the installed package (e.g., 'requests', 'json')
+
+    Examples:
+
+        # Serve requests package
+        auto-mcp package serve requests
+
+        # Serve with custom name
+        auto-mcp package serve requests --name "HTTP Server"
+
+        # Serve with filtering
+        auto-mcp package serve boto3 --include 'boto3.s3.*' --max-depth 2
+    """
+    settings: Settings = ctx.obj["settings"]
+    server_name = name or f"{package_name}-mcp-server"
+
+    console.print(f"[bold blue]Loading package '{package_name}'...[/bold blue]")
+
+    # Create LLM provider if enabled
+    llm = None
+    if not no_llm:
+        llm = get_llm_provider(llm_provider, llm_model, settings)
+        if llm:
+            console.print(f"[green]✓[/green] Using LLM: {llm.model_name}")
+
+    # Create cache
+    cache = PromptCache() if not no_cache else PromptCache(cache_dir=None)
+
+    # Create generator config
+    config = GeneratorConfig(
+        server_name=server_name,
+        include_private=include_private,
+        use_cache=not no_cache,
+        use_llm=not no_llm and llm is not None,
+        max_depth=max_depth,
+        public_api_only=public_api_only,
+        include_patterns=list(include_patterns) if include_patterns else None,
+        exclude_patterns=list(exclude_patterns) if exclude_patterns else None,
+    )
+
+    # Create generator
+    generator = MCPGenerator(llm=llm, cache=cache, config=config)
+
+    console.print("[bold blue]Creating MCP server...[/bold blue]")
+
+    try:
+        server = generator.create_server_from_package(package_name)
+    except ImportError as e:
+        raise click.ClickException(f"Cannot import package '{package_name}': {e}") from None
+    except ValueError as e:
+        raise click.ClickException(str(e)) from None
+
+    console.print(f"[green]✓[/green] Server '{server_name}' ready")
+    console.print(f"[dim]Transport: {transport}[/dim]\n")
+
+    # Run server
+    server.run(transport=transport)
 
 
 def main() -> None:

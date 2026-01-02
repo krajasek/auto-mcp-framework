@@ -8,6 +8,12 @@ from auto_mcp.core.generator import (
     GeneratorConfig,
     MCPGenerator,
 )
+from auto_mcp.core.package import (
+    ModuleInfo,
+    PackageAnalyzer,
+    PackageMetadata,
+    analyze_installed_package,
+)
 
 __all__ = [
     "GeneratedPrompt",
@@ -17,4 +23,8 @@ __all__ = [
     "MCPGenerator",
     "MethodMetadata",
     "ModuleAnalyzer",
+    "ModuleInfo",
+    "PackageAnalyzer",
+    "PackageMetadata",
+    "analyze_installed_package",
 ]

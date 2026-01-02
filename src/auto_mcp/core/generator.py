@@ -12,6 +12,7 @@ from mcp.server.fastmcp import FastMCP
 
 from auto_mcp.cache import PromptCache
 from auto_mcp.core.analyzer import MethodMetadata, ModuleAnalyzer
+from auto_mcp.core.package import PackageAnalyzer, PackageMetadata
 from auto_mcp.prompts.templates import (
     get_fallback_prompt_description,
     get_fallback_resource_description,
@@ -34,6 +35,10 @@ class GeneratorConfig:
         generate_prompts: Whether to generate MCP prompts
         use_cache: Whether to use caching for LLM descriptions
         use_llm: Whether to use LLM for description generation
+        max_depth: Maximum depth for recursive package analysis
+        public_api_only: Only expose functions in __all__ (public API)
+        include_patterns: Glob patterns for modules to include
+        exclude_patterns: Glob patterns for modules to exclude
     """
 
     server_name: str = "auto-mcp-server"
@@ -43,6 +48,10 @@ class GeneratorConfig:
     generate_prompts: bool = True
     use_cache: bool = True
     use_llm: bool = True
+    max_depth: int | None = None
+    public_api_only: bool = False
+    include_patterns: list[str] | None = None
+    exclude_patterns: list[str] | None = None
 
 
 @dataclass
@@ -125,6 +134,10 @@ class MCPGenerator:
         self.cache = cache or PromptCache()
         self.config = config or GeneratorConfig()
         self.analyzer = ModuleAnalyzer(include_private=self.config.include_private)
+        self.package_analyzer = PackageAnalyzer(
+            include_private=self.config.include_private,
+            max_depth=self.config.max_depth,
+        )
 
     async def analyze_and_generate(
         self,
@@ -164,6 +177,267 @@ class MCPGenerator:
                         tools.append(tool)
 
         return tools, resources, prompts
+
+    async def analyze_and_generate_from_package(
+        self,
+        package: str | ModuleType,
+        context: str | None = None,
+    ) -> tuple[list[GeneratedTool], list[GeneratedResource], list[GeneratedPrompt]]:
+        """Analyze a package recursively and generate MCP components.
+
+        Args:
+            package: Package name (string) or module object
+            context: Optional context for LLM description generation
+
+        Returns:
+            Tuple of (tools, resources, prompts)
+        """
+        # Analyze the package
+        pkg_metadata = self.package_analyzer.analyze_package(
+            package,
+            include_patterns=self.config.include_patterns,
+            exclude_patterns=self.config.exclude_patterns,
+        )
+
+        # Get methods to process
+        if self.config.public_api_only:
+            methods = self.package_analyzer.get_public_methods(pkg_metadata)
+        else:
+            methods = pkg_metadata.methods
+
+        tools: list[GeneratedTool] = []
+        resources: list[GeneratedResource] = []
+        prompts: list[GeneratedPrompt] = []
+
+        # Process each method
+        for method in methods:
+            # Get the module containing this method
+            module_info = pkg_metadata.modules.get(method.module_name)
+            if not module_info:
+                continue
+            module = module_info.module
+
+            # Check what type of MCP component this should be
+            if method.is_resource:
+                resource = await self._generate_resource(method, module, context)
+                if resource:
+                    resources.append(resource)
+            elif method.is_prompt:
+                prompt = await self._generate_prompt(method, module, context)
+                if prompt:
+                    prompts.append(prompt)
+            else:
+                # Default to tool
+                tool = await self._generate_tool(method, module, context)
+                if tool:
+                    tools.append(tool)
+
+        return tools, resources, prompts
+
+    def analyze_package(
+        self,
+        package: str | ModuleType,
+    ) -> PackageMetadata:
+        """Analyze a package and return its metadata.
+
+        Args:
+            package: Package name (string) or module object
+
+        Returns:
+            PackageMetadata with all discovered modules and methods
+        """
+        return self.package_analyzer.analyze_package(
+            package,
+            include_patterns=self.config.include_patterns,
+            exclude_patterns=self.config.exclude_patterns,
+        )
+
+    def create_server_from_package(
+        self,
+        package: str | ModuleType,
+        context: str | None = None,
+    ) -> FastMCP:
+        """Create an in-memory FastMCP server from a package.
+
+        Args:
+            package: Package name (string) or module object
+            context: Optional context for LLM description generation
+
+        Returns:
+            Configured FastMCP server instance
+        """
+        # Run async analysis synchronously
+        tools, resources, prompts = asyncio.run(
+            self.analyze_and_generate_from_package(package, context)
+        )
+
+        # Create FastMCP server
+        mcp = FastMCP(
+            name=self.config.server_name,
+        )
+
+        # Register tools
+        for tool in tools:
+            self._register_tool(mcp, tool)
+
+        # Register resources
+        if self.config.generate_resources:
+            for resource in resources:
+                self._register_resource(mcp, resource)
+
+        # Register prompts
+        if self.config.generate_prompts:
+            for prompt in prompts:
+                self._register_prompt(mcp, prompt)
+
+        return mcp
+
+    def generate_standalone_from_package(
+        self,
+        package: str | ModuleType,
+        output_path: Path | str,
+        context: str | None = None,
+    ) -> Path:
+        """Generate a standalone MCP server file from a package.
+
+        Args:
+            package: Package name (string) or module object
+            output_path: Path for the generated file
+            context: Optional context for LLM description generation
+
+        Returns:
+            Path to the generated file
+        """
+        output_path = Path(output_path)
+
+        # Analyze the package
+        pkg_metadata = self.package_analyzer.analyze_package(
+            package,
+            include_patterns=self.config.include_patterns,
+            exclude_patterns=self.config.exclude_patterns,
+        )
+
+        # Run async generation
+        tools, resources, prompts = asyncio.run(
+            self.analyze_and_generate_from_package(package, context)
+        )
+
+        # Generate code
+        code = self._generate_standalone_code_from_package(
+            pkg_metadata, tools, resources, prompts
+        )
+
+        # Write file
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(code)
+
+        return output_path
+
+    def _generate_standalone_code_from_package(
+        self,
+        pkg_metadata: PackageMetadata,
+        tools: list[GeneratedTool],
+        resources: list[GeneratedResource],
+        prompts: list[GeneratedPrompt],
+    ) -> str:
+        """Generate standalone server code from package analysis.
+
+        Args:
+            pkg_metadata: The analyzed package metadata
+            tools: Generated tools
+            resources: Generated resources
+            prompts: Generated prompts
+
+        Returns:
+            The generated Python code
+        """
+        # Collect unique modules that need to be imported
+        modules_to_import: set[str] = set()
+        for tool in tools:
+            modules_to_import.add(tool.metadata.module_name)
+        for resource in resources:
+            modules_to_import.add(resource.metadata.module_name)
+        for prompt in prompts:
+            modules_to_import.add(prompt.metadata.module_name)
+
+        # Build imports
+        imports_code = "\n".join(
+            f"import {mod}" for mod in sorted(modules_to_import)
+        )
+
+        # Build tool registrations
+        tool_code = []
+        for tool in tools:
+            module_name = tool.metadata.module_name
+            func_name = tool.metadata.qualified_name
+            desc = tool.description.replace('"""', '\\"\\"\\"')
+
+            tool_code.append(f'''
+@mcp.tool(name="{tool.name}")
+def {tool.name.replace(".", "_")}(*args, **kwargs):
+    """{desc}"""
+    return {module_name}.{func_name}(*args, **kwargs)
+''')
+
+        tools_code = "\n".join(tool_code)
+
+        # Build resource registrations
+        resource_code = []
+        for resource in resources:
+            module_name = resource.metadata.module_name
+            func_name = resource.metadata.qualified_name
+            desc = resource.description.replace('"""', '\\"\\"\\"')
+
+            resource_code.append(f'''
+@mcp.resource(uri="{resource.uri}", name="{resource.name}")
+def resource_{resource.name.replace(".", "_")}(*args, **kwargs):
+    """{desc}"""
+    return {module_name}.{func_name}(*args, **kwargs)
+''')
+
+        resources_code = "\n".join(resource_code) if resources else ""
+
+        # Build prompt registrations
+        prompt_code = []
+        for prompt in prompts:
+            module_name = prompt.metadata.module_name
+            func_name = prompt.metadata.qualified_name
+            desc = prompt.description.replace('"""', '\\"\\"\\"')
+
+            prompt_code.append(f'''
+@mcp.prompt(name="{prompt.name}")
+def prompt_{prompt.name.replace(".", "_")}(*args, **kwargs):
+    """{desc}"""
+    return {module_name}.{func_name}(*args, **kwargs)
+''')
+
+        prompts_code = "\n".join(prompt_code) if prompts else ""
+
+        # Combine all code
+        code = f'''"""Auto-generated MCP server from package '{pkg_metadata.name}'.
+
+Generated by auto-mcp.
+Modules analyzed: {pkg_metadata.module_count}
+Methods exposed: {len(tools)} tools, {len(resources)} resources, {len(prompts)} prompts
+"""
+
+from mcp.server.fastmcp import FastMCP
+
+{imports_code}
+
+# Create MCP server
+mcp = FastMCP(name="{self.config.server_name}")
+
+# Tools
+{tools_code}
+{resources_code}
+{prompts_code}
+
+if __name__ == "__main__":
+    mcp.run()
+'''
+
+        return code
 
     async def _generate_tool(
         self,
