@@ -9,6 +9,9 @@ Automatically generate MCP (Model Context Protocol) servers from Python modules 
 - **LLM-Powered Descriptions**: Uses local (Ollama) or cloud (OpenAI, Anthropic) LLMs to generate tool descriptions
 - **Multiple Output Formats**: Standalone file, Python package, or in-memory server
 - **Multiple Transports**: stdio, SSE, and Streamable HTTP with stateless/stateful modes
+- **Type Serialization**: Handle complex Python types (datetime, Path, UUID, pandas DataFrames, etc.)
+- **Compression Support**: Automatic compression for large data with gzip, zlib, or lz4
+- **Object Store**: Server-side handle-based storage for stateful objects (sessions, connections)
 - **Decorator Support**: Fine-grained control with `@mcp_tool`, `@mcp_exclude`, `@mcp_resource`, `@mcp_prompt`
 - **Async Support**: Full support for async functions
 - **Hot Reload**: Watch for file changes during development
@@ -376,6 +379,406 @@ auto-mcp package serve json --no-llm
     }
   }
 }
+```
+
+---
+
+## Type Serialization System
+
+auto-mcp includes a powerful type serialization system for handling complex Python types in MCP contexts. This enables tools to accept and return types like `datetime`, `Path`, `UUID`, pandas DataFrames, and more.
+
+### Quick Start
+
+```python
+from auto_mcp.types import TypeRegistry, register_stdlib_adapters
+
+# Create a registry with standard library adapters
+registry = TypeRegistry()
+register_stdlib_adapters(registry)
+
+# Now datetime, Path, UUID, etc. are automatically serialized
+from datetime import datetime
+
+# Serialize a datetime to JSON-compatible format
+serialized = registry.serialize(datetime.now())
+print(serialized)  # "2024-01-15T10:30:00"
+
+# Deserialize back to datetime
+dt = registry.deserialize("2024-01-15T10:30:00", datetime)
+print(dt)  # datetime(2024, 1, 15, 10, 30, 0)
+```
+
+### Built-in Type Adapters
+
+The following types are supported out of the box:
+
+| Type | Serialized Format | Example |
+|------|-------------------|---------|
+| `datetime` | ISO 8601 string | `"2024-01-15T10:30:00"` |
+| `date` | ISO 8601 string | `"2024-01-15"` |
+| `time` | ISO 8601 string | `"10:30:00"` |
+| `timedelta` | Total seconds (float) | `3600.5` |
+| `Path` | String path | `"/home/user/file.txt"` |
+| `UUID` | String UUID | `"550e8400-e29b-41d4-a716-446655440000"` |
+| `Decimal` | String number | `"123.456"` |
+| `bytes` | Base64 string | `"SGVsbG8gV29ybGQ="` |
+| `set` | Sorted list | `[1, 2, 3]` |
+| `frozenset` | Sorted list | `[1, 2, 3]` |
+| `complex` | Dict with real/imag | `{"real": 3.0, "imag": 4.0}` |
+
+**Optional adapters** (require additional packages):
+
+| Type | Package | Serialized Format |
+|------|---------|-------------------|
+| `pandas.DataFrame` | pandas | Dict with columns, data, shape |
+| `PIL.Image` | pillow | Base64 PNG with metadata |
+| `numpy.ndarray` | numpy | Dict with data, shape, dtype |
+
+### Using Type Adapters
+
+#### Register Standard Library Adapters
+
+```python
+from auto_mcp.types import TypeRegistry, register_stdlib_adapters
+
+registry = TypeRegistry()
+register_stdlib_adapters(registry)
+```
+
+#### Register All Available Adapters
+
+```python
+from auto_mcp.types import TypeRegistry, register_all_adapters
+
+registry = TypeRegistry()
+register_all_adapters(registry)  # Includes pandas, PIL, numpy if installed
+```
+
+#### Create Custom Adapters
+
+```python
+from auto_mcp.types import TypeAdapter, FunctionAdapter
+from dataclasses import dataclass
+
+# Option 1: Using FunctionAdapter (simple)
+@dataclass
+class Point:
+    x: float
+    y: float
+
+point_adapter = FunctionAdapter(
+    target_type=Point,
+    serializer=lambda p: {"x": p.x, "y": p.y},
+    deserializer=lambda d: Point(d["x"], d["y"]),
+    schema={"type": "object", "properties": {"x": {"type": "number"}, "y": {"type": "number"}}},
+)
+
+registry.register_adapter(point_adapter)
+
+# Option 2: Using TypeAdapter class (more control)
+class PointAdapter(TypeAdapter[Point]):
+    target_type = Point
+
+    def serialize(self, obj: Point) -> dict:
+        return {"x": obj.x, "y": obj.y}
+
+    def deserialize(self, data: dict) -> Point:
+        return Point(data["x"], data["y"])
+
+    def json_schema(self) -> dict:
+        return {
+            "type": "object",
+            "properties": {
+                "x": {"type": "number"},
+                "y": {"type": "number"},
+            },
+            "required": ["x", "y"],
+        }
+
+registry.register_adapter(PointAdapter())
+```
+
+#### Quick Registration
+
+```python
+from datetime import datetime
+
+registry.register(
+    datetime,
+    serialize=lambda dt: dt.isoformat(),
+    deserialize=lambda s: datetime.fromisoformat(s),
+    schema={"type": "string", "format": "date-time"},
+)
+```
+
+### Function Wrappers
+
+Automatically transform function inputs and outputs:
+
+```python
+from auto_mcp.types import FunctionWrapper, TypeRegistry, register_stdlib_adapters
+from datetime import datetime
+from pathlib import Path
+
+registry = TypeRegistry()
+register_stdlib_adapters(registry)
+
+def process_file(path: Path, modified_after: datetime) -> dict:
+    """Process a file if modified after the given time."""
+    stat = path.stat()
+    return {
+        "path": str(path),
+        "size": stat.st_size,
+        "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+    }
+
+# Wrap the function for automatic type conversion
+wrapper = FunctionWrapper(process_file, registry=registry)
+
+# Call with JSON-compatible inputs - types are auto-converted
+result = wrapper.call({
+    "path": "/etc/hosts",
+    "modified_after": "2024-01-01T00:00:00"
+})
+# path is converted from string to Path
+# modified_after is converted from string to datetime
+```
+
+### Object Store
+
+For stateful objects that can't be serialized (database connections, sessions, etc.), use the Object Store:
+
+```python
+from auto_mcp.types import ObjectStore, TypeRegistry
+
+# Create store and registry
+store = ObjectStore()
+registry = TypeRegistry()
+
+# Register a type for server-side storage
+class DatabaseSession:
+    def __init__(self, connection_string: str):
+        self.connection_string = connection_string
+        self.connected = True
+
+    def query(self, sql: str) -> list:
+        return [{"id": 1, "name": "Example"}]
+
+registry.register_stored_type(
+    DatabaseSession,
+    ttl=3600,  # Auto-expire after 1 hour
+    max_instances=10,  # Limit concurrent sessions
+)
+
+# Store an object and get a handle
+session = DatabaseSession("postgresql://localhost/mydb")
+handle = store.store(session, ttl=3600)
+print(handle)  # "obj_a1b2c3d4..."
+
+# Retrieve by handle
+retrieved = store.get(handle)
+result = retrieved.query("SELECT * FROM users")
+
+# Clean up
+store.remove(handle)
+```
+
+#### Object Store with Function Wrapper
+
+```python
+from auto_mcp.types import FunctionWrapper, ObjectStore, TypeRegistry
+
+registry = TypeRegistry()
+store = ObjectStore()
+
+class Session:
+    pass
+
+registry.register_stored_type(Session, ttl=3600)
+
+def create_session() -> Session:
+    """Create a new session."""
+    return Session()
+
+def use_session(session: Session) -> str:
+    """Use an existing session."""
+    return f"Using session: {session}"
+
+# Wrap functions
+create_wrapper = FunctionWrapper(create_session, registry=registry, store=store)
+use_wrapper = FunctionWrapper(use_session, registry=registry, store=store)
+
+# create_session returns a handle string
+handle = create_wrapper.call({})
+print(handle)  # "obj_..."
+
+# use_session accepts the handle and retrieves the object
+result = use_wrapper.call({"session": handle})
+```
+
+### Compression
+
+For large data, auto-mcp supports automatic compression:
+
+```python
+from auto_mcp.types import (
+    CompressedAdapter,
+    CompressionConfig,
+    CompressionAlgorithm,
+    with_compression,
+    DateTimeAdapter,
+)
+
+# Method 1: Wrap any adapter with compression
+adapter = DateTimeAdapter()
+compressed = with_compression(
+    adapter,
+    threshold=1024,  # Only compress if > 1KB
+    algorithm=CompressionAlgorithm.GZIP,
+    level=6,
+)
+
+# Method 2: Using CompressedAdapter directly
+config = CompressionConfig(
+    enabled=True,
+    algorithm=CompressionAlgorithm.GZIP,
+    threshold=1024,  # Minimum size to trigger compression
+    level=6,  # Compression level (1-9)
+)
+compressed = CompressedAdapter(adapter, config)
+
+# Serialized data includes compression metadata
+result = compressed.serialize(datetime.now())
+# {
+#     "compressed": True,
+#     "algorithm": "gzip",
+#     "original_size": 2048,
+#     "compressed_size": 512,
+#     "compression_ratio": 0.25,
+#     "data": "H4sIAAAAAAAA..."
+# }
+```
+
+#### Compression Algorithms
+
+| Algorithm | Description | Use Case |
+|-----------|-------------|----------|
+| `GZIP` | Standard gzip (default) | General purpose, good compression |
+| `ZLIB` | zlib compression | Slightly faster than gzip |
+| `LZ4` | Very fast compression | When speed is critical (requires `lz4` package) |
+| `NONE` | No compression | Disabled |
+
+#### Auto-Compress Registry
+
+Automatically apply compression to types that typically produce large output:
+
+```python
+from auto_mcp.types import AutoCompressRegistry, CompressionConfig
+
+# Create auto-compress registry
+config = CompressionConfig(threshold=10240)  # 10KB threshold
+auto_compress = AutoCompressRegistry(config)
+
+# Register types known to produce large output
+auto_compress.register_large_type(pandas.DataFrame)
+auto_compress.register_large_type(numpy.ndarray)
+
+# Wrap adapters
+df_adapter = create_pandas_dataframe_adapter()
+compressed_adapter = auto_compress.wrap_adapter(df_adapter)
+```
+
+### Integration with MCP Generator
+
+The type system integrates automatically with the MCP generator:
+
+```python
+from auto_mcp import AutoMCP
+from auto_mcp.types import TypeRegistry, register_stdlib_adapters
+
+# Create registry with adapters
+registry = TypeRegistry()
+register_stdlib_adapters(registry)
+
+# Pass to AutoMCP
+auto = AutoMCP(
+    use_llm=False,
+    type_registry=registry,  # Use custom registry
+    enable_type_transforms=True,  # Enable automatic transforms
+)
+
+# Now your tools can use complex types
+server = auto.create_server([mymodule])
+```
+
+### Class Wrapper
+
+Wrap entire classes for MCP exposure:
+
+```python
+from auto_mcp.types import ClassWrapper, TypeRegistry, register_stdlib_adapters
+from datetime import datetime
+
+registry = TypeRegistry()
+register_stdlib_adapters(registry)
+
+class DateService:
+    def parse_date(self, date_str: str) -> datetime:
+        """Parse a date string."""
+        return datetime.fromisoformat(date_str)
+
+    def format_date(self, dt: datetime, fmt: str = "%Y-%m-%d") -> str:
+        """Format a datetime."""
+        return dt.strftime(fmt)
+
+    def _private_method(self):
+        """Not exposed."""
+        pass
+
+# Wrap the class
+wrapper = ClassWrapper(DateService, registry=registry)
+
+# Get available methods (excludes private)
+print(wrapper.get_method_names())  # ['parse_date', 'format_date']
+
+# Create instance and call methods
+instance = wrapper.create()
+result = wrapper.call_method(instance, "format_date", {
+    "dt": "2024-01-15T10:30:00",
+    "fmt": "%B %d, %Y"
+})
+print(result)  # "January 15, 2024"
+```
+
+### Type Strategies
+
+The registry uses different strategies based on the type:
+
+| Strategy | Description | Example Types |
+|----------|-------------|---------------|
+| `PASSTHROUGH` | Already JSON-compatible | `str`, `int`, `float`, `bool`, `list`, `dict` |
+| `ADAPTER` | Serialize/deserialize via adapter | `datetime`, `Path`, `UUID`, custom types |
+| `OBJECT_STORE` | Store server-side with handle | Sessions, connections, file handles |
+| `UNSUPPORTED` | Cannot be handled | Unregistered complex types |
+
+```python
+from auto_mcp.types import TypeRegistry, TypeStrategy
+
+registry = TypeRegistry()
+register_stdlib_adapters(registry)
+
+# Check strategy for a type
+strategy = registry.get_strategy(datetime)
+print(strategy)  # TypeStrategy.ADAPTER
+
+strategy = registry.get_strategy(str)
+print(strategy)  # TypeStrategy.PASSTHROUGH
+
+# Get full type info
+info = registry.get_type_info(datetime)
+print(info.strategy)  # TypeStrategy.ADAPTER
+print(info.adapter)  # DateTimeAdapter instance
+print(info.json_schema)  # {"type": "string", "format": "date-time"}
 ```
 
 ---
