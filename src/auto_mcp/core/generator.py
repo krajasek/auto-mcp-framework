@@ -18,6 +18,14 @@ from auto_mcp.prompts.templates import (
     get_fallback_resource_description,
     get_fallback_tool_description,
 )
+from auto_mcp.types import (
+    FunctionWrapper,
+    ObjectStore,
+    TypeRegistry,
+    get_default_registry,
+    get_default_store,
+    register_stdlib_adapters,
+)
 
 if TYPE_CHECKING:
     from auto_mcp.llm.base import LLMProvider
@@ -39,6 +47,8 @@ class GeneratorConfig:
         public_api_only: Only expose functions in __all__ (public API)
         include_patterns: Glob patterns for modules to include
         exclude_patterns: Glob patterns for modules to exclude
+        enable_type_transforms: Enable automatic type transformations
+        register_stdlib_adapters: Auto-register standard library adapters
     """
 
     server_name: str = "auto-mcp-server"
@@ -52,6 +62,8 @@ class GeneratorConfig:
     public_api_only: bool = False
     include_patterns: list[str] | None = None
     exclude_patterns: list[str] | None = None
+    enable_type_transforms: bool = False
+    register_stdlib_adapters: bool = True
 
 
 @dataclass
@@ -122,6 +134,8 @@ class MCPGenerator:
         llm: LLMProvider | None = None,
         cache: PromptCache | None = None,
         config: GeneratorConfig | None = None,
+        type_registry: TypeRegistry | None = None,
+        object_store: ObjectStore | None = None,
     ) -> None:
         """Initialize the generator.
 
@@ -129,6 +143,8 @@ class MCPGenerator:
             llm: LLM provider for description generation (optional)
             cache: Cache for storing generated descriptions (optional)
             config: Generator configuration (uses defaults if not provided)
+            type_registry: Registry for type adapters (optional)
+            object_store: Store for stateful objects (optional)
         """
         self.llm = llm
         self.cache = cache or PromptCache()
@@ -138,6 +154,14 @@ class MCPGenerator:
             include_private=self.config.include_private,
             max_depth=self.config.max_depth,
         )
+
+        # Initialize type system
+        self.type_registry = type_registry or get_default_registry()
+        self.object_store = object_store or get_default_store()
+
+        # Register stdlib adapters if configured
+        if self.config.register_stdlib_adapters:
+            register_stdlib_adapters(self.type_registry)
 
     async def analyze_and_generate(
         self,
@@ -770,8 +794,20 @@ if __name__ == "__main__":
             mcp: The FastMCP server
             tool: The generated tool
         """
+        func = tool.function
+
+        # Optionally wrap with type transformations
+        if self.config.enable_type_transforms:
+            wrapper = FunctionWrapper(
+                func,
+                registry=self.type_registry,
+                store=self.object_store,
+            )
+            # Use the wrapper's call method for MCP
+            func = wrapper.call
+
         # Use the decorator to register the tool
-        mcp.tool(name=tool.name, description=tool.description)(tool.function)
+        mcp.tool(name=tool.name, description=tool.description)(func)
 
     def _register_resource(self, mcp: FastMCP, resource: GeneratedResource) -> None:
         """Register a resource with the MCP server.

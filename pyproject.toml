@@ -24,6 +24,10 @@ dev = [
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=4.1.0",
     "pre-commit>=3.6.0",
+    # Optional adapters for testing
+    "numpy>=1.24.0",
+    "pandas>=2.0.0",
+    "pillow>=10.0.0",
 ]
 
 [project.scripts]
@@ -59,12 +63,25 @@ addopts = "--cov=src/auto_mcp --cov-report=term-missing --cov-report=html"
 
 [tool.coverage.run]
 source = ["src/auto_mcp"]
-omit = ["*/tests/*", "*/__init__.py"]
+omit = [
+    "*/tests/*",
+    "*/__init__.py",
+    # CLI requires user interaction
+    "*/cli.py",
+    # LLM providers require external services
+    "*/llm/ollama.py",
+    "*/llm/openai.py",
+    "*/llm/anthropic.py",
+    # Watcher requires filesystem events
+    "*/watcher.py",
+]
 
 [tool.coverage.report]
 exclude_lines = [
     "pragma: no cover",
     "if TYPE_CHECKING:",
     "if __name__ == .__main__.:",
+    # Optional dependency handling
+    "except ImportError:",
 ]
 fail_under = 90

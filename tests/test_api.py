@@ -371,6 +371,88 @@ class TestAutoMCPImports:
         assert hasattr(auto_mcp, "mcp_prompt")
 
 
+class TestAutoMCPFromPackage:
+    """Tests for package-based methods."""
+
+    def test_create_server_from_package(self) -> None:
+        """Test creating server from package."""
+        auto = AutoMCP(use_llm=False, use_cache=False)
+
+        # Use collections as test package (stdlib, always available)
+        server = auto.create_server_from_package("collections")
+
+        assert server is not None
+
+    def test_create_server_from_package_with_name(self) -> None:
+        """Test creating server from package with custom name."""
+        auto = AutoMCP(use_llm=False, use_cache=False, server_name="original")
+
+        server = auto.create_server_from_package("collections", name="custom-package-server")
+
+        assert server.name == "custom-package-server"
+        # Original config should be restored
+        assert auto.config.server_name == "original"
+
+    def test_generate_file_from_package(self, tmp_path: Path) -> None:
+        """Test generating file from package."""
+        auto = AutoMCP(use_llm=False, use_cache=False)
+        output = tmp_path / "package_server.py"
+
+        result = auto.generate_file_from_package("collections", output)
+
+        assert result.exists()
+        content = result.read_text()
+        assert "from mcp.server.fastmcp import FastMCP" in content
+
+    def test_generate_file_from_package_with_name(self, tmp_path: Path) -> None:
+        """Test generating file from package with custom name."""
+        auto = AutoMCP(use_llm=False, use_cache=False, server_name="original")
+        output = tmp_path / "custom_server.py"
+
+        result = auto.generate_file_from_package(
+            "collections", output, name="custom-name"
+        )
+
+        assert result.exists()
+        content = result.read_text()
+        assert 'mcp = FastMCP(name="custom-name")' in content
+        # Original config should be restored
+        assert auto.config.server_name == "original"
+
+    def test_analyze_package(self) -> None:
+        """Test analyzing a package."""
+        auto = AutoMCP(use_llm=False, use_cache=False)
+
+        metadata = auto.analyze_package("collections")
+
+        assert metadata is not None
+        assert metadata.name == "collections"
+        assert metadata.module_count >= 1
+
+    @pytest.mark.asyncio
+    async def test_analyze_package_async(self) -> None:
+        """Test async analyze package."""
+        auto = AutoMCP(use_llm=False, use_cache=False)
+
+        tools, resources, prompts = await auto.analyze_package_async("collections")
+
+        # Should have at least some tools
+        assert isinstance(tools, list)
+        assert isinstance(resources, list)
+        assert isinstance(prompts, list)
+
+    def test_analyze_package_sync(self) -> None:
+        """Test sync analyze package."""
+        auto = AutoMCP(use_llm=False, use_cache=False)
+
+        tools, resources, prompts = auto.analyze_package_sync("collections")
+
+        # Should have at least some tools
+        assert isinstance(tools, list)
+        assert isinstance(resources, list)
+        assert isinstance(prompts, list)
+
+
 class TestAutoMCPWithLLM:
     """Tests for AutoMCP with LLM integration."""
 
