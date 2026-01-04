@@ -1452,6 +1452,48 @@ auto = AutoMCP(
 server = auto.create_server_from_package("pandas")
 ```
 
+### SQLite Database (`examples/sqlite_database/`)
+
+Demonstrates creating MCP tools for database operations with SQLite.
+
+```bash
+# Run the test script
+python examples/sqlite_database/test_sqlite_mcp.py
+
+# Start the SQLite MCP server
+python examples/sqlite_database/sqlite_server.py
+```
+
+**Key features demonstrated:**
+- Database connection management
+- CRUD operations (Create, Read, Update, Delete)
+- Raw SQL query execution
+- Aggregation queries (SUM, AVG, COUNT, MIN, MAX)
+- JOIN operations between tables
+- Sample data generation
+
+**Available tools (18):**
+| Tool | Description |
+|------|-------------|
+| `connect_database` | Connect to SQLite database (memory or file) |
+| `disconnect_database` | Close database connection |
+| `execute_query` | Execute SQL and return results |
+| `execute_script` | Execute multi-statement SQL scripts |
+| `create_table` | Create a new table with schema |
+| `drop_table` | Drop a table |
+| `list_tables` | List all tables in database |
+| `describe_table` | Get table schema |
+| `insert_row` | Insert a single row |
+| `insert_many` | Bulk insert multiple rows |
+| `select_all` | Select all rows with pagination |
+| `select_where` | Select rows matching conditions |
+| `update_rows` | Update rows matching conditions |
+| `delete_rows` | Delete rows matching conditions |
+| `count_rows` | Count rows in a table |
+| `aggregate_query` | Run aggregate functions |
+| `join_query` | Execute JOIN between tables |
+| `create_sample_data` | Generate sample users/products/orders |
+
 ---
 
 ## Integration with Claude Desktop
