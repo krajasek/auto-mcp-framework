@@ -79,6 +79,9 @@ auto-mcp package generate json -o json_server.py --no-llm
 
 # Serve directly
 auto-mcp package serve json --no-llm
+
+# For packages like pandas/numpy that re-export from submodules:
+auto-mcp package generate pandas -o pandas_server.py --no-llm --include-reexports
 ```
 
 ---
@@ -332,6 +335,14 @@ server.run()
 
 # Generate file from package
 auto.generate_file_from_package("json", "json_server.py")
+
+# For packages with re-exported functions (pandas, numpy, etc.)
+auto = AutoMCP(
+    use_llm=False,
+    include_reexports=True,  # Include functions from submodules
+    max_depth=0,
+)
+server = auto.create_server_from_package("pandas")
 ```
 
 ### Package Analysis Options
@@ -343,6 +354,30 @@ auto.generate_file_from_package("json", "json_server.py")
 | `--include-private` | Include private modules (starting with `_`) |
 | `--include PATTERN` | Glob patterns for modules to include |
 | `--exclude PATTERN` | Glob patterns for modules to exclude |
+| `--include-reexports` | Include functions re-exported in `__all__` from submodules |
+
+### Re-exported Functions
+
+Many large packages like `pandas`, `numpy`, and `requests` define functions in submodules but re-export them at the package level via `__all__`. By default, these re-exported functions are not discovered because their `__module__` attribute points to the original submodule.
+
+Use `--include-reexports` to include these functions:
+
+```bash
+# Without --include-reexports: 0 tools found (pandas uses re-exports)
+auto-mcp package check pandas --max-depth 0
+
+# With --include-reexports: 530+ tools found
+auto-mcp package check pandas --max-depth 0 --include-reexports
+
+# Generate pandas server with all re-exported functions
+auto-mcp package generate pandas -o pandas_server.py --no-llm --include-reexports
+```
+
+**Common packages that need `--include-reexports`:**
+- `pandas` - DataFrame operations, I/O functions (read_csv, concat, merge, etc.)
+- `numpy` - Array operations, mathematical functions
+- `requests` - HTTP functions (get, post, put, etc.)
+- `scipy` - Scientific computing functions
 
 ### Example: Creating a JSON Tools Server
 
@@ -900,6 +935,7 @@ Analyze a package and show what would be exposed.
 auto-mcp package check requests
 auto-mcp package check requests -v
 auto-mcp package check boto3 --max-depth 2 --public-api-only
+auto-mcp package check pandas --include-reexports  # For packages with re-exports
 ```
 
 **Options:**
@@ -910,6 +946,7 @@ auto-mcp package check boto3 --max-depth 2 --public-api-only
 | `--include-private` | Include private modules |
 | `--include PATTERN` | Glob pattern for modules to include |
 | `--exclude PATTERN` | Glob pattern for modules to exclude |
+| `--include-reexports` | Include functions re-exported from submodules |
 | `-v, --verbose` | Show module tree and details |
 
 #### `auto-mcp package generate`
@@ -919,6 +956,7 @@ Generate an MCP server from a package.
 ```bash
 auto-mcp package generate json -o server.py --no-llm
 auto-mcp package generate requests -o server.py --public-api-only
+auto-mcp package generate pandas -o pandas_server.py --no-llm --include-reexports
 ```
 
 **Options:**
@@ -930,6 +968,7 @@ auto-mcp package generate requests -o server.py --public-api-only
 | `--public-api-only` | Only expose `__all__` exports |
 | `--include PATTERN` | Glob pattern for modules to include |
 | `--exclude PATTERN` | Glob pattern for modules to exclude |
+| `--include-reexports` | Include functions re-exported from submodules |
 | `--llm-provider` | LLM provider |
 | `--no-llm` | Disable LLM descriptions |
 
@@ -940,6 +979,7 @@ Run an MCP server from a package.
 ```bash
 auto-mcp package serve json --no-llm
 auto-mcp package serve requests --transport sse --port 3000
+auto-mcp package serve pandas --no-llm --include-reexports
 ```
 
 **Options:**
@@ -951,6 +991,7 @@ auto-mcp package serve requests --transport sse --port 3000
 | `--public-api-only` | Only expose `__all__` exports (default: True) |
 | `--include PATTERN` | Glob pattern for modules to include |
 | `--exclude PATTERN` | Glob pattern for modules to exclude |
+| `--include-reexports` | Include functions re-exported from submodules |
 | `--llm-provider` | LLM provider |
 | `--no-llm` | Disable LLM descriptions |
 
@@ -997,6 +1038,7 @@ auto = AutoMCP(
     include_private=False,
     generate_resources=True,
     generate_prompts=True,
+    include_reexports=False,  # Set True for pandas, numpy, etc.
 )
 ```
 
@@ -1361,6 +1403,53 @@ list_todos = todo_service.list_all
 
 ```bash
 auto-mcp serve examples/class_service/todo_service.py
+```
+
+### Pandas Analytics (`examples/pandas_analytics/`)
+
+Demonstrates generating MCP servers from installed packages with re-exported functions, DataFrame serialization, and aggregation operations.
+
+```bash
+# Generate the pandas MCP server (530+ tools)
+auto-mcp package generate pandas -o examples/pandas_analytics/pandas_server.py \
+    --no-llm --max-depth 0 --include-reexports
+
+# Run the test script to verify DataFrame serialization
+python examples/pandas_analytics/test_pandas_mcp.py
+
+# Start the pandas server
+python examples/pandas_analytics/pandas_server.py
+```
+
+**Key features demonstrated:**
+- Using `--include-reexports` to expose pandas functions (concat, merge, read_csv, etc.)
+- DataFrame serialization/deserialization through the type system
+- Aggregation operations (pivot_table, crosstab, groupby)
+
+**Example pandas tools exposed:**
+| Tool | Description |
+|------|-------------|
+| `concat` | Concatenate pandas objects along an axis |
+| `merge` | Merge DataFrame objects with database-style join |
+| `read_csv` | Read CSV file into DataFrame |
+| `read_json` | Read JSON into DataFrame |
+| `pivot_table` | Create spreadsheet-style pivot table |
+| `crosstab` | Compute cross-tabulation of factors |
+| `melt` | Unpivot DataFrame from wide to long format |
+| `get_dummies` | Convert categorical to dummy/indicator variables |
+
+```python
+# Using the Python API
+from auto_mcp import AutoMCP
+
+auto = AutoMCP(
+    use_llm=False,
+    include_reexports=True,  # Required for pandas
+    max_depth=0,
+)
+
+# Create server from pandas
+server = auto.create_server_from_package("pandas")
 ```
 
 ---

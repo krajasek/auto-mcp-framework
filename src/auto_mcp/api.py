@@ -66,6 +66,7 @@ class AutoMCP:
         public_api_only: bool = False,
         include_patterns: list[str] | None = None,
         exclude_patterns: list[str] | None = None,
+        include_reexports: bool = False,
     ) -> None:
         """Initialize AutoMCP.
 
@@ -87,6 +88,8 @@ class AutoMCP:
             public_api_only: Only expose functions in __all__ (public API).
             include_patterns: Glob patterns for modules to include.
             exclude_patterns: Glob patterns for modules to exclude.
+            include_reexports: Include functions re-exported in __all__ from
+                              submodules (useful for packages like pandas, numpy).
         """
         self._use_llm = use_llm
         self._use_cache = use_cache
@@ -118,6 +121,7 @@ class AutoMCP:
             public_api_only=public_api_only,
             include_patterns=include_patterns,
             exclude_patterns=exclude_patterns,
+            include_reexports=include_reexports,
         )
 
         # Create generator

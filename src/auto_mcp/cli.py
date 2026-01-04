@@ -765,6 +765,11 @@ def package() -> None:
     is_flag=True,
     help="Show detailed information about each method",
 )
+@click.option(
+    "--include-reexports",
+    is_flag=True,
+    help="Include functions re-exported in __all__ from submodules (e.g., pandas, numpy)",
+)
 @click.pass_context
 def package_check(
     ctx: click.Context,
@@ -775,6 +780,7 @@ def package_check(
     include_patterns: tuple[str, ...],
     exclude_patterns: tuple[str, ...],
     verbose: bool,
+    include_reexports: bool,
 ) -> None:
     """Analyze an installed package and show what would be exposed.
 
@@ -803,6 +809,7 @@ def package_check(
             analyzer = PackageAnalyzer(
                 include_private=include_private,
                 max_depth=max_depth,
+                include_reexports=include_reexports,
             )
             metadata = analyzer.analyze_package(
                 package_name,
@@ -1007,6 +1014,11 @@ def _build_module_tree(
     type=str,
     help="Additional context for LLM description generation",
 )
+@click.option(
+    "--include-reexports",
+    is_flag=True,
+    help="Include functions re-exported in __all__ from submodules (e.g., pandas, numpy)",
+)
 @click.pass_context
 def package_generate(
     ctx: click.Context,
@@ -1023,6 +1035,7 @@ def package_generate(
     no_llm: bool,
     no_cache: bool,
     context: str | None,
+    include_reexports: bool,
 ) -> None:
     """Generate an MCP server from an installed package.
 
@@ -1068,6 +1081,7 @@ def package_generate(
         public_api_only=public_api_only,
         include_patterns=list(include_patterns) if include_patterns else None,
         exclude_patterns=list(exclude_patterns) if exclude_patterns else None,
+        include_reexports=include_reexports,
     )
 
     # Create generator
@@ -1158,6 +1172,11 @@ def package_generate(
     default="stdio",
     help="MCP transport to use",
 )
+@click.option(
+    "--include-reexports",
+    is_flag=True,
+    help="Include functions re-exported in __all__ from submodules (e.g., pandas, numpy)",
+)
 @click.pass_context
 def package_serve(
     ctx: click.Context,
@@ -1173,6 +1192,7 @@ def package_serve(
     no_llm: bool,
     no_cache: bool,
     transport: Literal["stdio", "sse"],
+    include_reexports: bool,
 ) -> None:
     """Run an MCP server from an installed package.
 
@@ -1214,6 +1234,7 @@ def package_serve(
         public_api_only=public_api_only,
         include_patterns=list(include_patterns) if include_patterns else None,
         exclude_patterns=list(exclude_patterns) if exclude_patterns else None,
+        include_reexports=include_reexports,
     )
 
     # Create generator

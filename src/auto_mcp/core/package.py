@@ -88,6 +88,7 @@ class PackageAnalyzer:
         include_private: bool = False,
         max_depth: int | None = None,
         follow_imports: bool = False,
+        include_reexports: bool = False,
     ) -> None:
         """Initialize the package analyzer.
 
@@ -95,11 +96,17 @@ class PackageAnalyzer:
             include_private: Whether to include private modules/methods
             max_depth: Maximum recursion depth (None for unlimited)
             follow_imports: Whether to follow imported modules from other packages
+            include_reexports: Whether to include functions re-exported in __all__
+                              even if defined in other modules
         """
         self.include_private = include_private
         self.max_depth = max_depth
         self.follow_imports = follow_imports
-        self._module_analyzer = ModuleAnalyzer(include_private=include_private)
+        self.include_reexports = include_reexports
+        self._module_analyzer = ModuleAnalyzer(
+            include_private=include_private,
+            include_reexports=include_reexports,
+        )
 
     def analyze_package(
         self,
@@ -490,6 +497,7 @@ def analyze_installed_package(
     max_depth: int | None = None,
     include_patterns: list[str] | None = None,
     exclude_patterns: list[str] | None = None,
+    include_reexports: bool = False,
 ) -> PackageMetadata:
     """Convenience function to analyze an installed package.
 
@@ -499,6 +507,9 @@ def analyze_installed_package(
         max_depth: Maximum recursion depth
         include_patterns: Glob patterns for modules to include
         exclude_patterns: Glob patterns for modules to exclude
+        include_reexports: Whether to include functions re-exported in __all__
+                          even if defined in other modules (useful for packages
+                          like pandas, numpy that re-export from submodules)
 
     Returns:
         PackageMetadata with analysis results
@@ -510,6 +521,7 @@ def analyze_installed_package(
     analyzer = PackageAnalyzer(
         include_private=include_private,
         max_depth=max_depth,
+        include_reexports=include_reexports,
     )
     return analyzer.analyze_package(
         package_name,

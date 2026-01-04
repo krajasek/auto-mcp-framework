@@ -113,13 +113,21 @@ class ModuleAnalyzer:
     or prompts.
     """
 
-    def __init__(self, include_private: bool = False) -> None:
+    def __init__(
+        self,
+        include_private: bool = False,
+        include_reexports: bool = False,
+    ) -> None:
         """Initialize the analyzer.
 
         Args:
             include_private: Whether to include private methods (starting with _)
+            include_reexports: Whether to include functions re-exported in __all__
+                              even if defined in other modules (common in packages
+                              like pandas, numpy, etc.)
         """
         self.include_private = include_private
+        self.include_reexports = include_reexports
 
     def analyze_module(self, module: ModuleType) -> list[MethodMetadata]:
         """Analyze a module and extract all exposable callables.
@@ -135,25 +143,42 @@ class ModuleAnalyzer:
         # Get module name
         module_name = module.__name__
 
+        # Get __all__ for re-export checking
+        module_all = set(getattr(module, "__all__", []))
+
         # Analyze top-level functions
-        for _name, obj in inspect.getmembers(module, inspect.isfunction):
-            # Skip if not defined in this module
-            if obj.__module__ != module_name:
+        for name, obj in inspect.getmembers(module, inspect.isfunction):
+            # Check if function should be included
+            defined_here = obj.__module__ == module_name
+            is_reexport = self.include_reexports and name in module_all
+
+            if not (defined_here or is_reexport):
                 continue
 
             metadata = self._analyze_callable(obj, module_name)
             if metadata and self.should_expose(metadata):
+                # Mark re-exports with their original module
+                if is_reexport and not defined_here:
+                    metadata.mcp_metadata["original_module"] = obj.__module__
+                    metadata.mcp_metadata["is_reexport"] = True
                 results.append(metadata)
 
         # Analyze classes and their methods
-        for _name, cls in inspect.getmembers(module, inspect.isclass):
-            # Skip if not defined in this module
-            if cls.__module__ != module_name:
+        for name, cls in inspect.getmembers(module, inspect.isclass):
+            # Check if class should be included
+            defined_here = cls.__module__ == module_name
+            is_reexport = self.include_reexports and name in module_all
+
+            if not (defined_here or is_reexport):
                 continue
 
             class_methods = self._analyze_class(cls, module_name)
             for method in class_methods:
                 if self.should_expose(method):
+                    # Mark re-exports with their original module
+                    if is_reexport and not defined_here:
+                        method.mcp_metadata["original_module"] = cls.__module__
+                        method.mcp_metadata["is_reexport"] = True
                     results.append(method)
 
         return results

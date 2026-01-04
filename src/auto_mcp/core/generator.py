@@ -49,6 +49,7 @@ class GeneratorConfig:
         exclude_patterns: Glob patterns for modules to exclude
         enable_type_transforms: Enable automatic type transformations
         register_stdlib_adapters: Auto-register standard library adapters
+        include_reexports: Include functions re-exported in __all__ from submodules
     """
 
     server_name: str = "auto-mcp-server"
@@ -64,6 +65,7 @@ class GeneratorConfig:
     exclude_patterns: list[str] | None = None
     enable_type_transforms: bool = False
     register_stdlib_adapters: bool = True
+    include_reexports: bool = False
 
 
 @dataclass
@@ -149,10 +151,14 @@ class MCPGenerator:
         self.llm = llm
         self.cache = cache or PromptCache()
         self.config = config or GeneratorConfig()
-        self.analyzer = ModuleAnalyzer(include_private=self.config.include_private)
+        self.analyzer = ModuleAnalyzer(
+            include_private=self.config.include_private,
+            include_reexports=self.config.include_reexports,
+        )
         self.package_analyzer = PackageAnalyzer(
             include_private=self.config.include_private,
             max_depth=self.config.max_depth,
+            include_reexports=self.config.include_reexports,
         )
 
         # Initialize type system
