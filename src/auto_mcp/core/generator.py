@@ -363,6 +363,61 @@ class MCPGenerator:
 
         return output_path
 
+    def _sanitize_type_str(self, type_str: str | None) -> str | None:
+        """Sanitize a type string for use in generated code.
+
+        Replaces complex types that would require additional imports with 'Any'.
+
+        Args:
+            type_str: The type string from parameter analysis
+
+        Returns:
+            Sanitized type string or None
+        """
+        if not type_str:
+            return None
+
+        # List of safe builtin types and typing constructs
+        safe_types = {
+            "str", "int", "float", "bool", "bytes", "None",
+            "list", "dict", "tuple", "set", "frozenset",
+            "Any", "Optional", "Union", "List", "Dict", "Tuple", "Set",
+            "Callable", "Sequence", "Mapping", "Iterable", "Iterator",
+            "Type", "Literal",
+        }
+
+        # Bare Union/Optional without brackets is invalid - replace with Any
+        # e.g., "Union" should be "Any", but "Union[str, int]" is fine
+        if type_str in ("Union", "Optional"):
+            return "Any"
+
+        # Check if type string contains potentially problematic types
+        # These are types that would need to be imported from the original module
+        problematic_patterns = [
+            "DataFrame", "Series", "Index", "Timestamp", "Timedelta",
+            "DatetimeIndex", "TimedeltaIndex", "PeriodIndex",
+            "Categorical", "CategoricalDtype",
+            "collections.abc.", "typing.",
+            "numpy.", "np.",
+            "Hashable", "Iterable[", "Sequence[", "Mapping[",
+        ]
+
+        for pattern in problematic_patterns:
+            if pattern in type_str:
+                return "Any"
+
+        # Check for complex nested types that might cause issues
+        # If type_str contains class names that aren't in safe_types
+        # and isn't a simple generic like list[str]
+        import re
+        # Find all word tokens that look like type names (start with capital)
+        type_names = re.findall(r'\b([A-Z][a-zA-Z0-9_]*)\b', type_str)
+        for type_name in type_names:
+            if type_name not in safe_types:
+                return "Any"
+
+        return type_str
+
     def _generate_function_signature(
         self,
         metadata: MethodMetadata,
@@ -385,7 +440,7 @@ class MCPGenerator:
         for param in metadata.parameters:
             name = param["name"]
             kind = param["kind"]
-            type_str = param.get("type_str")
+            type_str = self._sanitize_type_str(param.get("type_str"))
             has_default = param.get("has_default", False)
             default = param.get("default")
 
@@ -444,6 +499,8 @@ class MCPGenerator:
         Returns:
             String representation suitable for code
         """
+        import enum
+
         if value is None:
             return "None"
         elif isinstance(value, str):
@@ -457,10 +514,19 @@ class MCPGenerator:
             return repr(value)
         elif isinstance(value, dict):
             return repr(value)
+        elif isinstance(value, enum.Enum):
+            # Special enum values like pandas._libs.lib._NoDefault
+            # These are sentinel values that should be treated as None
+            return "None"
         else:
             # For complex objects, try repr
             try:
-                return repr(value)
+                value_repr = repr(value)
+                # Check for special sentinel values that can't be used in code
+                # e.g., <no_default>, <class 'inspect._empty'>, <object ...>
+                if value_repr.startswith("<") and value_repr.endswith(">"):
+                    return "None"
+                return value_repr
             except Exception:
                 return "None"
 
