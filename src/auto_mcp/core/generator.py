@@ -363,6 +363,141 @@ class MCPGenerator:
 
         return output_path
 
+    def _generate_function_signature(
+        self,
+        metadata: MethodMetadata,
+    ) -> tuple[str, str]:
+        """Generate a proper function signature and call site from metadata.
+
+        Args:
+            metadata: The method metadata containing parameter info
+
+        Returns:
+            Tuple of (signature_params, call_args):
+            - signature_params: e.g., "name: str, count: int = 5"
+            - call_args: e.g., "name=name, count=count"
+        """
+        params = []
+        call_args = []
+        has_var_positional = False
+        has_var_keyword = False
+
+        for param in metadata.parameters:
+            name = param["name"]
+            kind = param["kind"]
+            type_str = param.get("type_str")
+            has_default = param.get("has_default", False)
+            default = param.get("default")
+
+            # Handle *args
+            if kind == "VAR_POSITIONAL":
+                has_var_positional = True
+                if type_str:
+                    params.append(f"*args: {type_str}")
+                else:
+                    params.append("*args")
+                call_args.append("*args")
+                continue
+
+            # Handle **kwargs
+            if kind == "VAR_KEYWORD":
+                has_var_keyword = True
+                if type_str:
+                    params.append(f"**kwargs: {type_str}")
+                else:
+                    params.append("**kwargs")
+                call_args.append("**kwargs")
+                continue
+
+            # Build parameter definition
+            param_def = name
+            if type_str:
+                param_def += f": {type_str}"
+
+            if has_default:
+                # Format the default value properly
+                default_repr = self._format_default_value(default)
+                if type_str:
+                    param_def += f" = {default_repr}"
+                else:
+                    param_def += f"={default_repr}"
+
+            params.append(param_def)
+
+            # Build call argument
+            if kind == "KEYWORD_ONLY":
+                call_args.append(f"{name}={name}")
+            else:
+                call_args.append(f"{name}={name}")
+
+        signature_params = ", ".join(params)
+        call_args_str = ", ".join(call_args)
+
+        return signature_params, call_args_str
+
+    def _format_default_value(self, value: Any) -> str:
+        """Format a default value for code generation.
+
+        Args:
+            value: The default value
+
+        Returns:
+            String representation suitable for code
+        """
+        if value is None:
+            return "None"
+        elif isinstance(value, str):
+            # Escape quotes and use repr for proper string formatting
+            return repr(value)
+        elif isinstance(value, bool):
+            return "True" if value else "False"
+        elif isinstance(value, (int, float)):
+            return str(value)
+        elif isinstance(value, (list, tuple)):
+            return repr(value)
+        elif isinstance(value, dict):
+            return repr(value)
+        else:
+            # For complex objects, try repr
+            try:
+                return repr(value)
+            except Exception:
+                return "None"
+
+    def _collect_typing_imports(
+        self,
+        tools: list[GeneratedTool],
+        resources: list[GeneratedResource],
+        prompts: list[GeneratedPrompt],
+    ) -> set[str]:
+        """Collect typing imports needed for generated signatures.
+
+        Args:
+            tools: Generated tools
+            resources: Generated resources
+            prompts: Generated prompts
+
+        Returns:
+            Set of typing module names to import (e.g., {"Any", "Optional"})
+        """
+        typing_imports: set[str] = set()
+
+        # Common typing constructs to look for in type strings
+        typing_names = ["Any", "Optional", "Union", "List", "Dict", "Tuple", "Set",
+                        "Callable", "Sequence", "Mapping", "Iterable", "Iterator"]
+
+        all_items = list(tools) + list(resources) + list(prompts)
+
+        for item in all_items:
+            for param in item.metadata.parameters:
+                type_str = param.get("type_str", "")
+                if type_str:
+                    for name in typing_names:
+                        if name in type_str:
+                            typing_imports.add(name)
+
+        return typing_imports
+
     def _generate_standalone_code_from_package(
         self,
         pkg_metadata: PackageMetadata,
@@ -401,12 +536,16 @@ class MCPGenerator:
             module_name = tool.metadata.module_name
             func_name = tool.metadata.qualified_name
             desc = tool.description.replace('"""', '\\"\\"\\"')
+            safe_name = tool.name.replace(".", "_")
+
+            # Generate proper signature with named parameters
+            sig_params, call_args = self._generate_function_signature(tool.metadata)
 
             tool_code.append(f'''
 @mcp.tool(name="{tool.name}")
-def {tool.name.replace(".", "_")}(*args, **kwargs):
+def {safe_name}({sig_params}):
     """{desc}"""
-    return {module_name}.{func_name}(*args, **kwargs)
+    return {module_name}.{func_name}({call_args})
 ''')
 
         tools_code = "\n".join(tool_code)
@@ -417,12 +556,16 @@ def {tool.name.replace(".", "_")}(*args, **kwargs):
             module_name = resource.metadata.module_name
             func_name = resource.metadata.qualified_name
             desc = resource.description.replace('"""', '\\"\\"\\"')
+            safe_name = resource.name.replace(".", "_")
+
+            # Generate proper signature
+            sig_params, call_args = self._generate_function_signature(resource.metadata)
 
             resource_code.append(f'''
 @mcp.resource(uri="{resource.uri}", name="{resource.name}")
-def resource_{resource.name.replace(".", "_")}(*args, **kwargs):
+def resource_{safe_name}({sig_params}):
     """{desc}"""
-    return {module_name}.{func_name}(*args, **kwargs)
+    return {module_name}.{func_name}({call_args})
 ''')
 
         resources_code = "\n".join(resource_code) if resources else ""
@@ -433,15 +576,25 @@ def resource_{resource.name.replace(".", "_")}(*args, **kwargs):
             module_name = prompt.metadata.module_name
             func_name = prompt.metadata.qualified_name
             desc = prompt.description.replace('"""', '\\"\\"\\"')
+            safe_name = prompt.name.replace(".", "_")
+
+            # Generate proper signature
+            sig_params, call_args = self._generate_function_signature(prompt.metadata)
 
             prompt_code.append(f'''
 @mcp.prompt(name="{prompt.name}")
-def prompt_{prompt.name.replace(".", "_")}(*args, **kwargs):
+def prompt_{safe_name}({sig_params}):
     """{desc}"""
-    return {module_name}.{func_name}(*args, **kwargs)
+    return {module_name}.{func_name}({call_args})
 ''')
 
         prompts_code = "\n".join(prompt_code) if prompts else ""
+
+        # Collect typing imports needed from signatures
+        typing_imports = self._collect_typing_imports(tools, resources, prompts)
+        typing_import_line = ""
+        if typing_imports:
+            typing_import_line = f"from typing import {', '.join(sorted(typing_imports))}\n"
 
         # Combine all code
         code = f'''"""Auto-generated MCP server from package '{pkg_metadata.name}'.
@@ -451,7 +604,7 @@ Modules analyzed: {pkg_metadata.module_count}
 Methods exposed: {len(tools)} tools, {len(resources)} resources, {len(prompts)} prompts
 """
 
-from mcp.server.fastmcp import FastMCP
+{typing_import_line}from mcp.server.fastmcp import FastMCP
 
 {imports_code}
 
@@ -897,15 +1050,19 @@ if __name__ == "__main__":
         for tool in tools:
             module_name = tool.metadata.module_name
             func_name = tool.metadata.qualified_name
+            safe_name = tool.name.replace(".", "_").replace("-", "_")
 
             # Escape description for string
             desc = tool.description.replace('"""', '\\"\\"\\"')
 
+            # Generate proper signature with named parameters
+            sig_params, call_args = self._generate_function_signature(tool.metadata)
+
             tool_code.append(f'''
 @mcp.tool(name="{tool.name}")
-def {tool.name}(*args, **kwargs):
+def {safe_name}({sig_params}):
     """{desc}"""
-    return {module_name}.{func_name}(*args, **kwargs)
+    return {module_name}.{func_name}({call_args})
 ''')
 
         tools_code = "\n".join(tool_code)
@@ -916,12 +1073,16 @@ def {tool.name}(*args, **kwargs):
             module_name = resource.metadata.module_name
             func_name = resource.metadata.qualified_name
             desc = resource.description.replace('"""', '\\"\\"\\"')
+            safe_name = resource.name.replace(".", "_").replace("-", "_")
+
+            # Generate proper signature
+            sig_params, call_args = self._generate_function_signature(resource.metadata)
 
             resource_code.append(f'''
 @mcp.resource(uri="{resource.uri}", name="{resource.name}")
-def resource_{resource.name}(*args, **kwargs):
+def resource_{safe_name}({sig_params}):
     """{desc}"""
-    return {module_name}.{func_name}(*args, **kwargs)
+    return {module_name}.{func_name}({call_args})
 ''')
 
         resources_code = "\n".join(resource_code) if resources else ""
@@ -932,15 +1093,25 @@ def resource_{resource.name}(*args, **kwargs):
             module_name = prompt.metadata.module_name
             func_name = prompt.metadata.qualified_name
             desc = prompt.description.replace('"""', '\\"\\"\\"')
+            safe_name = prompt.name.replace(".", "_").replace("-", "_")
+
+            # Generate proper signature
+            sig_params, call_args = self._generate_function_signature(prompt.metadata)
 
             prompt_code.append(f'''
 @mcp.prompt(name="{prompt.name}")
-def prompt_{prompt.name}(*args, **kwargs):
+def prompt_{safe_name}({sig_params}):
     """{desc}"""
-    return {module_name}.{func_name}(*args, **kwargs)
+    return {module_name}.{func_name}({call_args})
 ''')
 
         prompts_code = "\n".join(prompt_code) if prompts else ""
+
+        # Collect typing imports needed from signatures
+        typing_imports = self._collect_typing_imports(tools, resources, prompts)
+        typing_import_line = ""
+        if typing_imports:
+            typing_import_line = f"from typing import {', '.join(sorted(typing_imports))}\n"
 
         # Combine all code
         code = f'''"""Auto-generated MCP server.
@@ -948,7 +1119,7 @@ def prompt_{prompt.name}(*args, **kwargs):
 Generated by auto-mcp.
 """
 
-from mcp.server.fastmcp import FastMCP
+{typing_import_line}from mcp.server.fastmcp import FastMCP
 
 {imports_code}
 
