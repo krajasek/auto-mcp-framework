@@ -1452,6 +1452,495 @@ auto = AutoMCP(
 server = auto.create_server_from_package("pandas")
 ```
 
+---
+
+## Pandas MCP Server Setup Guide
+
+The pandas MCP server (`examples/pandas_analytics/`) exposes 100+ pandas functions as MCP tools for data analysis, manipulation, and I/O operations. This section covers setup for various AI coding tools and example conversations.
+
+### Generating the Server
+
+Generate the pandas MCP server with re-exports enabled (required for pandas):
+
+```bash
+# Generate the server with all pandas functions
+auto-mcp package generate pandas -o examples/pandas_analytics/pandas_server.py \
+    --no-llm --max-depth 0 --include-reexports
+
+# Or use the pre-generated server directly
+python examples/pandas_analytics/pandas_server.py
+```
+
+### Available Tool Categories
+
+The pandas MCP server exposes 100+ tools in these categories:
+
+| Category | Tools | Description |
+|----------|-------|-------------|
+| **Data I/O** | `read_csv`, `read_excel`, `read_json`, `read_parquet`, `read_sql`, `read_html`, `read_xml`, `read_feather`, `read_pickle` | Read data from various file formats |
+| **Data Manipulation** | `concat`, `merge`, `merge_asof`, `merge_ordered`, `melt`, `pivot`, `pivot_table`, `wide_to_long` | Combine, reshape, and transform DataFrames |
+| **Data Analysis** | `crosstab`, `cut`, `qcut`, `get_dummies`, `factorize`, `value_counts`, `unique` | Statistical analysis and categorization |
+| **Date/Time** | `date_range`, `bdate_range`, `timedelta_range`, `period_range`, `to_datetime`, `to_timedelta` | Date and time operations |
+| **JSON Processing** | `json_normalize` | Flatten nested JSON into tabular format |
+| **Testing** | `assert_frame_equal`, `assert_series_equal`, `assert_index_equal` | DataFrame comparison utilities |
+| **Plotting** | `boxplot`, `scatter_matrix`, `parallel_coordinates`, `andrews_curves`, `radviz` | Visualization helpers |
+
+### Tool Configuration
+
+#### Claude Code
+
+Add the pandas MCP server to your Claude Code configuration:
+
+**Option 1: Project-level configuration (`.claude/settings.local.json`)**
+
+```json
+{
+  "mcpServers": {
+    "pandas-analytics": {
+      "command": "uv",
+      "args": ["run", "python", "/path/to/auto-mcp-framework/examples/pandas_analytics/pandas_server.py"]
+    }
+  }
+}
+```
+
+**Option 2: Global configuration (`~/.claude/settings.json`)**
+
+```json
+{
+  "mcpServers": {
+    "pandas-analytics": {
+      "command": "python",
+      "args": ["/path/to/auto-mcp-framework/examples/pandas_analytics/pandas_server.py"]
+    }
+  }
+}
+```
+
+**Option 3: Using the CLI**
+
+```bash
+claude mcp add pandas-analytics -- python /path/to/pandas_server.py
+```
+
+#### Cursor
+
+Add to your Cursor MCP configuration file (`~/.cursor/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "pandas-analytics": {
+      "command": "python",
+      "args": ["/path/to/auto-mcp-framework/examples/pandas_analytics/pandas_server.py"]
+    }
+  }
+}
+```
+
+Restart Cursor after adding the configuration.
+
+#### Windsurf
+
+Add to your Windsurf MCP configuration (`~/.windsurf/mcp.json` or via Settings > MCP):
+
+```json
+{
+  "mcpServers": {
+    "pandas-analytics": {
+      "command": "python",
+      "args": ["/path/to/auto-mcp-framework/examples/pandas_analytics/pandas_server.py"]
+    }
+  }
+}
+```
+
+#### VS Code Copilot (with MCP extension)
+
+**Using the Claude MCP extension:**
+
+Add to `.vscode/settings.json` or user settings:
+
+```json
+{
+  "mcp.servers": {
+    "pandas-analytics": {
+      "command": "python",
+      "args": ["/path/to/auto-mcp-framework/examples/pandas_analytics/pandas_server.py"]
+    }
+  }
+}
+```
+
+**Using Continue.dev with MCP:**
+
+Add to `~/.continue/config.json`:
+
+```json
+{
+  "mcpServers": [
+    {
+      "name": "pandas-analytics",
+      "command": "python",
+      "args": ["/path/to/auto-mcp-framework/examples/pandas_analytics/pandas_server.py"]
+    }
+  ]
+}
+```
+
+### Environment Variables
+
+If using uv with pandas dependencies:
+
+```json
+{
+  "mcpServers": {
+    "pandas-analytics": {
+      "command": "uv",
+      "args": ["run", "--directory", "/path/to/auto-mcp-framework", "python", "examples/pandas_analytics/pandas_server.py"],
+      "env": {
+        "UV_PROJECT_ENVIRONMENT": "/path/to/auto-mcp-framework/.venv"
+      }
+    }
+  }
+}
+```
+
+### Example Conversations
+
+Below are example prompts and interactions demonstrating the pandas MCP server capabilities.
+
+#### Reading Data Files
+
+**User prompt:**
+> Read the sales data from sales_2024.csv and show me the first few rows
+
+**AI response using tools:**
+```
+[Calls: read_csv(filepath_or_buffer="sales_2024.csv", nrows=5)]
+→ DataFrame with columns: date, product, quantity, price, region
+   First 5 rows returned
+
+Here's a preview of your sales data:
+| date       | product | quantity | price   | region |
+|------------|---------|----------|---------|--------|
+| 2024-01-01 | Laptop  | 5        | 1200.00 | North  |
+| 2024-01-02 | Phone   | 12       | 800.00  | South  |
+| 2024-01-03 | Tablet  | 8        | 500.00  | East   |
+| 2024-01-04 | Laptop  | 3        | 1200.00 | West   |
+| 2024-01-05 | Phone   | 15       | 800.00  | North  |
+
+The CSV has 5 columns: date, product, quantity, price, and region.
+```
+
+**User prompt:**
+> Read the Excel file report.xlsx, specifically the "Q4 Summary" sheet
+
+**AI response using tools:**
+```
+[Calls: read_excel(io="report.xlsx", sheet_name="Q4 Summary")]
+→ DataFrame with quarterly summary data
+
+Successfully loaded the "Q4 Summary" sheet from report.xlsx:
+| Category    | Q4 Revenue | Q4 Units | YoY Growth |
+|-------------|------------|----------|------------|
+| Electronics | 1,250,000  | 3,200    | 12.5%      |
+| Accessories | 450,000    | 8,500    | 8.2%       |
+| Services    | 320,000    | 1,100    | 15.8%      |
+```
+
+#### Merging and Joining DataFrames
+
+**User prompt:**
+> I have two DataFrames - customers and orders. Merge them on customer_id to see order details with customer names.
+
+**AI response using tools:**
+```
+[Calls: merge(left=customers_df, right=orders_df, on="customer_id", how="inner")]
+→ Merged DataFrame with customer and order details
+
+Merged customers with orders (inner join on customer_id):
+| customer_id | name    | email              | order_id | amount  | order_date |
+|-------------|---------|--------------------| ---------|---------|------------|
+| 101         | Alice   | alice@example.com  | ORD-001  | 1200.00 | 2024-01-15 |
+| 101         | Alice   | alice@example.com  | ORD-005  | 450.00  | 2024-02-20 |
+| 102         | Bob     | bob@example.com    | ORD-002  | 800.00  | 2024-01-18 |
+| 103         | Charlie | charlie@email.com  | ORD-003  | 2100.00 | 2024-01-22 |
+
+Found 4 matching records. Use how="left" to include customers without orders.
+```
+
+**User prompt:**
+> Concatenate the Q1, Q2, and Q3 sales DataFrames into one combined dataset
+
+**AI response using tools:**
+```
+[Calls: concat(objs=[q1_sales, q2_sales, q3_sales], ignore_index=True)]
+→ Combined DataFrame with 450 rows
+
+Combined all three quarters into a single DataFrame:
+- Q1: 150 rows
+- Q2: 145 rows
+- Q3: 155 rows
+- **Total: 450 rows**
+
+The combined DataFrame maintains all original columns: date, product, quantity, price, region, revenue.
+```
+
+#### Pivot Tables and Cross-Tabulation
+
+**User prompt:**
+> Create a pivot table showing total revenue by product and region
+
+**AI response using tools:**
+```
+[Calls: pivot_table(data=sales_df, values="revenue", index="region", columns="product", aggfunc="sum", fill_value=0, margins=True)]
+→ Pivot table with region rows and product columns
+
+Revenue by Region and Product:
+| region | Laptop     | Phone      | Tablet    | All        |
+|--------|------------|------------|-----------|------------|
+| East   | $48,000    | $64,000    | $32,000   | $144,000   |
+| North  | $84,000    | $120,000   | $28,000   | $232,000   |
+| South  | $60,000    | $96,000    | $40,000   | $196,000   |
+| West   | $36,000    | $56,000    | $20,000   | $112,000   |
+| All    | $228,000   | $336,000   | $120,000  | $684,000   |
+
+Key insights:
+- **Phone** generates the highest revenue ($336K)
+- **North region** is the top performer ($232K)
+- Total revenue across all products and regions: **$684,000**
+```
+
+**User prompt:**
+> Show me a cross-tabulation of orders by day of week and product category
+
+**AI response using tools:**
+```
+[Calls: crosstab(index=orders_df["day_of_week"], columns=orders_df["category"], margins=True)]
+→ Cross-tabulation showing order counts
+
+Order Frequency by Day and Category:
+| day_of_week | Electronics | Accessories | Services | All |
+|-------------|-------------|-------------|----------|-----|
+| Monday      | 45          | 62          | 28       | 135 |
+| Tuesday     | 52          | 58          | 31       | 141 |
+| Wednesday   | 48          | 71          | 25       | 144 |
+| Thursday    | 55          | 65          | 29       | 149 |
+| Friday      | 68          | 82          | 35       | 185 |
+| Saturday    | 42          | 48          | 12       | 102 |
+| Sunday      | 38          | 41          | 8        | 87  |
+| All         | 348         | 427         | 168      | 943 |
+
+Insights:
+- **Friday** is the busiest day (185 orders)
+- **Accessories** is the most ordered category (427)
+- Weekend orders are significantly lower than weekdays
+```
+
+#### Reshaping Data
+
+**User prompt:**
+> I have wide-format data with columns for each month. Convert it to long format for analysis.
+
+**AI response using tools:**
+```
+[Calls: melt(frame=wide_df, id_vars=["product", "region"], value_vars=["jan_sales", "feb_sales", "mar_sales"], var_name="month", value_name="sales")]
+→ Long-format DataFrame
+
+Converted from wide to long format using melt:
+
+**Before (wide):**
+| product | region | jan_sales | feb_sales | mar_sales |
+|---------|--------|-----------|-----------|-----------|
+| Laptop  | North  | 5000      | 6200      | 5800      |
+| Phone   | North  | 8000      | 7500      | 8200      |
+
+**After (long):**
+| product | region | month     | sales |
+|---------|--------|-----------|-------|
+| Laptop  | North  | jan_sales | 5000  |
+| Laptop  | North  | feb_sales | 6200  |
+| Laptop  | North  | mar_sales | 5800  |
+| Phone   | North  | jan_sales | 8000  |
+| Phone   | North  | feb_sales | 7500  |
+| Phone   | North  | mar_sales | 8200  |
+
+This format is better for time-series analysis and visualization.
+```
+
+#### Data Binning and Categorization
+
+**User prompt:**
+> Categorize customers into age groups: Young (18-30), Adult (31-50), Senior (51+)
+
+**AI response using tools:**
+```
+[Calls: cut(x=customers_df["age"], bins=[18, 30, 50, 100], labels=["Young", "Adult", "Senior"])]
+→ Categorical series with age groups
+
+Added age_group column to customers:
+| customer_id | name    | age | age_group |
+|-------------|---------|-----|-----------|
+| 101         | Alice   | 28  | Young     |
+| 102         | Bob     | 45  | Adult     |
+| 103         | Charlie | 62  | Senior    |
+| 104         | Diana   | 31  | Adult     |
+| 105         | Eve     | 24  | Young     |
+
+Distribution:
+- Young (18-30): 42 customers (35%)
+- Adult (31-50): 51 customers (43%)
+- Senior (51+): 27 customers (22%)
+```
+
+**User prompt:**
+> Create dummy variables for the category column for machine learning
+
+**AI response using tools:**
+```
+[Calls: get_dummies(data=products_df, columns=["category"], prefix="cat")]
+→ DataFrame with one-hot encoded category columns
+
+One-hot encoded the category column:
+| product_id | name   | price  | cat_Electronics | cat_Accessories | cat_Services |
+|------------|--------|--------|-----------------|-----------------|--------------|
+| P001       | Laptop | 1200.0 | 1               | 0               | 0            |
+| P002       | Case   | 49.99  | 0               | 1               | 0            |
+| P003       | Setup  | 150.0  | 0               | 0               | 1            |
+
+Ready for machine learning with 3 binary category columns.
+```
+
+#### Working with JSON Data
+
+**User prompt:**
+> I have nested JSON data from an API. Flatten it into a DataFrame.
+
+**AI response using tools:**
+```
+[Calls: json_normalize(data=api_response, record_path="orders", meta=["customer_id", "customer_name"], sep="_")]
+→ Flattened DataFrame from nested JSON
+
+Normalized nested JSON structure:
+
+**Original JSON:**
+```json
+{
+  "customer_id": 101,
+  "customer_name": "Alice",
+  "orders": [
+    {"order_id": "A1", "amount": 500, "items": 3},
+    {"order_id": "A2", "amount": 750, "items": 5}
+  ]
+}
+```
+
+**Flattened DataFrame:**
+| customer_id | customer_name | order_id | amount | items |
+|-------------|---------------|----------|--------|-------|
+| 101         | Alice         | A1       | 500    | 3     |
+| 101         | Alice         | A2       | 750    | 5     |
+
+Each nested order is now a separate row with customer info preserved.
+```
+
+#### Date Range Generation
+
+**User prompt:**
+> Generate a date range for all business days in Q1 2024
+
+**AI response using tools:**
+```
+[Calls: bdate_range(start="2024-01-01", end="2024-03-31")]
+→ DatetimeIndex with business days
+
+Generated 63 business days in Q1 2024:
+- Start: 2024-01-01 (Monday)
+- End: 2024-03-29 (Friday)
+- Excludes weekends automatically
+
+First 10 dates:
+2024-01-01, 2024-01-02, 2024-01-03, 2024-01-04, 2024-01-05,
+2024-01-08, 2024-01-09, 2024-01-10, 2024-01-11, 2024-01-12
+
+Use this for time series analysis, trading calendars, or scheduling.
+```
+
+#### Detecting Missing Values
+
+**User prompt:**
+> Check for missing values in the dataset
+
+**AI response using tools:**
+```
+[Calls: isna(obj=df)]
+→ Boolean DataFrame indicating missing values
+
+[Calls: value_counts(values=df.isna().sum())]
+→ Count of missing values per column
+
+Missing value analysis:
+| Column     | Missing | Percentage |
+|------------|---------|------------|
+| email      | 15      | 3.0%       |
+| phone      | 8       | 1.6%       |
+| address    | 23      | 4.6%       |
+| age        | 0       | 0.0%       |
+| name       | 0       | 0.0%       |
+
+Recommendations:
+- **email**: Consider imputation or requiring at checkout
+- **address**: May need data cleaning campaign
+- **phone**: Low missing rate, acceptable for most analyses
+```
+
+#### DataFrame Comparison (Testing)
+
+**User prompt:**
+> Verify that the transformed DataFrame matches the expected output
+
+**AI response using tools:**
+```
+[Calls: assert_frame_equal(left=result_df, right=expected_df, check_dtype=True)]
+→ No exception raised - DataFrames are equal
+
+✓ **Verification passed!**
+
+The transformed DataFrame matches the expected output:
+- Column names: ✓ Match
+- Data types: ✓ Match
+- Values: ✓ Match
+- Index: ✓ Match
+- Shape: (100, 5) ✓ Match
+
+Your transformation is correct.
+```
+
+### Troubleshooting
+
+**Server not starting:**
+- Ensure pandas is installed: `pip install pandas`
+- Check Python path and environment configuration
+- Run `python pandas_server.py` manually to see error messages
+
+**Tools not appearing:**
+- Restart your AI tool after configuration changes
+- Verify JSON syntax in configuration files
+- The server exposes 100+ tools - some UIs may truncate the list
+
+**Memory issues with large DataFrames:**
+- Use `nrows` parameter in `read_csv` to limit rows
+- Use `chunksize` for streaming large files
+- Consider using `read_parquet` for better performance
+
+**Type errors:**
+- pandas MCP tools expect Python objects
+- The AI will construct DataFrames from your descriptions
+- For complex operations, describe the data structure clearly
+
+---
+
 ### SQLite Database (`examples/sqlite_database/`)
 
 Demonstrates creating MCP tools for database operations with SQLite.
@@ -1493,6 +1982,383 @@ python examples/sqlite_database/sqlite_server.py
 | `aggregate_query` | Run aggregate functions |
 | `join_query` | Execute JOIN between tables |
 | `create_sample_data` | Generate sample users/products/orders |
+
+---
+
+## SQLite MCP Server Setup Guide
+
+The SQLite MCP server example (`examples/sqlite_database/`) provides a fully-functional database server that can be integrated with various AI coding tools. This section covers setup and usage examples.
+
+### Generating the Server
+
+First, generate the MCP server from the SQLite tools module:
+
+```bash
+# Generate the server
+cd examples/sqlite_database
+uv run auto-mcp generate sqlite_tools.py -o sqlite_server.py --no-llm --name sqlite-tools
+```
+
+Or use the pre-generated `sqlite_server.py` directly.
+
+### Tool Configuration
+
+#### Claude Code
+
+Add the SQLite MCP server to your Claude Code configuration:
+
+**Option 1: Project-level configuration (`.claude/settings.local.json`)**
+
+Create or edit `.claude/settings.local.json` in your project root:
+
+```json
+{
+  "mcpServers": {
+    "sqlite-tools": {
+      "command": "uv",
+      "args": ["run", "python", "/path/to/auto-mcp-framework/examples/sqlite_database/sqlite_server.py"]
+    }
+  }
+}
+```
+
+**Option 2: Global configuration (`~/.claude/settings.json`)**
+
+```json
+{
+  "mcpServers": {
+    "sqlite-tools": {
+      "command": "python",
+      "args": ["/path/to/auto-mcp-framework/examples/sqlite_database/sqlite_server.py"]
+    }
+  }
+}
+```
+
+**Option 3: Using the CLI**
+
+```bash
+claude mcp add sqlite-tools -- python /path/to/sqlite_server.py
+```
+
+#### Cursor
+
+Add to your Cursor MCP configuration file (`~/.cursor/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "sqlite-tools": {
+      "command": "python",
+      "args": ["/path/to/auto-mcp-framework/examples/sqlite_database/sqlite_server.py"]
+    }
+  }
+}
+```
+
+Restart Cursor after adding the configuration. The tools will be available in the AI assistant.
+
+#### Windsurf
+
+Add to your Windsurf MCP configuration (`~/.windsurf/mcp.json` or via Settings > MCP):
+
+```json
+{
+  "mcpServers": {
+    "sqlite-tools": {
+      "command": "python",
+      "args": ["/path/to/auto-mcp-framework/examples/sqlite_database/sqlite_server.py"]
+    }
+  }
+}
+```
+
+Alternatively, configure through Windsurf's Settings UI:
+1. Open Settings (`Cmd/Ctrl + ,`)
+2. Search for "MCP"
+3. Add a new server with name `sqlite-tools`
+4. Set command to `python` and args to the server path
+
+#### VS Code Copilot (with MCP extension)
+
+For VS Code with GitHub Copilot and an MCP extension:
+
+**Using the Claude MCP extension:**
+
+Add to `.vscode/settings.json` or user settings:
+
+```json
+{
+  "mcp.servers": {
+    "sqlite-tools": {
+      "command": "python",
+      "args": ["/path/to/auto-mcp-framework/examples/sqlite_database/sqlite_server.py"]
+    }
+  }
+}
+```
+
+**Using Continue.dev with MCP:**
+
+Add to `~/.continue/config.json`:
+
+```json
+{
+  "mcpServers": [
+    {
+      "name": "sqlite-tools",
+      "command": "python",
+      "args": ["/path/to/auto-mcp-framework/examples/sqlite_database/sqlite_server.py"]
+    }
+  ]
+}
+```
+
+### Environment Variables
+
+If using uv, ensure the correct Python environment:
+
+```json
+{
+  "mcpServers": {
+    "sqlite-tools": {
+      "command": "uv",
+      "args": ["run", "--directory", "/path/to/auto-mcp-framework", "python", "examples/sqlite_database/sqlite_server.py"],
+      "env": {
+        "UV_PROJECT_ENVIRONMENT": "/path/to/auto-mcp-framework/.venv"
+      }
+    }
+  }
+}
+```
+
+### Example Conversations
+
+Below are example prompts and interactions demonstrating the SQLite MCP server capabilities.
+
+#### Basic Setup and Sample Data
+
+**User prompt:**
+> Create an in-memory database and populate it with sample data for testing
+
+**AI response using tools:**
+```
+I'll set up a database with sample data for you.
+
+[Calls: connect_database(database=":memory:")]
+→ "Connected to ':memory:' as 'default'"
+
+[Calls: create_sample_data()]
+→ "Sample data created: users (3), products (5), orders (6)"
+
+[Calls: list_tables()]
+→ ["orders", "products", "users"]
+
+I've created an in-memory database with three tables:
+- users (3 rows): Alice, Bob, and Charlie
+- products (5 rows): Electronics and accessories
+- orders (6 rows): Sample purchase history
+```
+
+#### Exploring Database Structure
+
+**User prompt:**
+> What tables exist and what are their schemas?
+
+**AI response using tools:**
+```
+[Calls: get_database_info()]
+→ {
+    "connection": "default",
+    "tables": {
+      "users": {"row_count": 3, "columns": ["id", "name", "email", "age", "created_at"]},
+      "products": {"row_count": 5, "columns": ["id", "name", "price", "category", "stock"]},
+      "orders": {"row_count": 6, "columns": ["id", "user_id", "product_id", "quantity", "total", "order_date"]}
+    }
+  }
+
+[Calls: describe_table(table_name="users")]
+→ [
+    {"column": "id", "type": "INTEGER", "nullable": false, "primary_key": true},
+    {"column": "name", "type": "TEXT", "nullable": false, "primary_key": false},
+    {"column": "email", "type": "TEXT", "nullable": true, "primary_key": false},
+    {"column": "age", "type": "INTEGER", "nullable": true, "primary_key": false},
+    {"column": "created_at", "type": "TIMESTAMP", "nullable": true, "primary_key": false}
+  ]
+
+The database has 3 tables:
+- **users**: Stores user info (id, name, email, age, created_at)
+- **products**: Product catalog (id, name, price, category, stock)
+- **orders**: Purchase records linking users to products
+```
+
+#### CRUD Operations
+
+**User prompt:**
+> Add a new user named "Diana" with email diana@example.com, age 28
+
+**AI response using tools:**
+```
+[Calls: insert_row(table_name="users", data={"name": "Diana", "email": "diana@example.com", "age": 28})]
+→ 4
+
+Done! Added Diana as user ID 4.
+```
+
+**User prompt:**
+> Show me all users over 25 years old
+
+**AI response using tools:**
+```
+[Calls: execute_query(sql="SELECT * FROM users WHERE age > 25")]
+→ [
+    {"id": 1, "name": "Alice", "email": "alice@example.com", "age": 30},
+    {"id": 3, "name": "Charlie", "email": "charlie@example.com", "age": 35},
+    {"id": 4, "name": "Diana", "email": "diana@example.com", "age": 28}
+  ]
+
+Found 3 users over 25: Alice (30), Charlie (35), and Diana (28).
+```
+
+**User prompt:**
+> Update Diana's age to 29
+
+**AI response using tools:**
+```
+[Calls: update_rows(table_name="users", data={"age": 29}, conditions={"name": "Diana"})]
+→ 1
+
+Updated Diana's age to 29 (1 row affected).
+```
+
+#### Aggregation and Analytics
+
+**User prompt:**
+> What's the total revenue by product category?
+
+**AI response using tools:**
+```
+[Calls: execute_query(sql="SELECT p.category, SUM(o.total) as revenue FROM orders o JOIN products p ON o.product_id = p.id GROUP BY p.category")]
+→ [
+    {"category": "Electronics", "revenue": 3000.00},
+    {"category": "Accessories", "revenue": 530.00}
+  ]
+
+Revenue breakdown:
+- **Electronics**: $3,000.00
+- **Accessories**: $530.00
+- **Total**: $3,530.00
+```
+
+**User prompt:**
+> What's the average order value?
+
+**AI response using tools:**
+```
+[Calls: aggregate_query(table_name="orders", column="total", function="AVG")]
+→ [{"result": 588.33}]
+
+The average order value is $588.33.
+```
+
+#### JOIN Queries
+
+**User prompt:**
+> Show me all orders with customer and product names
+
+**AI response using tools:**
+```
+[Calls: execute_query(sql="SELECT u.name as customer, p.name as product, o.quantity, o.total FROM orders o JOIN users u ON o.user_id = u.id JOIN products p ON o.product_id = p.id")]
+→ [
+    {"customer": "Alice", "product": "Laptop", "quantity": 1, "total": 1200.00},
+    {"customer": "Alice", "product": "Headphones", "quantity": 2, "total": 300.00},
+    {"customer": "Bob", "product": "Phone", "quantity": 1, "total": 800.00},
+    {"customer": "Bob", "product": "Keyboard", "quantity": 1, "total": 80.00},
+    {"customer": "Charlie", "product": "Tablet", "quantity": 2, "total": 1000.00},
+    {"customer": "Charlie", "product": "Headphones", "quantity": 1, "total": 150.00}
+  ]
+
+| Customer | Product    | Qty | Total    |
+|----------|------------|-----|----------|
+| Alice    | Laptop     | 1   | $1,200   |
+| Alice    | Headphones | 2   | $300     |
+| Bob      | Phone      | 1   | $800     |
+| Bob      | Keyboard   | 1   | $80      |
+| Charlie  | Tablet     | 2   | $1,000   |
+| Charlie  | Headphones | 1   | $150     |
+```
+
+#### Working with File-Based Databases
+
+**User prompt:**
+> Connect to a SQLite file called 'mydata.db' and show its tables
+
+**AI response using tools:**
+```
+[Calls: connect_database(database="mydata.db", name="file_db")]
+→ "Connected to 'mydata.db' as 'file_db'"
+
+[Calls: list_tables(connection="file_db")]
+→ ["customers", "invoices", "line_items"]
+
+Connected to mydata.db. Found 3 tables: customers, invoices, line_items.
+```
+
+#### Complex Queries
+
+**User prompt:**
+> Find the top spending customer
+
+**AI response using tools:**
+```
+[Calls: execute_query(sql="SELECT u.name, SUM(o.total) as total_spent FROM orders o JOIN users u ON o.user_id = u.id GROUP BY u.id ORDER BY total_spent DESC LIMIT 1")]
+→ [{"name": "Alice", "total_spent": 1500.00}]
+
+Alice is the top spending customer with $1,500.00 in total purchases.
+```
+
+**User prompt:**
+> Create a new table to track inventory changes
+
+**AI response using tools:**
+```
+[Calls: create_table(table_name="inventory_log", columns={"id": "INTEGER PRIMARY KEY AUTOINCREMENT", "product_id": "INTEGER REFERENCES products(id)", "change_amount": "INTEGER NOT NULL", "change_type": "TEXT NOT NULL", "changed_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP", "notes": "TEXT"})]
+→ "Table 'inventory_log' created"
+
+[Calls: describe_table(table_name="inventory_log")]
+→ [
+    {"column": "id", "type": "INTEGER", "primary_key": true},
+    {"column": "product_id", "type": "INTEGER", "primary_key": false},
+    {"column": "change_amount", "type": "INTEGER", "primary_key": false},
+    {"column": "change_type", "type": "TEXT", "primary_key": false},
+    {"column": "changed_at", "type": "TIMESTAMP", "primary_key": false},
+    {"column": "notes", "type": "TEXT", "primary_key": false}
+  ]
+
+Created inventory_log table with columns:
+- id (auto-increment primary key)
+- product_id (foreign key to products)
+- change_amount (required integer)
+- change_type (e.g., "restock", "sold", "adjustment")
+- changed_at (auto-timestamp)
+- notes (optional text)
+```
+
+### Troubleshooting
+
+**Server not starting:**
+- Ensure Python path is correct and the environment has `mcp` installed
+- Check that `sqlite_tools.py` is in the same directory as `sqlite_server.py`
+- Run `python sqlite_server.py` manually to see error messages
+
+**Tools not appearing:**
+- Restart your AI tool after configuration changes
+- Verify JSON syntax in configuration files
+- Check tool logs for connection errors
+
+**Permission errors:**
+- For file-based databases, ensure write permissions to the directory
+- Use absolute paths in database connections
 
 ---
 
