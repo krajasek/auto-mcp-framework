@@ -2,6 +2,34 @@
 
 Automatically generate MCP (Model Context Protocol) servers from Python modules using LLM-powered documentation.
 
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [MCP Transports](#mcp-transports)
+- [Package Analysis](#package-analysis)
+- [Type Serialization System](#type-serialization-system)
+- [CLI Reference](#cli-reference)
+- [Python API Reference](#python-api-reference)
+- [Decorators](#decorators)
+- [LLM Providers](#llm-providers)
+- [Configuration](#configuration)
+- [Hot Reload](#hot-reload)
+- [Examples](#examples)
+  - [Simple Math](#simple-math-examplessimple_math)
+  - [Async API](#async-api-examplesasync_api)
+  - [Class Service](#class-service-examplesclass_service)
+  - [Pandas Analytics](#pandas-analytics-examplespandas_analytics)
+  - [SQLite Database](#sqlite-database-examplessqlite_database)
+- [Pandas MCP Server Setup Guide](#pandas-mcp-server-setup-guide)
+- [SQLite MCP Server Setup Guide](#sqlite-mcp-server-setup-guide)
+- [Integration with Claude Desktop](#integration-with-claude-desktop)
+- [Development](#development)
+- [License](#license)
+
+---
+
 ## Features
 
 - **Automatic Tool Generation**: Exposes public functions as MCP tools
