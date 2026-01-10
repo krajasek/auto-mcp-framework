@@ -6,9 +6,23 @@ import threading
 import time
 from pathlib import Path
 from types import ModuleType
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
+from watchdog.observers.polling import PollingObserver
+
+
+@pytest.fixture(autouse=True)
+def use_polling_observer():
+    """Use PollingObserver instead of FSEvents Observer to avoid macOS segfaults.
+
+    The FSEvents-based Observer can cause segmentation faults on macOS when
+    multiple observers are started/stopped rapidly in tests. PollingObserver
+    is more stable for testing purposes.
+    """
+    with patch("auto_mcp.watcher.Observer", PollingObserver):
+        yield
+
 
 from auto_mcp.watcher import (
     ChangeHandler,
