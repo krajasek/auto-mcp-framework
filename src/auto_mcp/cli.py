@@ -187,6 +187,23 @@ def cli(ctx: click.Context) -> None:
     type=str,
     help="Additional context for LLM description generation",
 )
+@click.option(
+    "--enable-sessions",
+    is_flag=True,
+    help="Enable session lifecycle support (create_session/close_session tools)",
+)
+@click.option(
+    "--session-ttl",
+    type=int,
+    default=3600,
+    help="Session TTL in seconds (default: 3600)",
+)
+@click.option(
+    "--max-sessions",
+    type=int,
+    default=100,
+    help="Maximum number of concurrent sessions (default: 100)",
+)
 @click.pass_context
 def generate(
     ctx: click.Context,
@@ -202,6 +219,9 @@ def generate(
     no_resources: bool,
     no_prompts: bool,
     context: str | None,
+    enable_sessions: bool,
+    session_ttl: int,
+    max_sessions: int,
 ) -> None:
     """Generate an MCP server from Python modules.
 
@@ -220,6 +240,12 @@ def generate(
 
         # Generate without LLM (use docstrings only)
         auto-mcp generate mymodule.py -o server.py --no-llm
+
+        # Generate with session lifecycle support
+        auto-mcp generate mymodule.py -o server.py --enable-sessions
+
+        # Generate with custom session settings
+        auto-mcp generate mymodule.py -o server.py --enable-sessions --session-ttl 7200
     """
     settings: Settings = ctx.obj["settings"]
 
@@ -249,10 +275,16 @@ def generate(
         generate_prompts=not no_prompts,
         use_cache=not no_cache,
         use_llm=not no_llm and llm is not None,
+        enable_sessions=enable_sessions,
+        session_ttl=session_ttl,
+        max_sessions=max_sessions,
     )
 
     # Create generator
     generator = MCPGenerator(llm=llm, cache=cache, config=config)
+
+    if enable_sessions:
+        console.print("[green]✓[/green] Session lifecycle enabled")
 
     # Generate output
     if package:
@@ -329,6 +361,23 @@ def generate(
     is_flag=True,
     help="Enable hot-reload on source file changes",
 )
+@click.option(
+    "--enable-sessions",
+    is_flag=True,
+    help="Enable session lifecycle support (create_session/close_session tools)",
+)
+@click.option(
+    "--session-ttl",
+    type=int,
+    default=3600,
+    help="Session TTL in seconds (default: 3600)",
+)
+@click.option(
+    "--max-sessions",
+    type=int,
+    default=100,
+    help="Maximum number of concurrent sessions (default: 100)",
+)
 @click.pass_context
 def serve(
     ctx: click.Context,
@@ -341,6 +390,9 @@ def serve(
     include_private: bool,
     transport: Literal["stdio", "sse"],
     watch: bool,
+    enable_sessions: bool,
+    session_ttl: int,
+    max_sessions: int,
 ) -> None:
     """Run an MCP server from Python modules.
 
@@ -359,6 +411,12 @@ def serve(
 
         # Run with hot-reload enabled
         auto-mcp serve mymodule.py --watch
+
+        # Run with session lifecycle support
+        auto-mcp serve mymodule.py --enable-sessions
+
+        # Run with custom session settings
+        auto-mcp serve mymodule.py --enable-sessions --session-ttl 7200 --max-sessions 50
     """
     settings: Settings = ctx.obj["settings"]
 
@@ -383,12 +441,18 @@ def serve(
         include_private=include_private,
         use_cache=not no_cache,
         use_llm=not no_llm and llm is not None,
+        enable_sessions=enable_sessions,
+        session_ttl=session_ttl,
+        max_sessions=max_sessions,
     )
 
     # Create generator and server
     generator = MCPGenerator(llm=llm, cache=cache, config=config)
 
     console.print("[bold blue]Creating MCP server...[/bold blue]")
+
+    if enable_sessions:
+        console.print("[green]✓[/green] Session lifecycle enabled")
 
     if watch:
         # Hot-reload mode
@@ -401,6 +465,9 @@ def serve(
             use_cache=not no_cache,
             server_name=name,
             include_private=include_private,
+            enable_sessions=enable_sessions,
+            session_ttl=session_ttl,
+            max_sessions=max_sessions,
         )
         hot_server = HotReloadServer(auto, loaded_modules)
 
@@ -674,6 +741,9 @@ def config_show(ctx: click.Context) -> None:
     table.add_row("Include Private", str(settings.include_private))
     table.add_row("Generate Resources", str(settings.generate_resources))
     table.add_row("Generate Prompts", str(settings.generate_prompts))
+    table.add_row("Enable Sessions", str(settings.enable_sessions))
+    table.add_row("Session TTL", f"{settings.session_ttl}s")
+    table.add_row("Max Sessions", str(settings.max_sessions))
 
     console.print(table)
 
@@ -706,6 +776,9 @@ def config_env(ctx: click.Context) -> None:
         ("AUTO_MCP_INCLUDE_PRIVATE", "Include private methods (true/false)"),
         ("AUTO_MCP_GENERATE_RESOURCES", "Generate resources (true/false)"),
         ("AUTO_MCP_GENERATE_PROMPTS", "Generate prompts (true/false)"),
+        ("AUTO_MCP_ENABLE_SESSIONS", "Enable session lifecycle (true/false)"),
+        ("AUTO_MCP_SESSION_TTL", "Session TTL in seconds (default: 3600)"),
+        ("AUTO_MCP_MAX_SESSIONS", "Maximum concurrent sessions (default: 100)"),
     ]
 
     table = Table(title="Environment Variables", show_header=True)
@@ -1019,6 +1092,23 @@ def _build_module_tree(
     is_flag=True,
     help="Include functions re-exported in __all__ from submodules (e.g., pandas, numpy)",
 )
+@click.option(
+    "--enable-sessions",
+    is_flag=True,
+    help="Enable session lifecycle support (create_session/close_session tools)",
+)
+@click.option(
+    "--session-ttl",
+    type=int,
+    default=3600,
+    help="Session TTL in seconds (default: 3600)",
+)
+@click.option(
+    "--max-sessions",
+    type=int,
+    default=100,
+    help="Maximum number of concurrent sessions (default: 100)",
+)
 @click.pass_context
 def package_generate(
     ctx: click.Context,
@@ -1036,6 +1126,9 @@ def package_generate(
     no_cache: bool,
     context: str | None,
     include_reexports: bool,
+    enable_sessions: bool,
+    session_ttl: int,
+    max_sessions: int,
 ) -> None:
     """Generate an MCP server from an installed package.
 
@@ -1082,10 +1175,16 @@ def package_generate(
         include_patterns=list(include_patterns) if include_patterns else None,
         exclude_patterns=list(exclude_patterns) if exclude_patterns else None,
         include_reexports=include_reexports,
+        enable_sessions=enable_sessions,
+        session_ttl=session_ttl,
+        max_sessions=max_sessions,
     )
 
     # Create generator
     generator = MCPGenerator(llm=llm, cache=cache, config=config)
+
+    if enable_sessions:
+        console.print("[green]✓[/green] Session lifecycle enabled")
 
     # Generate
     output_path = Path(output)
@@ -1177,6 +1276,23 @@ def package_generate(
     is_flag=True,
     help="Include functions re-exported in __all__ from submodules (e.g., pandas, numpy)",
 )
+@click.option(
+    "--enable-sessions",
+    is_flag=True,
+    help="Enable session lifecycle support (create_session/close_session tools)",
+)
+@click.option(
+    "--session-ttl",
+    type=int,
+    default=3600,
+    help="Session TTL in seconds (default: 3600)",
+)
+@click.option(
+    "--max-sessions",
+    type=int,
+    default=100,
+    help="Maximum number of concurrent sessions (default: 100)",
+)
 @click.pass_context
 def package_serve(
     ctx: click.Context,
@@ -1193,6 +1309,9 @@ def package_serve(
     no_cache: bool,
     transport: Literal["stdio", "sse"],
     include_reexports: bool,
+    enable_sessions: bool,
+    session_ttl: int,
+    max_sessions: int,
 ) -> None:
     """Run an MCP server from an installed package.
 
@@ -1235,12 +1354,18 @@ def package_serve(
         include_patterns=list(include_patterns) if include_patterns else None,
         exclude_patterns=list(exclude_patterns) if exclude_patterns else None,
         include_reexports=include_reexports,
+        enable_sessions=enable_sessions,
+        session_ttl=session_ttl,
+        max_sessions=max_sessions,
     )
 
     # Create generator
     generator = MCPGenerator(llm=llm, cache=cache, config=config)
 
     console.print("[bold blue]Creating MCP server...[/bold blue]")
+
+    if enable_sessions:
+        console.print("[green]✓[/green] Session lifecycle enabled")
 
     try:
         server = generator.create_server_from_package(package_name)

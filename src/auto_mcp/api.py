@@ -67,6 +67,9 @@ class AutoMCP:
         include_patterns: list[str] | None = None,
         exclude_patterns: list[str] | None = None,
         include_reexports: bool = False,
+        enable_sessions: bool = False,
+        session_ttl: int = 3600,
+        max_sessions: int = 100,
     ) -> None:
         """Initialize AutoMCP.
 
@@ -90,6 +93,9 @@ class AutoMCP:
             exclude_patterns: Glob patterns for modules to exclude.
             include_reexports: Include functions re-exported in __all__ from
                               submodules (useful for packages like pandas, numpy).
+            enable_sessions: Enable session lifecycle support.
+            session_ttl: Default session TTL in seconds.
+            max_sessions: Maximum number of concurrent sessions.
         """
         self._use_llm = use_llm
         self._use_cache = use_cache
@@ -122,6 +128,9 @@ class AutoMCP:
             include_patterns=include_patterns,
             exclude_patterns=exclude_patterns,
             include_reexports=include_reexports,
+            enable_sessions=enable_sessions,
+            session_ttl=session_ttl,
+            max_sessions=max_sessions,
         )
 
         # Create generator

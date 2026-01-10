@@ -12,6 +12,12 @@ MCP_EXCLUDE_MARKER = "_auto_mcp_exclude"
 MCP_RESOURCE_MARKER = "_auto_mcp_resource"
 MCP_PROMPT_MARKER = "_auto_mcp_prompt"
 
+# Re-export session markers for convenience
+from auto_mcp.session.decorators import (  # noqa: E402
+    MCP_SESSION_CLEANUP_MARKER,
+    MCP_SESSION_INIT_MARKER,
+)
+
 
 def mcp_tool(
     name: str | None = None,
@@ -116,14 +122,18 @@ def get_mcp_metadata(func: Callable[..., Any]) -> dict[str, Any]:
 
     Returns:
         Dictionary with keys: is_tool, is_excluded, is_resource, is_prompt,
-        and their respective metadata.
+        session hook info, and their respective metadata.
     """
     return {
         "is_tool": hasattr(func, MCP_TOOL_MARKER),
         "is_excluded": hasattr(func, MCP_EXCLUDE_MARKER),
         "is_resource": hasattr(func, MCP_RESOURCE_MARKER),
         "is_prompt": hasattr(func, MCP_PROMPT_MARKER),
+        "is_session_init": hasattr(func, MCP_SESSION_INIT_MARKER),
+        "is_session_cleanup": hasattr(func, MCP_SESSION_CLEANUP_MARKER),
         "tool_meta": getattr(func, MCP_TOOL_MARKER, None),
         "resource_meta": getattr(func, MCP_RESOURCE_MARKER, None),
         "prompt_meta": getattr(func, MCP_PROMPT_MARKER, None),
+        "session_init_meta": getattr(func, MCP_SESSION_INIT_MARKER, None),
+        "session_cleanup_meta": getattr(func, MCP_SESSION_CLEANUP_MARKER, None),
     }

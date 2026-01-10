@@ -29,6 +29,7 @@ from auto_mcp.types import (
 
 if TYPE_CHECKING:
     from auto_mcp.llm.base import LLMProvider
+    from auto_mcp.session.manager import SessionManager
 
 
 @dataclass
@@ -50,6 +51,9 @@ class GeneratorConfig:
         enable_type_transforms: Enable automatic type transformations
         register_stdlib_adapters: Auto-register standard library adapters
         include_reexports: Include functions re-exported in __all__ from submodules
+        enable_sessions: Enable session lifecycle support
+        session_ttl: Default session TTL in seconds
+        max_sessions: Maximum number of concurrent sessions
     """
 
     server_name: str = "auto-mcp-server"
@@ -66,6 +70,9 @@ class GeneratorConfig:
     enable_type_transforms: bool = False
     register_stdlib_adapters: bool = True
     include_reexports: bool = False
+    enable_sessions: bool = False
+    session_ttl: int = 3600
+    max_sessions: int = 100
 
 
 @dataclass
@@ -138,6 +145,7 @@ class MCPGenerator:
         config: GeneratorConfig | None = None,
         type_registry: TypeRegistry | None = None,
         object_store: ObjectStore | None = None,
+        session_manager: "SessionManager | None" = None,
     ) -> None:
         """Initialize the generator.
 
@@ -147,6 +155,7 @@ class MCPGenerator:
             config: Generator configuration (uses defaults if not provided)
             type_registry: Registry for type adapters (optional)
             object_store: Store for stateful objects (optional)
+            session_manager: Session manager for session lifecycle (optional)
         """
         self.llm = llm
         self.cache = cache or PromptCache()
@@ -168,6 +177,21 @@ class MCPGenerator:
         # Register stdlib adapters if configured
         if self.config.register_stdlib_adapters:
             register_stdlib_adapters(self.type_registry)
+
+        # Initialize session manager if sessions are enabled
+        self.session_manager: "SessionManager | None" = None
+        if self.config.enable_sessions:
+            if session_manager:
+                self.session_manager = session_manager
+            else:
+                from auto_mcp.session.manager import SessionConfig, SessionManager
+
+                self.session_manager = SessionManager(
+                    config=SessionConfig(
+                        default_ttl=self.config.session_ttl,
+                        max_sessions=self.config.max_sessions,
+                    )
+                )
 
     async def analyze_and_generate(
         self,
@@ -296,6 +320,13 @@ class MCPGenerator:
         Returns:
             Configured FastMCP server instance
         """
+        # Analyze the package to get modules
+        pkg_metadata = self.package_analyzer.analyze_package(
+            package,
+            include_patterns=self.config.include_patterns,
+            exclude_patterns=self.config.exclude_patterns,
+        )
+
         # Run async analysis synchronously
         tools, resources, prompts = asyncio.run(
             self.analyze_and_generate_from_package(package, context)
@@ -305,6 +336,15 @@ class MCPGenerator:
         mcp = FastMCP(
             name=self.config.server_name,
         )
+
+        # Register session hooks and tools if sessions are enabled
+        if self.config.enable_sessions and self.session_manager:
+            # Extract modules from package metadata
+            pkg_modules = [
+                info.module for info in pkg_metadata.modules.values() if info.module
+            ]
+            self._register_session_hooks(pkg_modules)
+            self._register_session_tools(mcp)
 
         # Register tools
         for tool in tools:
@@ -996,6 +1036,11 @@ if __name__ == "__main__":
             name=self.config.server_name,
         )
 
+        # Register session hooks and tools if sessions are enabled
+        if self.config.enable_sessions and self.session_manager:
+            self._register_session_hooks(modules)
+            self._register_session_tools(mcp)
+
         # Register tools
         for tool in tools:
             self._register_tool(mcp, tool)
@@ -1012,6 +1057,90 @@ if __name__ == "__main__":
 
         return mcp
 
+    def _register_session_hooks(self, modules: list[ModuleType]) -> None:
+        """Register session init/cleanup hooks from modules.
+
+        Args:
+            modules: List of modules to scan for hooks
+        """
+        if not self.session_manager:
+            return
+
+        from auto_mcp.decorators import MCP_SESSION_CLEANUP_MARKER, MCP_SESSION_INIT_MARKER
+
+        for module in modules:
+            # Scan module for hook functions
+            for name in dir(module):
+                if name.startswith("_"):
+                    continue
+
+                obj = getattr(module, name, None)
+                if not callable(obj):
+                    continue
+
+                # Check for init hook
+                if hasattr(obj, MCP_SESSION_INIT_MARKER):
+                    meta = getattr(obj, MCP_SESSION_INIT_MARKER, {})
+                    order = meta.get("order", 0)
+                    self.session_manager.register_init_hook(obj, order=order)
+
+                # Check for cleanup hook
+                if hasattr(obj, MCP_SESSION_CLEANUP_MARKER):
+                    meta = getattr(obj, MCP_SESSION_CLEANUP_MARKER, {})
+                    order = meta.get("order", 0)
+                    self.session_manager.register_cleanup_hook(obj, order=order)
+
+    def _register_session_tools(self, mcp: FastMCP) -> None:
+        """Register create_session and close_session tools.
+
+        Args:
+            mcp: The FastMCP server
+        """
+        if not self.session_manager:
+            return
+
+        session_manager = self.session_manager
+
+        @mcp.tool(
+            name="create_session",
+            description="Create a new session. Returns session_id to use in subsequent calls.",
+        )
+        async def create_session(
+            metadata: dict[str, Any] | None = None,
+            ttl: int | None = None,
+        ) -> dict[str, Any]:
+            """Create a new session.
+
+            Args:
+                metadata: Optional metadata to store with the session
+                ttl: Optional TTL override in seconds
+
+            Returns:
+                Dictionary with session_id and creation info
+            """
+            session = await session_manager.create_session(metadata=metadata, ttl=ttl)
+            return {
+                "session_id": session.session_id,
+                "created_at": session.created_at,
+                "expires_in": ttl or session_manager.config.default_ttl,
+            }
+
+        @mcp.tool(
+            name="close_session",
+            description="Close an existing session and run cleanup hooks.",
+        )
+        async def close_session(session_id: str) -> dict[str, Any]:
+            """Close an existing session.
+
+            Args:
+                session_id: The session ID to close
+
+            Returns:
+                Dictionary with success status
+            """
+            success = await session_manager.close_session(session_id)
+            return {"success": success, "session_id": session_id}
+
     def _register_tool(self, mcp: FastMCP, tool: GeneratedTool) -> None:
         """Register a tool with the MCP server.
 
@@ -1021,12 +1150,18 @@ if __name__ == "__main__":
         """
         func = tool.function
 
-        # Optionally wrap with type transformations
-        if self.config.enable_type_transforms:
+        # Check if this tool needs session injection
+        needs_session = tool.metadata.needs_session
+        session_param = tool.metadata.session_param_name
+
+        # Optionally wrap with type transformations or session injection
+        if self.config.enable_type_transforms or (needs_session and self.session_manager):
             wrapper = FunctionWrapper(
                 func,
                 registry=self.type_registry,
                 store=self.object_store,
+                session_manager=self.session_manager if needs_session else None,
+                session_param_name=session_param if needs_session else None,
             )
             # Use the wrapper's call method for MCP
             func = wrapper.call

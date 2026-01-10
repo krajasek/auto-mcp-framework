@@ -15,8 +15,11 @@ from auto_mcp.decorators import (
     MCP_EXCLUDE_MARKER,
     MCP_PROMPT_MARKER,
     MCP_RESOURCE_MARKER,
+    MCP_SESSION_CLEANUP_MARKER,
+    MCP_SESSION_INIT_MARKER,
     MCP_TOOL_MARKER,
 )
+from auto_mcp.session.injection import get_session_param_name, needs_session_injection
 
 
 @dataclass
@@ -86,6 +89,26 @@ class MethodMetadata:
     def is_prompt(self) -> bool:
         """Check if this method is marked as a prompt."""
         return bool(self.mcp_metadata.get("is_prompt", False))
+
+    @property
+    def is_session_init(self) -> bool:
+        """Check if this method is a session initialization hook."""
+        return bool(self.mcp_metadata.get("is_session_init", False))
+
+    @property
+    def is_session_cleanup(self) -> bool:
+        """Check if this method is a session cleanup hook."""
+        return bool(self.mcp_metadata.get("is_session_cleanup", False))
+
+    @property
+    def needs_session(self) -> bool:
+        """Check if this method needs session injection."""
+        return bool(self.mcp_metadata.get("needs_session", False))
+
+    @property
+    def session_param_name(self) -> str | None:
+        """Get the name of the SessionContext parameter, if any."""
+        return self.mcp_metadata.get("session_param_name")
 
 
 @dataclass
@@ -217,6 +240,10 @@ class ModuleAnalyzer:
         """
         # Always exclude if marked with @mcp_exclude
         if metadata.is_excluded:
+            return False
+
+        # Session hooks are handled separately, not exposed as tools
+        if metadata.is_session_init or metadata.is_session_cleanup:
             return False
 
         # Always include if explicitly marked as tool, resource, or prompt
@@ -461,6 +488,8 @@ class ModuleAnalyzer:
             "is_excluded": hasattr(func, MCP_EXCLUDE_MARKER),
             "is_resource": hasattr(func, MCP_RESOURCE_MARKER),
             "is_prompt": hasattr(func, MCP_PROMPT_MARKER),
+            "is_session_init": hasattr(func, MCP_SESSION_INIT_MARKER),
+            "is_session_cleanup": hasattr(func, MCP_SESSION_CLEANUP_MARKER),
         }
 
         # Get tool metadata
@@ -482,5 +511,19 @@ class ModuleAnalyzer:
             prompt_meta = getattr(func, MCP_PROMPT_MARKER, {})
             metadata["prompt_name"] = prompt_meta.get("name")
             metadata["prompt_description"] = prompt_meta.get("description")
+
+        # Get session init hook metadata
+        if metadata["is_session_init"]:
+            init_meta = getattr(func, MCP_SESSION_INIT_MARKER, {})
+            metadata["session_init_order"] = init_meta.get("order", 0)
+
+        # Get session cleanup hook metadata
+        if metadata["is_session_cleanup"]:
+            cleanup_meta = getattr(func, MCP_SESSION_CLEANUP_MARKER, {})
+            metadata["session_cleanup_order"] = cleanup_meta.get("order", 0)
+
+        # Check if function needs session injection
+        metadata["needs_session"] = needs_session_injection(func)
+        metadata["session_param_name"] = get_session_param_name(func)
 
         return metadata

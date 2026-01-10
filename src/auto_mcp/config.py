@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     # Hot reload
     watch: bool = False
 
+    # Session settings
+    enable_sessions: bool = False
+    session_ttl: int = 3600  # Default 1 hour
+    max_sessions: int = 100
+
 
 def get_settings() -> Settings:
     """Get settings instance."""

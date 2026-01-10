@@ -13,6 +13,7 @@ Automatically generate MCP (Model Context Protocol) servers from Python modules 
 - [CLI Reference](#cli-reference)
 - [Python API Reference](#python-api-reference)
 - [Decorators](#decorators)
+- [Session Lifecycle](#session-lifecycle)
 - [LLM Providers](#llm-providers)
 - [Configuration](#configuration)
 - [Hot Reload](#hot-reload)
@@ -41,6 +42,7 @@ Automatically generate MCP (Model Context Protocol) servers from Python modules 
 - **Compression Support**: Automatic compression for large data with gzip, zlib, or lz4
 - **Object Store**: Server-side handle-based storage for stateful objects (sessions, connections)
 - **Decorator Support**: Fine-grained control with `@mcp_tool`, `@mcp_exclude`, `@mcp_resource`, `@mcp_prompt`
+- **Session Lifecycle**: Explicit session management with `create_session`/`close_session` tools and automatic `SessionContext` injection
 - **Async Support**: Full support for async functions
 - **Hot Reload**: Watch for file changes during development
 - **Caching**: File-based caching to avoid redundant LLM calls
@@ -879,6 +881,9 @@ auto-mcp generate mymodule.py -o server.py --llm-provider ollama --llm-model qwe
 | `--llm-model` | Model name for the LLM provider |
 | `--no-cache` | Disable caching |
 | `--include-private` | Include private functions (starting with _) |
+| `--enable-sessions` | Enable session lifecycle support |
+| `--session-ttl` | Session TTL in seconds (default: 3600) |
+| `--max-sessions` | Maximum concurrent sessions (default: 100) |
 
 ### `auto-mcp serve`
 
@@ -911,6 +916,9 @@ auto-mcp serve mymodule.py --llm-provider ollama --llm-model qwen2.5-coder:7b
 | `--watch` | Enable hot-reload on file changes |
 | `--llm-provider` | LLM provider |
 | `--llm-model` | Model name |
+| `--enable-sessions` | Enable session lifecycle support |
+| `--session-ttl` | Session TTL in seconds (default: 3600) |
+| `--max-sessions` | Maximum concurrent sessions (default: 100) |
 
 ### `auto-mcp check`
 
@@ -1067,6 +1075,9 @@ auto = AutoMCP(
     generate_resources=True,
     generate_prompts=True,
     include_reexports=False,  # Set True for pandas, numpy, etc.
+    enable_sessions=False,    # Enable session lifecycle
+    session_ttl=3600,         # Session TTL in seconds
+    max_sessions=100,         # Maximum concurrent sessions
 )
 ```
 
@@ -1226,6 +1237,296 @@ def greeting_prompt(name: str, style: str = "formal") -> str:
     return f"Give a casual, friendly greeting to {name}."
 ```
 
+### @mcp_session_init
+
+Mark a function as a session initialization hook.
+
+```python
+from auto_mcp import mcp_session_init, SessionContext
+
+@mcp_session_init(order=0)
+def setup_database(session: SessionContext) -> None:
+    """Initialize database connection for this session."""
+    session.data.set("db", create_connection())
+
+@mcp_session_init(order=1)  # Runs after order=0
+async def load_user_preferences(session: SessionContext) -> None:
+    """Load user preferences after DB is ready."""
+    db = session.data.get("db")
+    prefs = await db.get_preferences(session.metadata.get("user_id"))
+    session.data.set("preferences", prefs)
+```
+
+### @mcp_session_cleanup
+
+Mark a function as a session cleanup hook.
+
+```python
+from auto_mcp import mcp_session_cleanup, SessionContext
+
+@mcp_session_cleanup(order=0)
+async def cleanup_database(session: SessionContext) -> None:
+    """Close database connection when session ends."""
+    db = session.data.get("db")
+    if db:
+        await db.close()
+```
+
+---
+
+## Session Lifecycle
+
+auto-mcp supports explicit session lifecycle management for tools that need to maintain state across multiple calls. This is useful for scenarios like database connections, user preferences, shopping carts, or any stateful operations.
+
+### Overview
+
+When sessions are enabled, auto-mcp automatically adds two tools to your server:
+
+- **`create_session`**: Creates a new session and returns a `session_id`
+- **`close_session`**: Closes a session and runs cleanup hooks
+
+Tools that declare a `session: SessionContext` parameter receive the session automatically when called with a `session_id`.
+
+### Enabling Sessions
+
+#### CLI
+
+```bash
+# Generate server with sessions enabled
+auto-mcp generate mymodule.py -o server.py --enable-sessions
+
+# With custom TTL (2 hours) and max sessions
+auto-mcp generate mymodule.py -o server.py --enable-sessions --session-ttl 7200 --max-sessions 50
+
+# Serve with sessions
+auto-mcp serve mymodule.py --enable-sessions
+```
+
+#### Python API
+
+```python
+from auto_mcp import AutoMCP
+
+auto = AutoMCP(
+    enable_sessions=True,
+    session_ttl=3600,      # Session expires after 1 hour
+    max_sessions=100,      # Maximum concurrent sessions
+)
+
+server = auto.create_server([mymodule])
+server.run()
+```
+
+#### Environment Variables
+
+```bash
+AUTO_MCP_ENABLE_SESSIONS=true
+AUTO_MCP_SESSION_TTL=3600
+AUTO_MCP_MAX_SESSIONS=100
+```
+
+### Writing Session-Aware Tools
+
+Tools can optionally receive session context by declaring a `session: SessionContext` parameter:
+
+```python
+from auto_mcp import SessionContext
+
+def get_cart_items(session: SessionContext) -> list[dict]:
+    """Get items in the shopping cart."""
+    return session.data.get("cart", [])
+
+def add_to_cart(session: SessionContext, product_id: str, quantity: int) -> dict:
+    """Add an item to the shopping cart."""
+    cart = session.data.get("cart", [])
+    cart.append({"product_id": product_id, "quantity": quantity})
+    session.data.set("cart", cart)
+    return {"status": "added", "cart_size": len(cart)}
+
+def calculate_total(product_id: str, quantity: int, price: float) -> float:
+    """Calculate total for an item (no session needed)."""
+    return quantity * price
+```
+
+**Important**: Session injection is **optional**. Tools without a `SessionContext` parameter work normally without any session handling.
+
+### Tool Schema Transformation
+
+When a tool declares `session: SessionContext`, the MCP schema is automatically transformed:
+
+**Python function:**
+```python
+def get_data(session: SessionContext, user_id: str) -> dict:
+    return session.data.get(user_id)
+```
+
+**Generated MCP tool schema:**
+```json
+{
+  "name": "get_data",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "session_id": {"type": "string", "description": "Session ID from create_session"},
+      "user_id": {"type": "string"}
+    },
+    "required": ["session_id", "user_id"]
+  }
+}
+```
+
+The `session` parameter is replaced with `session_id` in the schema, and the actual `SessionContext` is injected at runtime.
+
+### Session Hooks
+
+Use decorators to run code when sessions are created or closed:
+
+```python
+from auto_mcp import mcp_session_init, mcp_session_cleanup, SessionContext
+
+@mcp_session_init(order=0)
+def on_session_start(session: SessionContext) -> None:
+    """Initialize session state."""
+    session.data.set("created_at", time.time())
+    session.data.set("request_count", 0)
+
+@mcp_session_cleanup(order=0)
+async def on_session_end(session: SessionContext) -> None:
+    """Clean up session resources."""
+    db = session.data.get("db_connection")
+    if db:
+        await db.close()
+```
+
+**Hook execution order:**
+- Init hooks run in ascending order (0, 1, 2, ...)
+- Cleanup hooks run in descending order (2, 1, 0, ...)
+
+### SessionContext API
+
+```python
+@dataclass
+class SessionContext:
+    session_id: str           # Unique session identifier
+    created_at: float         # Unix timestamp of creation
+    metadata: dict[str, Any]  # Immutable session metadata
+    data: SessionData         # Mutable session data storage
+
+    @property
+    def age_seconds(self) -> float:
+        """Time since session creation."""
+        ...
+
+    def refresh(self) -> bool:
+        """Extend session TTL."""
+        ...
+
+    def invalidate(self) -> None:
+        """Mark session for closure."""
+        ...
+```
+
+### SessionData API
+
+```python
+class SessionData:
+    def get(self, key: str, default: Any = None) -> Any:
+        """Get a value from session data."""
+        ...
+
+    def set(self, key: str, value: Any) -> None:
+        """Set a value in session data."""
+        ...
+
+    def delete(self, key: str) -> bool:
+        """Delete a key from session data."""
+        ...
+
+    def clear(self) -> None:
+        """Clear all session data."""
+        ...
+
+    def keys(self) -> list[str]:
+        """Get all keys in session data."""
+        ...
+
+    def contains(self, key: str) -> bool:
+        """Check if key exists."""
+        ...
+```
+
+### Complete Example
+
+```python
+# mymodule.py
+from auto_mcp import (
+    SessionContext,
+    mcp_session_init,
+    mcp_session_cleanup,
+)
+
+# Session hooks
+@mcp_session_init(order=0)
+def init_session(session: SessionContext) -> None:
+    """Initialize session with empty cart."""
+    session.data.set("cart", [])
+    session.data.set("total", 0.0)
+
+@mcp_session_cleanup(order=0)
+def cleanup_session(session: SessionContext) -> None:
+    """Log session summary on close."""
+    cart = session.data.get("cart", [])
+    total = session.data.get("total", 0)
+    print(f"Session {session.session_id}: {len(cart)} items, ${total:.2f}")
+
+# Session-aware tools
+def add_item(session: SessionContext, name: str, price: float) -> dict:
+    """Add item to cart."""
+    cart = session.data.get("cart", [])
+    cart.append({"name": name, "price": price})
+    session.data.set("cart", cart)
+    session.data.set("total", session.data.get("total", 0) + price)
+    return {"added": name, "cart_size": len(cart)}
+
+def get_cart(session: SessionContext) -> dict:
+    """Get cart contents."""
+    return {
+        "items": session.data.get("cart", []),
+        "total": session.data.get("total", 0),
+    }
+
+def checkout(session: SessionContext) -> dict:
+    """Process checkout and clear cart."""
+    cart = session.data.get("cart", [])
+    total = session.data.get("total", 0)
+    session.data.set("cart", [])
+    session.data.set("total", 0)
+    return {"items_purchased": len(cart), "amount": total}
+
+# Non-session tool (works without session)
+def get_product_info(product_id: str) -> dict:
+    """Get product details (no session needed)."""
+    return {"id": product_id, "name": "Sample Product", "price": 29.99}
+```
+
+**Client usage:**
+```
+1. Call create_session() -> {"session_id": "session:abc123..."}
+2. Call add_item(session_id="session:abc123...", name="Widget", price=9.99)
+3. Call add_item(session_id="session:abc123...", name="Gadget", price=19.99)
+4. Call get_cart(session_id="session:abc123...")
+5. Call checkout(session_id="session:abc123...")
+6. Call close_session(session_id="session:abc123...")
+```
+
+### Session Configuration Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `enable_sessions` | `false` | Enable session lifecycle support |
+| `session_ttl` | `3600` | Session TTL in seconds (1 hour) |
+| `max_sessions` | `100` | Maximum concurrent sessions |
+
 ---
 
 ## LLM Providers
@@ -1310,6 +1611,9 @@ All settings can be configured via environment variables with the `AUTO_MCP_` pr
 | `AUTO_MCP_INCLUDE_PRIVATE` | `false` | Include private functions |
 | `AUTO_MCP_GENERATE_RESOURCES` | `true` | Generate MCP resources |
 | `AUTO_MCP_GENERATE_PROMPTS` | `true` | Generate MCP prompts |
+| `AUTO_MCP_ENABLE_SESSIONS` | `false` | Enable session lifecycle support |
+| `AUTO_MCP_SESSION_TTL` | `3600` | Session TTL in seconds |
+| `AUTO_MCP_MAX_SESSIONS` | `100` | Maximum concurrent sessions |
 
 ### .env File
 

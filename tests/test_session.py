@@ -1,0 +1,485 @@
+"""Tests for session lifecycle support."""
+
+from __future__ import annotations
+
+import asyncio
+import time
+from typing import Any
+
+import pytest
+
+from auto_mcp.session import (
+    SessionConfig,
+    SessionContext,
+    SessionData,
+    SessionManager,
+    mcp_session_cleanup,
+    mcp_session_init,
+)
+from auto_mcp.session.decorators import (
+    MCP_SESSION_CLEANUP_MARKER,
+    MCP_SESSION_INIT_MARKER,
+)
+from auto_mcp.session.injection import (
+    get_non_session_parameters,
+    get_session_param_name,
+    needs_session_injection,
+)
+
+
+class TestSessionData:
+    """Tests for SessionData class."""
+
+    def test_get_set_basic(self) -> None:
+        """Test basic get/set operations."""
+        data = SessionData()
+        data.set("key1", "value1")
+        assert data.get("key1") == "value1"
+
+    def test_get_default(self) -> None:
+        """Test get with default value."""
+        data = SessionData()
+        assert data.get("missing") is None
+        assert data.get("missing", "default") == "default"
+
+    def test_delete(self) -> None:
+        """Test delete operation."""
+        data = SessionData()
+        data.set("key1", "value1")
+        assert data.delete("key1") is True
+        assert data.get("key1") is None
+        assert data.delete("key1") is False  # Already deleted
+
+    def test_clear(self) -> None:
+        """Test clear operation."""
+        data = SessionData()
+        data.set("key1", "value1")
+        data.set("key2", "value2")
+        data.clear()
+        assert data.get("key1") is None
+        assert data.get("key2") is None
+
+    def test_keys(self) -> None:
+        """Test keys method."""
+        data = SessionData()
+        data.set("key1", "value1")
+        data.set("key2", "value2")
+        assert set(data.keys()) == {"key1", "key2"}
+
+    def test_contains(self) -> None:
+        """Test contains method."""
+        data = SessionData()
+        data.set("key1", "value1")
+        assert data.contains("key1") is True
+        assert data.contains("missing") is False
+
+    def test_len(self) -> None:
+        """Test len method."""
+        data = SessionData()
+        assert len(data) == 0
+        data.set("key1", "value1")
+        assert len(data) == 1
+        data.set("key2", "value2")
+        assert len(data) == 2
+
+
+class TestSessionContext:
+    """Tests for SessionContext class."""
+
+    def test_creation(self) -> None:
+        """Test SessionContext creation."""
+        ctx = SessionContext(
+            session_id="session:abc123",
+            created_at=time.time(),
+        )
+        assert ctx.session_id == "session:abc123"
+        assert isinstance(ctx.data, SessionData)
+        assert ctx.metadata == {}
+
+    def test_age_seconds(self) -> None:
+        """Test age_seconds property."""
+        ctx = SessionContext(
+            session_id="session:abc123",
+            created_at=time.time() - 10,  # 10 seconds ago
+        )
+        assert ctx.age_seconds >= 10
+
+    def test_with_metadata(self) -> None:
+        """Test SessionContext with metadata."""
+        ctx = SessionContext(
+            session_id="session:abc123",
+            created_at=time.time(),
+            metadata={"user_id": "user123"},
+        )
+        assert ctx.metadata["user_id"] == "user123"
+
+    def test_data_operations(self) -> None:
+        """Test data operations via context."""
+        ctx = SessionContext(
+            session_id="session:abc123",
+            created_at=time.time(),
+        )
+        ctx.data.set("key1", "value1")
+        assert ctx.data.get("key1") == "value1"
+
+
+class TestSessionConfig:
+    """Tests for SessionConfig class."""
+
+    def test_defaults(self) -> None:
+        """Test default values."""
+        config = SessionConfig()
+        assert config.default_ttl == 3600
+        assert config.max_sessions == 100
+        assert config.session_id_prefix == "session:"
+        assert config.handle_length == 12
+
+    def test_custom_values(self) -> None:
+        """Test custom values."""
+        config = SessionConfig(
+            default_ttl=7200,
+            max_sessions=50,
+            session_id_prefix="sess:",
+        )
+        assert config.default_ttl == 7200
+        assert config.max_sessions == 50
+        assert config.session_id_prefix == "sess:"
+
+
+class TestSessionManager:
+    """Tests for SessionManager class."""
+
+    @pytest.fixture
+    def manager(self) -> SessionManager:
+        """Create a session manager for tests."""
+        return SessionManager(SessionConfig(max_sessions=10))
+
+    @pytest.mark.asyncio
+    async def test_create_session(self, manager: SessionManager) -> None:
+        """Test session creation."""
+        session = await manager.create_session()
+        assert session.session_id.startswith("session:")
+        assert manager.get_session(session.session_id) is session
+
+    @pytest.mark.asyncio
+    async def test_create_session_with_metadata(self, manager: SessionManager) -> None:
+        """Test session creation with metadata."""
+        session = await manager.create_session(metadata={"user_id": "user123"})
+        assert session.metadata["user_id"] == "user123"
+
+    @pytest.mark.asyncio
+    async def test_close_session(self, manager: SessionManager) -> None:
+        """Test session closing."""
+        session = await manager.create_session()
+        session_id = session.session_id
+        assert await manager.close_session(session_id) is True
+        # get_session raises KeyError for closed sessions
+        with pytest.raises(KeyError):
+            manager.get_session(session_id)
+
+    @pytest.mark.asyncio
+    async def test_close_nonexistent_session(self, manager: SessionManager) -> None:
+        """Test closing a non-existent session."""
+        assert await manager.close_session("session:nonexistent") is False
+
+    @pytest.mark.asyncio
+    async def test_max_sessions_limit(self, manager: SessionManager) -> None:
+        """Test max sessions limit."""
+        # Create max sessions
+        sessions = []
+        for _ in range(10):
+            session = await manager.create_session()
+            sessions.append(session)
+
+        # Try to create one more
+        with pytest.raises(ValueError, match="Maximum sessions"):
+            await manager.create_session()
+
+    @pytest.mark.asyncio
+    async def test_session_count(self, manager: SessionManager) -> None:
+        """Test session counting."""
+        assert manager.session_count == 0
+        session1 = await manager.create_session()
+        assert manager.session_count == 1
+        session2 = await manager.create_session()
+        assert manager.session_count == 2
+        await manager.close_session(session1.session_id)
+        assert manager.session_count == 1
+
+    @pytest.mark.asyncio
+    async def test_list_sessions(self, manager: SessionManager) -> None:
+        """Test listing sessions."""
+        session1 = await manager.create_session()
+        session2 = await manager.create_session()
+        sessions = manager.list_sessions()
+        assert len(sessions) == 2
+        assert session1.session_id in sessions
+        assert session2.session_id in sessions
+
+    @pytest.mark.asyncio
+    async def test_init_hook(self, manager: SessionManager) -> None:
+        """Test init hook execution."""
+        hook_called = []
+
+        async def init_hook(session: SessionContext) -> None:
+            hook_called.append(session.session_id)
+            session.data.set("initialized", True)
+
+        manager.register_init_hook(init_hook)
+        session = await manager.create_session()
+
+        assert len(hook_called) == 1
+        assert hook_called[0] == session.session_id
+        assert session.data.get("initialized") is True
+
+    @pytest.mark.asyncio
+    async def test_cleanup_hook(self, manager: SessionManager) -> None:
+        """Test cleanup hook execution."""
+        hook_called = []
+
+        async def cleanup_hook(session: SessionContext) -> None:
+            hook_called.append(session.session_id)
+
+        manager.register_cleanup_hook(cleanup_hook)
+        session = await manager.create_session()
+        session_id = session.session_id
+
+        await manager.close_session(session_id)
+        assert len(hook_called) == 1
+        assert hook_called[0] == session_id
+
+    @pytest.mark.asyncio
+    async def test_init_hooks_order(self, manager: SessionManager) -> None:
+        """Test init hooks are called in order."""
+        call_order: list[int] = []
+
+        async def hook1(session: SessionContext) -> None:
+            call_order.append(1)
+
+        async def hook2(session: SessionContext) -> None:
+            call_order.append(2)
+
+        async def hook3(session: SessionContext) -> None:
+            call_order.append(3)
+
+        manager.register_init_hook(hook2, order=1)
+        manager.register_init_hook(hook1, order=0)
+        manager.register_init_hook(hook3, order=2)
+
+        await manager.create_session()
+        assert call_order == [1, 2, 3]
+
+    @pytest.mark.asyncio
+    async def test_cleanup_hooks_reverse_order(self, manager: SessionManager) -> None:
+        """Test cleanup hooks are called in reverse order."""
+        call_order: list[int] = []
+
+        async def hook1(session: SessionContext) -> None:
+            call_order.append(1)
+
+        async def hook2(session: SessionContext) -> None:
+            call_order.append(2)
+
+        async def hook3(session: SessionContext) -> None:
+            call_order.append(3)
+
+        manager.register_cleanup_hook(hook1, order=0)
+        manager.register_cleanup_hook(hook2, order=1)
+        manager.register_cleanup_hook(hook3, order=2)
+
+        session = await manager.create_session()
+        await manager.close_session(session.session_id)
+        assert call_order == [3, 2, 1]
+
+    @pytest.mark.asyncio
+    async def test_sync_hook_support(self, manager: SessionManager) -> None:
+        """Test that sync hooks are also supported."""
+        hook_called = []
+
+        def sync_init_hook(session: SessionContext) -> None:
+            hook_called.append("init")
+
+        def sync_cleanup_hook(session: SessionContext) -> None:
+            hook_called.append("cleanup")
+
+        manager.register_init_hook(sync_init_hook)
+        manager.register_cleanup_hook(sync_cleanup_hook)
+
+        session = await manager.create_session()
+        await manager.close_session(session.session_id)
+
+        assert hook_called == ["init", "cleanup"]
+
+
+class TestSessionDecorators:
+    """Tests for session decorators."""
+
+    def test_mcp_session_init_decorator(self) -> None:
+        """Test mcp_session_init decorator."""
+
+        @mcp_session_init(order=5)
+        def init_handler(session: SessionContext) -> None:
+            pass
+
+        assert hasattr(init_handler, MCP_SESSION_INIT_MARKER)
+        metadata = getattr(init_handler, MCP_SESSION_INIT_MARKER)
+        assert metadata["order"] == 5
+
+    def test_mcp_session_cleanup_decorator(self) -> None:
+        """Test mcp_session_cleanup decorator."""
+
+        @mcp_session_cleanup(order=3)
+        def cleanup_handler(session: SessionContext) -> None:
+            pass
+
+        assert hasattr(cleanup_handler, MCP_SESSION_CLEANUP_MARKER)
+        metadata = getattr(cleanup_handler, MCP_SESSION_CLEANUP_MARKER)
+        assert metadata["order"] == 3
+
+    def test_mcp_session_init_default_order(self) -> None:
+        """Test mcp_session_init with default order."""
+
+        @mcp_session_init()
+        def init_handler(session: SessionContext) -> None:
+            pass
+
+        metadata = getattr(init_handler, MCP_SESSION_INIT_MARKER)
+        assert metadata["order"] == 0
+
+    def test_decorators_preserve_function(self) -> None:
+        """Test that decorators preserve function behavior."""
+
+        @mcp_session_init()
+        def init_handler(session: SessionContext) -> str:
+            return "initialized"
+
+        # Create a mock context
+        ctx = SessionContext(session_id="test", created_at=time.time())
+        assert init_handler(ctx) == "initialized"
+
+
+class TestSessionInjection:
+    """Tests for session injection utilities."""
+
+    def test_needs_session_injection_true(self) -> None:
+        """Test detection of SessionContext parameter."""
+
+        def func_with_session(session: SessionContext, x: int) -> int:
+            return x
+
+        assert needs_session_injection(func_with_session) is True
+
+    def test_needs_session_injection_false(self) -> None:
+        """Test functions without SessionContext."""
+
+        def func_without_session(x: int, y: str) -> int:
+            return x
+
+        assert needs_session_injection(func_without_session) is False
+
+    def test_get_session_param_name(self) -> None:
+        """Test getting session parameter name."""
+
+        def func_with_session(ctx: SessionContext, x: int) -> int:
+            return x
+
+        assert get_session_param_name(func_with_session) == "ctx"
+
+    def test_get_session_param_name_none(self) -> None:
+        """Test when there's no SessionContext parameter."""
+
+        def func_without_session(x: int) -> int:
+            return x
+
+        assert get_session_param_name(func_without_session) is None
+
+    def test_get_non_session_parameters(self) -> None:
+        """Test getting non-session parameters."""
+
+        def func_with_session(session: SessionContext, x: int, y: str) -> None:
+            pass
+
+        params = get_non_session_parameters(func_with_session)
+        assert params == ["x", "y"]
+
+    def test_get_non_session_parameters_no_session(self) -> None:
+        """Test getting parameters when no session."""
+
+        def func_without_session(x: int, y: str) -> None:
+            pass
+
+        params = get_non_session_parameters(func_without_session)
+        assert params == ["x", "y"]
+
+    def test_async_function_detection(self) -> None:
+        """Test session injection detection for async functions."""
+
+        async def async_func(session: SessionContext, x: int) -> int:
+            return x
+
+        assert needs_session_injection(async_func) is True
+        assert get_session_param_name(async_func) == "session"
+
+
+class TestSessionIntegration:
+    """Integration tests for session lifecycle."""
+
+    @pytest.mark.asyncio
+    async def test_full_session_lifecycle(self) -> None:
+        """Test complete session lifecycle with hooks."""
+        manager = SessionManager()
+        lifecycle_events: list[str] = []
+
+        @mcp_session_init()
+        async def on_init(session: SessionContext) -> None:
+            lifecycle_events.append(f"init:{session.session_id}")
+            session.data.set("connection", "db_conn")
+
+        @mcp_session_cleanup()
+        async def on_cleanup(session: SessionContext) -> None:
+            lifecycle_events.append(f"cleanup:{session.session_id}")
+            session.data.delete("connection")
+
+        manager.register_init_hook(on_init)
+        manager.register_cleanup_hook(on_cleanup)
+
+        # Create session
+        session = await manager.create_session(metadata={"user": "test"})
+        assert f"init:{session.session_id}" in lifecycle_events
+        assert session.data.get("connection") == "db_conn"
+
+        # Use session
+        session.data.set("counter", 0)
+        session.data.set("counter", session.data.get("counter") + 1)
+        assert session.data.get("counter") == 1
+
+        # Close session
+        await manager.close_session(session.session_id)
+        assert f"cleanup:{session.session_id}" in lifecycle_events
+
+    @pytest.mark.asyncio
+    async def test_multiple_sessions_isolation(self) -> None:
+        """Test that multiple sessions are isolated."""
+        manager = SessionManager()
+
+        session1 = await manager.create_session()
+        session2 = await manager.create_session()
+
+        session1.data.set("value", "session1_value")
+        session2.data.set("value", "session2_value")
+
+        assert session1.data.get("value") == "session1_value"
+        assert session2.data.get("value") == "session2_value"
+
+        await manager.close_session(session1.session_id)
+        assert session2.data.get("value") == "session2_value"
+
+    @pytest.mark.asyncio
+    async def test_session_with_custom_ttl(self) -> None:
+        """Test session creation with custom TTL."""
+        manager = SessionManager(SessionConfig(default_ttl=3600))
+
+        session = await manager.create_session(ttl=7200)
+        # The session should store the custom TTL
+        # (Note: TTL enforcement is not tested here as it would require time manipulation)
+        assert session is not None

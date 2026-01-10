@@ -16,6 +16,12 @@ from auto_mcp.types.base import JsonValue, TypeInfo, TypeStrategy
 from auto_mcp.types.registry import TypeRegistry, get_default_registry
 from auto_mcp.types.store import ObjectStore, get_default_store
 
+# Import TYPE_CHECKING to avoid circular imports
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from auto_mcp.session.manager import SessionManager
+
 logger = logging.getLogger(__name__)
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -67,6 +73,8 @@ class FunctionWrapper:
         store: ObjectStore | None = None,
         transform_inputs: bool = True,
         transform_output: bool = True,
+        session_manager: "SessionManager | None" = None,
+        session_param_name: str | None = None,
     ) -> None:
         """Initialize function wrapper.
 
@@ -76,12 +84,16 @@ class FunctionWrapper:
             store: Object store for handles (uses default if None)
             transform_inputs: Whether to transform input parameters
             transform_output: Whether to transform return value
+            session_manager: Session manager for session injection
+            session_param_name: Name of the SessionContext parameter to inject
         """
         self.func = func
         self.registry = registry or get_default_registry()
         self.store = store or get_default_store()
         self._transform_inputs = transform_inputs
         self._transform_output = transform_output
+        self._session_manager = session_manager
+        self._session_param_name = session_param_name
 
         # Analyze function signature
         self._sig = inspect.signature(func)
@@ -110,16 +122,27 @@ class FunctionWrapper:
         Returns:
             Dictionary of parameter names to TypeInfo
         """
+        # Import here to avoid circular imports
+        from auto_mcp.session.context import SessionContext
+
         param_info: dict[str, TypeInfo] = {}
 
         for name, param in self._sig.parameters.items():
             if name in ("self", "cls"):
                 continue
 
+            # Skip SessionContext parameter - it's injected, not passed by caller
+            if name == self._session_param_name:
+                continue
+
             # Get type annotation
             type_hint = self._type_hints.get(name)
             if type_hint is None and param.annotation is not inspect.Parameter.empty:
                 type_hint = param.annotation
+
+            # Skip SessionContext type even if not specified by name
+            if type_hint is SessionContext:
+                continue
 
             if type_hint is not None:
                 param_info[name] = self.registry.get_type_info(type_hint)
@@ -145,11 +168,31 @@ class FunctionWrapper:
         Returns:
             JSON Schema dictionary for the input parameters
         """
+        # Import here to avoid circular imports
+        from auto_mcp.session.context import SessionContext
+
         properties: dict[str, Any] = {}
         required: list[str] = []
 
+        # Add session_id if session injection is enabled
+        if self._session_manager and self._session_param_name:
+            properties["session_id"] = {
+                "type": "string",
+                "description": "Active session ID from create_session",
+            }
+            required.append("session_id")
+
         for name, param in self._sig.parameters.items():
             if name in ("self", "cls"):
+                continue
+
+            # Skip SessionContext parameter
+            if name == self._session_param_name:
+                continue
+
+            # Get type hint to check for SessionContext
+            type_hint = self._type_hints.get(name)
+            if type_hint is SessionContext:
                 continue
 
             # Get parameter info
@@ -324,11 +367,28 @@ class FunctionWrapper:
         Returns:
             JSON-compatible return value
         """
+        # Make a copy to avoid modifying the original
+        kwargs = dict(kwargs)
+
+        # Handle session injection
+        if self._session_manager and self._session_param_name:
+            session_id = kwargs.pop("session_id", None)
+            if session_id is None:
+                raise ValueError("session_id is required for session-aware tools")
+            if not isinstance(session_id, str):
+                raise TypeError(f"session_id must be a string, got {type(session_id).__name__}")
+            session = self._session_manager.get_session(session_id)
+            kwargs[self._session_param_name] = session
+
         # Transform inputs
         if self._transform_inputs:
-            transformed_kwargs = {}
+            transformed_kwargs: dict[str, Any] = {}
             for name, value in kwargs.items():
-                transformed_kwargs[name] = self.transform_input(name, value)
+                # Skip session - it's already the right type
+                if name == self._session_param_name:
+                    transformed_kwargs[name] = value
+                else:
+                    transformed_kwargs[name] = self.transform_input(name, value)
         else:
             transformed_kwargs = kwargs
 
@@ -349,11 +409,28 @@ class FunctionWrapper:
         Returns:
             JSON-compatible return value
         """
+        # Make a copy to avoid modifying the original
+        kwargs = dict(kwargs)
+
+        # Handle session injection
+        if self._session_manager and self._session_param_name:
+            session_id = kwargs.pop("session_id", None)
+            if session_id is None:
+                raise ValueError("session_id is required for session-aware tools")
+            if not isinstance(session_id, str):
+                raise TypeError(f"session_id must be a string, got {type(session_id).__name__}")
+            session = self._session_manager.get_session(session_id)
+            kwargs[self._session_param_name] = session
+
         # Transform inputs
         if self._transform_inputs:
-            transformed_kwargs = {}
+            transformed_kwargs: dict[str, Any] = {}
             for name, value in kwargs.items():
-                transformed_kwargs[name] = self.transform_input(name, value)
+                # Skip session - it's already the right type
+                if name == self._session_param_name:
+                    transformed_kwargs[name] = value
+                else:
+                    transformed_kwargs[name] = self.transform_input(name, value)
         else:
             transformed_kwargs = kwargs
 
@@ -421,6 +498,8 @@ def wrap_function(
     store: ObjectStore | None = None,
     transform_inputs: bool = True,
     transform_output: bool = True,
+    session_manager: "SessionManager | None" = None,
+    session_param_name: str | None = None,
 ) -> FunctionWrapper:
     """Wrap a function with type transformations.
 
@@ -430,6 +509,8 @@ def wrap_function(
         store: Object store for handles
         transform_inputs: Whether to transform inputs
         transform_output: Whether to transform outputs
+        session_manager: Session manager for session injection
+        session_param_name: Name of the SessionContext parameter to inject
 
     Returns:
         FunctionWrapper instance
@@ -440,6 +521,8 @@ def wrap_function(
         store=store,
         transform_inputs=transform_inputs,
         transform_output=transform_output,
+        session_manager=session_manager,
+        session_param_name=session_param_name,
     )
 
 

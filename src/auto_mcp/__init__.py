@@ -9,6 +9,14 @@ from auto_mcp.core.package import (
     analyze_installed_package,
 )
 from auto_mcp.decorators import mcp_exclude, mcp_prompt, mcp_resource, mcp_tool
+from auto_mcp.session import (
+    SessionConfig,
+    SessionContext,
+    SessionData,
+    SessionManager,
+    mcp_session_cleanup,
+    mcp_session_init,
+)
 
 __all__ = [
     # High-level API
@@ -30,6 +38,13 @@ __all__ = [
     "mcp_exclude",
     "mcp_resource",
     "mcp_prompt",
+    # Session lifecycle
+    "SessionContext",
+    "SessionData",
+    "SessionManager",
+    "SessionConfig",
+    "mcp_session_init",
+    "mcp_session_cleanup",
 ]
 
 __version__ = "0.1.0"
