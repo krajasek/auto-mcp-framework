@@ -21,18 +21,23 @@ class SessionConfig:
     """Configuration for session management.
 
     Attributes:
-        default_ttl: Default session TTL in seconds (3600 = 1 hour)
+        default_ttl: Default session TTL in seconds (3600 = 1 hour).
+            Set to 0 for sessions that never expire (use with caution).
         max_sessions: Maximum concurrent sessions (100)
         auto_cleanup_interval: Seconds between automatic cleanups (60)
         session_id_prefix: Prefix for session handles ("session:")
-        handle_length: Length of random part of session ID (12)
+        handle_length: Deprecated - session IDs now use fixed 128-bit entropy
+        max_metadata_keys: Maximum number of metadata keys per session (50)
+        max_metadata_value_size: Maximum size of each metadata value in bytes (10000)
     """
 
     default_ttl: int = 3600
     max_sessions: int = 100
     auto_cleanup_interval: int = 60
     session_id_prefix: str = "session:"
-    handle_length: int = 12
+    handle_length: int = 12  # Deprecated: kept for backward compatibility
+    max_metadata_keys: int = 50
+    max_metadata_value_size: int = 10000
 
 
 @dataclass
@@ -100,6 +105,59 @@ class SessionManager:
         self._total_created = 0
         self._total_closed = 0
 
+    def _validate_metadata(
+        self,
+        metadata: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        """Validate and sanitize session metadata.
+
+        Args:
+            metadata: The metadata to validate
+
+        Returns:
+            A validated copy of the metadata
+
+        Raises:
+            ValueError: If metadata exceeds size limits
+            TypeError: If metadata is not a dict
+        """
+        if metadata is None:
+            return {}
+
+        if not isinstance(metadata, dict):
+            raise TypeError(f"Metadata must be a dict, got {type(metadata).__name__}")
+
+        if len(metadata) > self.config.max_metadata_keys:
+            raise ValueError(
+                f"Metadata exceeds maximum key count "
+                f"({len(metadata)} > {self.config.max_metadata_keys})"
+            )
+
+        validated = {}
+        for key, value in metadata.items():
+            if not isinstance(key, str):
+                raise TypeError(f"Metadata keys must be strings, got {type(key).__name__}")
+
+            # Check value size (convert to string for size estimation)
+            try:
+                value_str = str(value)
+                if len(value_str) > self.config.max_metadata_value_size:
+                    raise ValueError(
+                        f"Metadata value for '{key}' exceeds maximum size "
+                        f"({len(value_str)} > {self.config.max_metadata_value_size})"
+                    )
+            except Exception as e:
+                if isinstance(e, ValueError):
+                    raise
+                # If we can't convert to string, it might be too complex
+                raise ValueError(
+                    f"Metadata value for '{key}' is not serializable: {e}"
+                ) from e
+
+            validated[key] = value
+
+        return validated
+
     async def create_session(
         self,
         metadata: dict[str, Any] | None = None,
@@ -115,8 +173,12 @@ class SessionManager:
             The created SessionContext
 
         Raises:
-            ValueError: If maximum sessions reached
+            ValueError: If maximum sessions reached or metadata invalid
+            TypeError: If metadata has invalid types
         """
+        # Validate metadata before acquiring lock
+        validated_metadata = self._validate_metadata(metadata)
+
         with self._lock:
             # Maybe cleanup expired sessions
             self._maybe_cleanup()
@@ -139,7 +201,7 @@ class SessionManager:
             context = SessionContext(
                 session_id=session_id,
                 created_at=time.time(),
-                metadata=metadata.copy() if metadata else {},
+                metadata=validated_metadata,
                 data=SessionData(),
                 _manager=self,
             )
@@ -218,14 +280,21 @@ class SessionManager:
             ValueError: If session has expired
         """
         with self._lock:
+            # Trigger periodic cleanup on access to prevent memory leaks
+            # in sync apps that don't create many sessions
+            self._maybe_cleanup()
+
             if session_id not in self._sessions:
                 raise KeyError(f"Session not found: {session_id}")
 
             stored = self._sessions[session_id]
 
             if stored.is_expired:
-                # Schedule cleanup (don't await here)
-                asyncio.create_task(self._cleanup_expired_session(session_id))
+                # Remove expired session immediately within the lock to prevent
+                # race conditions where another thread could access it
+                del self._sessions[session_id]
+                self._total_closed += 1
+                logger.debug(f"Removed expired session {session_id}")
                 raise ValueError(f"Session has expired: {session_id}")
 
             return stored.context
@@ -393,35 +462,52 @@ class SessionManager:
         return count
 
     def _generate_session_id(self) -> str:
-        """Generate a unique session ID.
+        """Generate a cryptographically secure unique session ID.
+
+        Uses 128 bits of entropy (16 bytes) to ensure collision resistance.
+        The resulting ID format is: "{prefix}{random_hex}"
 
         Returns:
-            A unique session ID string
+            A unique session ID string with 128 bits of entropy
         """
-        random_part = secrets.token_urlsafe(self.config.handle_length)[
-            : self.config.handle_length
-        ]
+        # Use 16 bytes (128 bits) of entropy for security
+        # This provides collision resistance up to 2^64 sessions
+        random_part = secrets.token_hex(16)
         session_id = f"{self.config.session_id_prefix}{random_part}"
 
-        # Ensure uniqueness
+        # Ensure uniqueness (extremely unlikely to loop with 128-bit entropy)
         while session_id in self._sessions:
-            random_part = secrets.token_urlsafe(self.config.handle_length)[
-                : self.config.handle_length
-            ]
+            random_part = secrets.token_hex(16)
             session_id = f"{self.config.session_id_prefix}{random_part}"
 
         return session_id
 
     def _maybe_cleanup(self) -> None:
-        """Run cleanup if enough time has passed."""
+        """Run cleanup if enough time has passed.
+
+        In async contexts, schedules cleanup as a background task.
+        In sync contexts, runs synchronous cleanup immediately.
+        """
         if time.time() - self._last_cleanup > self.config.auto_cleanup_interval:
             # Schedule async cleanup
             try:
                 loop = asyncio.get_running_loop()
-                loop.create_task(self.cleanup())
+                task = loop.create_task(self.cleanup())
+                # Add error handler to log cleanup failures
+                task.add_done_callback(self._handle_cleanup_result)
             except RuntimeError:
                 # No running loop, do synchronous removal without hooks
                 self._sync_cleanup()
+
+    def _handle_cleanup_result(self, task: asyncio.Task[int]) -> None:
+        """Handle the result of an async cleanup task.
+
+        Logs any errors that occurred during cleanup.
+        """
+        try:
+            task.result()
+        except Exception as e:
+            logger.error(f"Async session cleanup failed: {e}")
 
     def _sync_cleanup(self) -> int:
         """Synchronous cleanup without running hooks (emergency cleanup).
@@ -442,9 +528,6 @@ class SessionManager:
             self._last_cleanup = time.time()
             return len(expired_ids)
 
-    async def _cleanup_expired_session(self, session_id: str) -> None:
-        """Cleanup a single expired session."""
-        await self.close_session(session_id)
 
 
 # Global default session manager

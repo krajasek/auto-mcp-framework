@@ -10,14 +10,11 @@ import functools
 import inspect
 import logging
 from collections.abc import Callable
-from typing import Any, TypeVar, cast, get_type_hints
+from typing import TYPE_CHECKING, Any, TypeVar, cast, get_type_hints
 
 from auto_mcp.types.base import JsonValue, TypeInfo, TypeStrategy
 from auto_mcp.types.registry import TypeRegistry, get_default_registry
 from auto_mcp.types.store import ObjectStore, get_default_store
-
-# Import TYPE_CHECKING to avoid circular imports
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from auto_mcp.session.manager import SessionManager
@@ -73,7 +70,7 @@ class FunctionWrapper:
         store: ObjectStore | None = None,
         transform_inputs: bool = True,
         transform_output: bool = True,
-        session_manager: "SessionManager | None" = None,
+        session_manager: SessionManager | None = None,
         session_param_name: str | None = None,
     ) -> None:
         """Initialize function wrapper.
@@ -98,6 +95,19 @@ class FunctionWrapper:
         # Analyze function signature
         self._sig = inspect.signature(func)
         self._type_hints = self._get_type_hints()
+
+        # Validate session param name exists in signature if specified
+        if (
+            self._session_param_name
+            and self._session_manager
+            and self._session_param_name not in self._sig.parameters
+        ):
+            raise ValueError(
+                f"Session parameter '{self._session_param_name}' not found in "
+                f"function '{func.__name__}' signature. "
+                f"Available parameters: {list(self._sig.parameters.keys())}"
+            )
+
         self._param_info = self._analyze_parameters()
         self._return_info = self._analyze_return()
 
@@ -498,7 +508,7 @@ def wrap_function(
     store: ObjectStore | None = None,
     transform_inputs: bool = True,
     transform_output: bool = True,
-    session_manager: "SessionManager | None" = None,
+    session_manager: SessionManager | None = None,
     session_param_name: str | None = None,
 ) -> FunctionWrapper:
     """Wrap a function with type transformations.

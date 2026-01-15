@@ -169,8 +169,12 @@ class SessionContext:
     def invalidate(self) -> None:
         """Mark session for closure.
 
-        Schedules the session to be closed. This is a non-blocking operation
-        that triggers cleanup hooks asynchronously.
+        Schedules the session to be closed asynchronously. If called from
+        an async context, this creates a background task. If called from
+        a sync context with no event loop, the session is marked invalid
+        but cleanup hooks will not run until the next async cleanup cycle.
+
+        For guaranteed cleanup with hooks, use `invalidate_async()` instead.
         """
         if self._manager:
             import asyncio
@@ -179,5 +183,51 @@ class SessionContext:
                 loop = asyncio.get_running_loop()
                 loop.create_task(self._manager.close_session(self.session_id))
             except RuntimeError:
-                # No running loop, run synchronously
-                asyncio.run(self._manager.close_session(self.session_id))
+                # No running loop - use sync removal without hooks to avoid
+                # blocking indefinitely. Hooks will be skipped but session
+                # will be properly removed.
+                with self._manager._lock:
+                    if self.session_id in self._manager._sessions:
+                        del self._manager._sessions[self.session_id]
+                        self._manager._total_closed += 1
+
+    async def invalidate_async(self) -> bool:
+        """Asynchronously close this session with full cleanup.
+
+        This method properly runs all cleanup hooks before removing the
+        session. Use this instead of `invalidate()` when you need guaranteed
+        hook execution.
+
+        Returns:
+            True if session was closed, False if no manager or already closed
+        """
+        if self._manager:
+            return await self._manager.close_session(self.session_id)
+        return False
+
+    def __copy__(self) -> SessionContext:
+        """Prevent shallow copying of SessionContext.
+
+        SessionContext objects should not be copied as they contain mutable
+        shared state (SessionData) that would be shared between copies,
+        breaking session isolation.
+
+        Raises:
+            RuntimeError: Always raised to prevent copying
+        """
+        raise RuntimeError(
+            "SessionContext cannot be copied. Each session must have a unique context."
+        )
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> SessionContext:
+        """Prevent deep copying of SessionContext.
+
+        SessionContext objects should not be copied as they are tied to a
+        specific session lifecycle managed by SessionManager.
+
+        Raises:
+            RuntimeError: Always raised to prevent copying
+        """
+        raise RuntimeError(
+            "SessionContext cannot be deep copied. Each session must have a unique context."
+        )
