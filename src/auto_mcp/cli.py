@@ -2,25 +2,30 @@
 
 from __future__ import annotations
 
+import fnmatch
 import importlib
 import importlib.util
+import inspect as inspect_module
+import json
 import sys
 from pathlib import Path
 from types import ModuleType
-from typing import Literal
+from typing import Any, Literal
 
 import click
 from rich.console import Console
 from rich.panel import Panel
+from rich.syntax import Syntax
 from rich.table import Table
 from rich.tree import Tree
 
 from auto_mcp.cache import PromptCache
 from auto_mcp.config import Settings, get_settings
-from auto_mcp.core.analyzer import ModuleAnalyzer
+from auto_mcp.core.analyzer import MethodMetadata, ModuleAnalyzer
 from auto_mcp.core.generator import GeneratorConfig, MCPGenerator
 from auto_mcp.core.package import PackageAnalyzer
 from auto_mcp.llm import LLMProvider, create_provider
+from auto_mcp.types import FunctionWrapper, get_default_registry
 from auto_mcp.watcher import HotReloadServer
 
 console = Console()
@@ -635,6 +640,532 @@ def check(
     )
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Inspect command helper functions
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Description truncation constants for consistent display
+_DESC_MAX_WIDTH = 40  # Maximum display width for descriptions
+_DESC_TRUNCATE_AT = 37  # Where to truncate (leaves room for "...")
+_DESC_TREE_MAX_WIDTH = 60  # Wider limit for tree format
+
+
+def _format_type_str(type_hint: Any) -> str:
+    """Convert a type hint to a readable string."""
+    if type_hint is None:
+        return "Any"
+    if hasattr(type_hint, "__name__"):
+        return str(type_hint.__name__)
+    return str(type_hint).replace("typing.", "")
+
+
+def _match_filter(name: str, pattern: str) -> bool:
+    """Match name against a glob pattern."""
+    return fnmatch.fnmatch(name, pattern)
+
+
+def _get_schema_for_type(type_hint: Any) -> dict[str, Any]:
+    """Get JSON schema for a type hint."""
+    if type_hint is None:
+        return {"type": "any"}
+    try:
+        registry = get_default_registry()
+        return registry.get_json_schema(type_hint)
+    except Exception:
+        # Fallback for unsupported types
+        return {"type": _format_type_str(type_hint)}
+
+
+def _build_input_schema_from_metadata(metadata: MethodMetadata) -> dict[str, Any]:
+    """Build a fallback input schema from metadata when FunctionWrapper fails.
+
+    Args:
+        metadata: MethodMetadata object with parameter information
+
+    Returns:
+        JSON schema dictionary for the function's parameters
+    """
+    properties: dict[str, Any] = {}
+    required: list[str] = []
+
+    for param in metadata.parameters:
+        param_name = param.get("name", "unknown")
+        properties[param_name] = _get_schema_for_type(param.get("type"))
+        if not param.get("has_default", False):
+            required.append(param_name)
+
+    return {"type": "object", "properties": properties, "required": required}
+
+
+def _build_inspection_data(
+    metadata: MethodMetadata,
+    func: Any,
+    show_schema: bool = False,
+    show_source: bool = False,
+) -> dict[str, Any]:
+    """Build inspection dictionary from method metadata.
+
+    Args:
+        metadata: MethodMetadata object with function information
+        func: The actual function/method object (may be None if not found)
+        show_schema: Whether to generate JSON schemas for parameters/return
+        show_source: Whether to include function source code
+
+    Returns:
+        Dictionary with keys: name, qualified_name, description, is_async,
+        parameters, return_type, and optionally schemas and source code.
+    """
+    data: dict[str, Any] = {
+        "name": metadata.mcp_metadata.get("tool_name") or metadata.name,
+        "qualified_name": metadata.qualified_name,
+        "description": metadata.docstring or "",
+        "is_async": metadata.is_async,
+        "is_tool": metadata.is_tool,
+        "is_resource": metadata.is_resource,
+        "is_prompt": metadata.is_prompt,
+        "decorators": metadata.decorators,
+        "parameters": [],
+        "return_type": _format_type_str(metadata.return_type),
+    }
+
+    # Add MCP-specific metadata
+    if metadata.mcp_metadata:
+        data["mcp_metadata"] = {
+            k: v for k, v in metadata.mcp_metadata.items() if not k.startswith("is_")
+        }
+
+    # Build parameter info
+    for param in metadata.parameters:
+        if "name" not in param:
+            continue  # Skip malformed parameters
+        param_data: dict[str, Any] = {
+            "name": param["name"],
+            "type": param.get("type_str", "Any"),
+            "required": not param.get("has_default", False),
+            "default": param.get("default"),
+        }
+        if show_schema:
+            param_data["schema"] = _get_schema_for_type(param.get("type"))
+        data["parameters"].append(param_data)
+
+    # Add schemas if requested
+    if show_schema:
+        if func is not None:
+            try:
+                wrapper = FunctionWrapper(func)
+                data["input_schema"] = wrapper.get_json_schema()
+                data["return_schema"] = wrapper.get_return_schema()
+            except Exception:
+                # Fall back to metadata-based schema generation
+                data["input_schema"] = _build_input_schema_from_metadata(metadata)
+                data["return_schema"] = _get_schema_for_type(metadata.return_type)
+        else:
+            # func not available, use metadata-based schema
+            data["input_schema"] = _build_input_schema_from_metadata(metadata)
+            data["return_schema"] = _get_schema_for_type(metadata.return_type)
+
+    # Add source if requested
+    if show_source:
+        data["source"] = metadata.source_code
+
+    return data
+
+
+def _display_table_format(
+    module_name: str,
+    tools: list[dict[str, Any]],
+    resources: list[dict[str, Any]],
+    prompts: list[dict[str, Any]],
+    show_schema: bool,
+    show_source: bool = False,
+) -> None:
+    """Display inspection results in table format.
+
+    Args:
+        module_name: Name of the module being displayed
+        tools: List of tool inspection data dictionaries
+        resources: List of resource inspection data dictionaries
+        prompts: List of prompt inspection data dictionaries
+        show_schema: Whether to show detailed schemas (triggers verbose display)
+        show_source: Whether to show source code in detailed view
+    """
+    console.print(f"\n[bold cyan]Module: {module_name}[/bold cyan]")
+    console.print("─" * 50)
+
+    # Display tools
+    if tools:
+        console.print(f"\n[bold]Tools[/bold] ({len(tools)})")
+        if not show_schema:
+            # Compact table
+            table = Table(show_header=True, header_style="bold")
+            table.add_column("Name", style="cyan")
+            table.add_column("Description", max_width=40)
+            table.add_column("Async", justify="center")
+            table.add_column("Parameters")
+
+            for tool in tools:
+                params = ", ".join(p["name"] for p in tool["parameters"])
+                desc = tool["description"]
+                desc_display = (
+                    desc[:_DESC_TRUNCATE_AT] + "..." if len(desc) > _DESC_MAX_WIDTH else desc
+                )
+                table.add_row(
+                    tool["name"],
+                    desc_display,
+                    "[yellow]*[/yellow]" if tool["is_async"] else "",
+                    params or "(none)",
+                )
+            console.print(table)
+        else:
+            # Detailed view with schemas
+            for tool in tools:
+                _display_tool_detail(tool, show_source)
+
+    # Display resources
+    if resources:
+        console.print(f"\n[bold]Resources[/bold] ({len(resources)})")
+        table = Table(show_header=True, header_style="bold")
+        table.add_column("Name", style="cyan")
+        table.add_column("URI", style="green")
+        table.add_column("Description", max_width=40)
+
+        for res in resources:
+            uri = res.get("mcp_metadata", {}).get("resource_uri", f"auto://{res['name']}")
+            desc = res["description"]
+            desc_display = desc[:_DESC_TRUNCATE_AT] + "..." if len(desc) > _DESC_MAX_WIDTH else desc
+            table.add_row(res["name"], uri, desc_display)
+        console.print(table)
+
+    # Display prompts
+    if prompts:
+        console.print(f"\n[bold]Prompts[/bold] ({len(prompts)})")
+        table = Table(show_header=True, header_style="bold")
+        table.add_column("Name", style="cyan")
+        table.add_column("Parameters")
+        table.add_column("Description", max_width=40)
+
+        for prompt in prompts:
+            params = ", ".join(p["name"] for p in prompt["parameters"])
+            desc = prompt["description"]
+            desc_display = desc[:_DESC_TRUNCATE_AT] + "..." if len(desc) > _DESC_MAX_WIDTH else desc
+            table.add_row(prompt["name"], params or "(none)", desc_display)
+        console.print(table)
+
+    if not tools and not resources and not prompts:
+        console.print("[yellow]No components found[/yellow]")
+
+
+def _display_tool_detail(tool: dict[str, Any], show_source: bool) -> None:
+    """Display detailed information for a single tool."""
+    console.print()
+    console.print(
+        Panel(
+            f"[bold]{tool['name']}[/bold]",
+            subtitle=f"{'async ' if tool['is_async'] else ''}function",
+            style="cyan",
+        )
+    )
+
+    if tool["description"]:
+        console.print(f"[dim]{tool['description']}[/dim]")
+
+    # Parameters table
+    if tool["parameters"]:
+        console.print("\n[bold]Parameters:[/bold]")
+        param_table = Table(show_header=True, header_style="bold", box=None)
+        param_table.add_column("Name")
+        param_table.add_column("Type")
+        param_table.add_column("Required")
+        param_table.add_column("Default")
+        if "schema" in tool["parameters"][0]:
+            param_table.add_column("Schema")
+
+        for param in tool["parameters"]:
+            row = [
+                f"[cyan]{param['name']}[/cyan]",
+                param["type"],
+                "[green]yes[/green]" if param["required"] else "[dim]no[/dim]",
+                str(param["default"]) if param["default"] is not None else "[dim]-[/dim]",
+            ]
+            if "schema" in param:
+                schema_str = json.dumps(param["schema"], separators=(",", ":"))
+                if len(schema_str) > 30:
+                    schema_str = schema_str[:27] + "..."
+                row.append(f"[dim]{schema_str}[/dim]")
+            param_table.add_row(*row)
+        console.print(param_table)
+    else:
+        console.print("\n[dim]No parameters[/dim]")
+
+    # Return type
+    console.print(f"\n[bold]Returns:[/bold] {tool['return_type']}")
+    if "return_schema" in tool and tool["return_schema"]:
+        schema_str = json.dumps(tool["return_schema"], indent=2)
+        console.print(Syntax(schema_str, "json", theme="monokai", line_numbers=False))
+
+    # Source code
+    if show_source and "source" in tool and tool["source"]:
+        console.print("\n[bold]Source:[/bold]")
+        console.print(Syntax(tool["source"], "python", theme="monokai", line_numbers=True))
+
+
+def _display_json_format(
+    module_name: str,
+    tools: list[dict[str, Any]],
+    resources: list[dict[str, Any]],
+    prompts: list[dict[str, Any]],
+) -> None:
+    """Display inspection results in JSON format."""
+    output = {
+        "module": module_name,
+        "tools": tools,
+        "resources": resources,
+        "prompts": prompts,
+    }
+    console.print(Syntax(json.dumps(output, indent=2, default=str), "json", theme="monokai"))
+
+
+def _display_tree_format(
+    module_name: str,
+    tools: list[dict[str, Any]],
+    resources: list[dict[str, Any]],
+    prompts: list[dict[str, Any]],
+) -> None:
+    """Display inspection results in tree format."""
+    tree = Tree(f"[bold cyan]{module_name}[/bold cyan]")
+
+    # Tools branch
+    if tools:
+        tools_branch = tree.add(f"[bold]Tools[/bold] ({len(tools)})")
+        for tool in tools:
+            params = ", ".join(f"{p['name']}: {p['type']}" for p in tool["parameters"])
+            sig = f"[cyan]{tool['name']}[/cyan]({params}) -> {tool['return_type']}"
+            if tool["is_async"]:
+                sig = f"[yellow]async[/yellow] {sig}"
+            tool_branch = tools_branch.add(sig)
+            if tool["description"]:
+                desc = tool["description"]
+                desc_display = (
+                    desc[: _DESC_TREE_MAX_WIDTH - 3] + "..."
+                    if len(desc) > _DESC_TREE_MAX_WIDTH
+                    else desc
+                )
+                tool_branch.add(f"[dim]{desc_display}[/dim]")
+
+    # Resources branch
+    if resources:
+        res_branch = tree.add(f"[bold]Resources[/bold] ({len(resources)})")
+        for res in resources:
+            uri = res.get("mcp_metadata", {}).get("resource_uri", f"auto://{res['name']}")
+            res_item = res_branch.add(f"[green]{uri}[/green]")
+            res_item.add(f"[cyan]{res['name']}[/cyan]")
+            if res["description"]:
+                desc = res["description"]
+                desc_display = (
+                    desc[: _DESC_TREE_MAX_WIDTH - 10] + "..."
+                    if len(desc) > _DESC_TREE_MAX_WIDTH - 10
+                    else desc
+                )
+                res_item.add(f"[dim]{desc_display}[/dim]")
+
+    # Prompts branch
+    if prompts:
+        prompts_branch = tree.add(f"[bold]Prompts[/bold] ({len(prompts)})")
+        for prompt in prompts:
+            params = ", ".join(p["name"] for p in prompt["parameters"])
+            prompt_item = prompts_branch.add(f"[magenta]{prompt['name']}[/magenta]({params})")
+            if prompt["description"]:
+                desc = prompt["description"]
+                desc_display = (
+                    desc[: _DESC_TREE_MAX_WIDTH - 10] + "..."
+                    if len(desc) > _DESC_TREE_MAX_WIDTH - 10
+                    else desc
+                )
+                prompt_item.add(f"[dim]{desc_display}[/dim]")
+
+    if not tools and not resources and not prompts:
+        tree.add("[yellow]No components found[/yellow]")
+
+    console.print(tree)
+
+
+@cli.command()
+@click.argument("modules", nargs=-1, required=True, type=click.Path(exists=True))
+@click.option(
+    "-f",
+    "--format",
+    "output_format",
+    type=click.Choice(["table", "json", "tree"]),
+    default="table",
+    help="Output format",
+)
+@click.option(
+    "--filter",
+    "name_filter",
+    type=str,
+    help="Filter by name (glob pattern, e.g. 'get_*')",
+)
+@click.option(
+    "-t",
+    "--type",
+    "component_type",
+    type=click.Choice(["tools", "resources", "prompts", "all"]),
+    default="all",
+    help="Component type to show",
+)
+@click.option(
+    "-s",
+    "--show-schema",
+    is_flag=True,
+    help="Show JSON schemas for parameters and return types",
+)
+@click.option(
+    "--show-source",
+    is_flag=True,
+    help="Show function source code",
+)
+@click.option(
+    "--include-private",
+    is_flag=True,
+    help="Include private methods (starting with _)",
+)
+@click.option(
+    "-v",
+    "--verbose",
+    is_flag=True,
+    help="Verbose output (implies --show-schema)",
+)
+@click.pass_context
+def inspect(
+    ctx: click.Context,
+    modules: tuple[str, ...],
+    output_format: str,
+    name_filter: str | None,
+    component_type: str,
+    show_schema: bool,
+    show_source: bool,
+    include_private: bool,
+    verbose: bool,
+) -> None:
+    """Inspect modules and display detailed MCP component information.
+
+    This command provides deep visibility into MCP servers - view tools,
+    schemas, parameter types, and metadata without running the server.
+
+    MODULES: One or more Python files to inspect.
+
+    Examples:
+
+        # Basic inspection
+        auto-mcp inspect mymodule.py
+
+        # Verbose with schemas
+        auto-mcp inspect mymodule.py -v
+
+        # JSON output
+        auto-mcp inspect mymodule.py -f json
+
+        # Tree view
+        auto-mcp inspect mymodule.py -f tree
+
+        # Filter by name
+        auto-mcp inspect mymodule.py --filter "get_*"
+
+        # Show only tools
+        auto-mcp inspect mymodule.py -t tools
+    """
+    # Verbose implies show_schema
+    if verbose:
+        show_schema = True
+
+    # Load modules
+    with console.status("[bold blue]Loading modules..."):
+        loaded_modules = load_modules(modules)
+
+    # Create analyzer
+    analyzer = ModuleAnalyzer(include_private=include_private)
+
+    # Accumulate totals across all modules
+    total_tools = 0
+    total_resources = 0
+    total_prompts = 0
+
+    for module in loaded_modules:
+        methods = analyzer.analyze_module(module)
+
+        # Get function references for schema generation (only actual functions/methods)
+        func_map: dict[str, Any] = {}
+        for name in dir(module):
+            obj = getattr(module, name, None)
+            if inspect_module.isfunction(obj) or inspect_module.ismethod(obj):
+                func_map[name] = obj
+
+        # Categorize and build inspection data
+        tools: list[dict[str, Any]] = []
+        resources: list[dict[str, Any]] = []
+        prompts: list[dict[str, Any]] = []
+
+        for method in methods:
+            # Get the actual function
+            func = func_map.get(method.name)
+
+            # Build inspection data
+            data = _build_inspection_data(
+                method,
+                func,
+                show_schema=show_schema,
+                show_source=show_source,
+            )
+
+            # Apply name filter
+            if name_filter and not _match_filter(data["name"], name_filter):
+                continue
+
+            # Categorize
+            if method.is_resource:
+                resources.append(data)
+            elif method.is_prompt:
+                prompts.append(data)
+            else:
+                tools.append(data)
+
+        # Apply component type filter
+        if component_type == "tools":
+            resources, prompts = [], []
+        elif component_type == "resources":
+            tools, prompts = [], []
+        elif component_type == "prompts":
+            tools, resources = [], []
+
+        # Accumulate totals
+        total_tools += len(tools)
+        total_resources += len(resources)
+        total_prompts += len(prompts)
+
+        # Display based on format
+        if output_format == "json":
+            _display_json_format(module.__name__, tools, resources, prompts)
+        elif output_format == "tree":
+            _display_tree_format(module.__name__, tools, resources, prompts)
+        else:
+            _display_table_format(
+                module.__name__,
+                tools,
+                resources,
+                prompts,
+                show_schema,
+                show_source,
+            )
+
+    # Summary for table format
+    if output_format == "table":
+        console.print("\n" + "─" * 50)
+        console.print(
+            f"[bold]Total:[/bold] {total_tools} tool(s), "
+            f"{total_resources} resource(s), {total_prompts} prompt(s)"
+        )
+
+
 @cli.group()
 def cache() -> None:
     """Manage the description cache."""
@@ -748,8 +1279,7 @@ def config_show(ctx: click.Context) -> None:
     console.print(table)
 
     console.print(
-        "\n[dim]Configuration is loaded from environment variables "
-        "with AUTO_MCP_ prefix.[/dim]"
+        "\n[dim]Configuration is loaded from environment variables with AUTO_MCP_ prefix.[/dim]"
     )
     console.print("[dim]Example: AUTO_MCP_LLM_PROVIDER=openai[/dim]")
 
