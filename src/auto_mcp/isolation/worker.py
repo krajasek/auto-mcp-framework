@@ -11,8 +11,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from auto_mcp.core.analyzer import MethodMetadata
-from auto_mcp.core.package import PackageAnalyzer, PackageMetadata
+from auto_mcp.core.package import PackageAnalyzer
 from auto_mcp.isolation.manager import IsolationConfig
 
 
@@ -90,47 +89,33 @@ def worker_generate(config_json: str) -> None:
         # Import generator components
         from auto_mcp.core.generator import GeneratorConfig, MCPGenerator
 
-        analyzer = PackageAnalyzer(
-            include_private=config.include_private,
-            max_depth=config.max_depth,
-            include_reexports=config.include_reexports,
-        )
-
-        metadata = analyzer.analyze_package(
-            config.package_name,
-            include_patterns=config.include_patterns,
-            exclude_patterns=config.exclude_patterns,
-        )
-
-        # Get methods (filter to public API if requested)
-        methods = (
-            analyzer.get_public_methods(metadata)
-            if config.public_api_only
-            else metadata.methods
-        )
-
-        # Create generator config
+        # Create generator config with all analysis options
         server_name = config.server_name or f"{config.package_name}-mcp-server"
         gen_config = GeneratorConfig(
             server_name=server_name,
+            include_private=config.include_private,
+            max_depth=config.max_depth,
+            public_api_only=config.public_api_only,
+            include_patterns=config.include_patterns,
+            exclude_patterns=config.exclude_patterns,
+            include_reexports=config.include_reexports,
             enable_sessions=config.enable_sessions,
             session_ttl=config.session_ttl,
             max_sessions=config.max_sessions,
+            use_llm=False,  # LLM not available in isolation
         )
 
-        # Generate server code (without LLM - not available in isolation)
+        # Generate server code using generate_standalone_from_package
         generator = MCPGenerator(config=gen_config, llm=None, cache=None)
-        code = generator.generate(methods)
-
-        # Write output
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(code)
+        result_path = generator.generate_standalone_from_package(
+            config.package_name,
+            output_path,
+        )
 
         _output_result(
             success=True,
             data={
-                "output_path": str(output_path),
-                "method_count": len(methods),
+                "output_path": str(result_path),
                 "server_name": server_name,
             },
         )
