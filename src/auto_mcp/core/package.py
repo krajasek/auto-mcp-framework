@@ -9,6 +9,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import ModuleType
+from typing import Any
 
 from auto_mcp.core.analyzer import MethodMetadata, ModuleAnalyzer
 
@@ -32,6 +33,39 @@ class ModuleInfo:
     is_public: bool
     parent: str | None = None
     submodules: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to JSON-compatible dict.
+
+        Note: module is stored as its name string since ModuleType
+        cannot be JSON serialized.
+        """
+        return {
+            "name": self.name,
+            "module_name": self.module.__name__ if self.module else None,
+            "is_package": self.is_package,
+            "is_public": self.is_public,
+            "parent": self.parent,
+            "submodules": self.submodules,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "ModuleInfo":
+        """Deserialize from dict.
+
+        Note: module will be None since we can't reconstruct it from a string.
+        The module_name is preserved in the data for reference.
+        """
+        # We can't reconstruct the actual module, so we pass None
+        # and store a placeholder. The caller should handle this appropriately.
+        return cls(
+            name=data["name"],
+            module=None,  # type: ignore[arg-type]
+            is_package=data.get("is_package", False),
+            is_public=data.get("is_public", True),
+            parent=data.get("parent"),
+            submodules=data.get("submodules", []),
+        )
 
 
 @dataclass
@@ -68,6 +102,44 @@ class PackageMetadata:
     def method_count(self) -> int:
         """Number of methods discovered."""
         return len(self.methods)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to JSON-compatible dict for subprocess communication.
+
+        Note: root_module is stored as its name string since ModuleType
+        cannot be JSON serialized. ModuleInfo objects are serialized recursively.
+        """
+        return {
+            "name": self.name,
+            "root_module_name": self.root_module.__name__ if self.root_module else None,
+            "modules": {k: v.to_dict() for k, v in self.modules.items()},
+            "public_api": list(self.public_api),
+            "methods": [m.to_dict() for m in self.methods],
+            "module_graph": self.module_graph,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "PackageMetadata":
+        """Deserialize from dict.
+
+        Note: root_module will be None since we can't reconstruct it.
+        ModuleInfo objects will have module=None as well.
+        """
+        modules = {
+            k: ModuleInfo.from_dict(v) for k, v in data.get("modules", {}).items()
+        }
+        methods = [
+            MethodMetadata.from_dict(m) for m in data.get("methods", [])
+        ]
+
+        return cls(
+            name=data["name"],
+            root_module=None,  # type: ignore[arg-type]
+            modules=modules,
+            public_api=set(data.get("public_api", [])),
+            methods=methods,
+            module_graph=data.get("module_graph", {}),
+        )
 
 
 class PackageAnalyzer:

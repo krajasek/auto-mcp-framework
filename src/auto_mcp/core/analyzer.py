@@ -110,6 +110,110 @@ class MethodMetadata:
         """Get the name of the SessionContext parameter, if any."""
         return self.mcp_metadata.get("session_param_name")
 
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to JSON-compatible dict for subprocess communication.
+
+        Note: inspect.Signature is converted to string representation.
+        Type hints are converted to string representations.
+        """
+        # Convert type hints to strings (they may contain type objects)
+        type_hints_str = {}
+        for k, v in self.type_hints.items():
+            try:
+                if hasattr(v, "__name__"):
+                    type_hints_str[k] = v.__name__
+                elif hasattr(v, "__origin__"):
+                    # Handle generic types like list[str], Optional[int]
+                    type_hints_str[k] = str(v)
+                else:
+                    type_hints_str[k] = str(v)
+            except Exception:
+                type_hints_str[k] = "Any"
+
+        # Convert return type to string
+        return_type_str: str | None = None
+        if self.return_type is not None:
+            try:
+                if hasattr(self.return_type, "__name__"):
+                    return_type_str = self.return_type.__name__
+                else:
+                    return_type_str = str(self.return_type)
+            except Exception:
+                return_type_str = "Any"
+
+        # Serialize parameters, converting non-JSON-serializable defaults
+        serialized_params = []
+        for param in self.parameters:
+            param_copy = param.copy()
+            default = param_copy.get("default")
+            if default is not None:
+                # Check if it's a simple JSON-serializable type
+                if not isinstance(default, (str, int, float, bool, type(None), list, dict)):
+                    # Convert to string representation
+                    param_copy["default"] = repr(default)
+                    param_copy["default_is_repr"] = True
+            # Also handle type field which may not be serializable
+            if param_copy.get("type") is not None:
+                param_copy["type"] = str(param_copy["type"])
+            serialized_params.append(param_copy)
+
+        return {
+            "name": self.name,
+            "qualified_name": self.qualified_name,
+            "module_name": self.module_name,
+            "signature": str(self.signature),
+            "docstring": self.docstring,
+            "type_hints": type_hints_str,
+            "return_type": return_type_str,
+            "is_async": self.is_async,
+            "is_method": self.is_method,
+            "is_classmethod": self.is_classmethod,
+            "is_staticmethod": self.is_staticmethod,
+            "source_code": self.source_code,
+            "decorators": self.decorators,
+            "parameters": serialized_params,
+            "mcp_metadata": self.mcp_metadata,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "MethodMetadata":
+        """Deserialize from dict.
+
+        Note: signature will be stored as a string, not inspect.Signature.
+        Type hints will be strings, not actual type objects.
+        """
+        # Create a placeholder signature from the string
+        # We use a simple Parameter to hold the string representation
+        sig_str = data.get("signature", "()")
+
+        # Create a minimal signature object that str() will work on
+        # Since we can't reconstruct the full Signature, we store it as-is
+        # and the signature field will hold a "fake" signature
+        placeholder_sig = inspect.Signature()
+
+        instance = cls(
+            name=data["name"],
+            qualified_name=data["qualified_name"],
+            module_name=data["module_name"],
+            signature=placeholder_sig,
+            docstring=data.get("docstring"),
+            type_hints=data.get("type_hints", {}),
+            return_type=data.get("return_type"),
+            is_async=data.get("is_async", False),
+            is_method=data.get("is_method", False),
+            is_classmethod=data.get("is_classmethod", False),
+            is_staticmethod=data.get("is_staticmethod", False),
+            source_code=data.get("source_code", ""),
+            decorators=data.get("decorators", []),
+            parameters=data.get("parameters", []),
+            mcp_metadata=data.get("mcp_metadata", {}),
+        )
+
+        # Store the original signature string in mcp_metadata for reference
+        instance.mcp_metadata["_serialized_signature"] = sig_str
+
+        return instance
+
 
 @dataclass
 class ClassMetadata:

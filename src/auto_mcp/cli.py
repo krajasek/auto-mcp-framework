@@ -1373,6 +1373,18 @@ def package() -> None:
     is_flag=True,
     help="Include functions re-exported in __all__ from submodules (e.g., pandas, numpy)",
 )
+@click.option(
+    "--no-isolated",
+    is_flag=True,
+    help="Force local execution only (fail if package not installed)",
+)
+@click.option(
+    "--version",
+    "pkg_version",
+    type=str,
+    default=None,
+    help="Package version to use with uvx (e.g., '2.28.0')",
+)
 @click.pass_context
 def package_check(
     ctx: click.Context,
@@ -1384,10 +1396,15 @@ def package_check(
     exclude_patterns: tuple[str, ...],
     verbose: bool,
     include_reexports: bool,
+    no_isolated: bool,
+    pkg_version: str | None,
 ) -> None:
     """Analyze an installed package and show what would be exposed.
 
     PACKAGE_NAME: Name of the installed package (e.g., 'requests', 'json')
+
+    If the package is not installed locally, it will automatically be analyzed
+    in an isolated uvx environment. Use --no-isolated to disable this behavior.
 
     Examples:
 
@@ -1405,24 +1422,81 @@ def package_check(
 
         # Verbose output
         auto-mcp package check requests -v
+
+        # Check a specific version (uses uvx)
+        auto-mcp package check requests --version 2.28.0
+        auto-mcp package check requests==2.28.0
     """
-    # Try to import the package
-    with console.status(f"[bold blue]Analyzing package '{package_name}'..."):
-        try:
-            analyzer = PackageAnalyzer(
-                include_private=include_private,
-                max_depth=max_depth,
-                include_reexports=include_reexports,
+    from auto_mcp.isolation import IsolationManager, check_uvx_available
+    from auto_mcp.isolation.manager import IsolationConfig, IsolationError, PackageNotFoundError
+
+    # Create isolation manager
+    isolation = IsolationManager(
+        package_name=package_name,
+        version=pkg_version,
+        force_local=no_isolated,
+    )
+
+    # Determine execution mode
+    use_isolation = isolation.should_use_isolation()
+
+    # If version specified, always use isolation
+    if pkg_version:
+        use_isolation = True
+
+    if use_isolation:
+        # Check if uvx is available
+        if not check_uvx_available():
+            raise click.ClickException(
+                f"Package '{package_name}' is not installed locally and uvx is not available.\n"
+                "Either install the package or install uv: https://docs.astral.sh/uv/"
             )
-            metadata = analyzer.analyze_package(
-                package_name,
-                include_patterns=list(include_patterns) if include_patterns else None,
-                exclude_patterns=list(exclude_patterns) if exclude_patterns else None,
-            )
-        except ImportError as e:
-            raise click.ClickException(f"Cannot import package '{package_name}': {e}") from None
-        except ValueError as e:
-            raise click.ClickException(str(e)) from None
+
+        # Run in isolation
+        console.print(f"[dim]Package not installed locally, using uvx isolation...[/dim]")
+
+        config = IsolationConfig(
+            package_name=isolation.package_name,
+            version=isolation.version,
+            max_depth=max_depth,
+            include_private=include_private,
+            include_reexports=include_reexports,
+            include_patterns=list(include_patterns) if include_patterns else None,
+            exclude_patterns=list(exclude_patterns) if exclude_patterns else None,
+            public_api_only=public_api_only,
+        )
+
+        with console.status(f"[bold blue]Analyzing package '{isolation.get_package_spec()}' via uvx..."):
+            try:
+                metadata = isolation.run_check(config)
+            except PackageNotFoundError as e:
+                raise click.ClickException(str(e)) from None
+            except IsolationError as e:
+                raise click.ClickException(str(e)) from None
+
+        # For isolated execution, methods are already in metadata
+        methods = metadata.methods
+    else:
+        # Local execution (original flow)
+        with console.status(f"[bold blue]Analyzing package '{package_name}'..."):
+            try:
+                analyzer = PackageAnalyzer(
+                    include_private=include_private,
+                    max_depth=max_depth,
+                    include_reexports=include_reexports,
+                )
+                metadata = analyzer.analyze_package(
+                    package_name,
+                    include_patterns=list(include_patterns) if include_patterns else None,
+                    exclude_patterns=list(exclude_patterns) if exclude_patterns else None,
+                )
+            except ImportError as e:
+                raise click.ClickException(f"Cannot import package '{package_name}': {e}") from None
+            except ValueError as e:
+                raise click.ClickException(str(e)) from None
+
+        # Get methods to display (local execution can filter)
+        methods = analyzer.get_public_methods(metadata) if public_api_only else metadata.methods
 
     # Display package overview
     console.print(f"\n[bold]Package: {metadata.name}[/bold]")
@@ -1436,10 +1510,7 @@ def package_check(
         _build_module_tree(tree, metadata.name, metadata.module_graph, set())
         console.print(tree)
 
-    # Get methods to display
-    methods = analyzer.get_public_methods(metadata) if public_api_only else metadata.methods
-
-    # Categorize methods
+    # Categorize methods (methods variable already set above)
     tools = []
     resources = []
     prompts = []
@@ -1639,6 +1710,18 @@ def _build_module_tree(
     default=100,
     help="Maximum number of concurrent sessions (default: 100)",
 )
+@click.option(
+    "--no-isolated",
+    is_flag=True,
+    help="Force local execution only (fail if package not installed)",
+)
+@click.option(
+    "--version",
+    "pkg_version",
+    type=str,
+    default=None,
+    help="Package version to use with uvx (e.g., '2.28.0')",
+)
 @click.pass_context
 def package_generate(
     ctx: click.Context,
@@ -1659,10 +1742,16 @@ def package_generate(
     enable_sessions: bool,
     session_ttl: int,
     max_sessions: int,
+    no_isolated: bool,
+    pkg_version: str | None,
 ) -> None:
     """Generate an MCP server from an installed package.
 
     PACKAGE_NAME: Name of the installed package (e.g., 'requests', 'json')
+
+    If the package is not installed locally, it will automatically be generated
+    in an isolated uvx environment. Note: LLM description generation is disabled
+    in isolation mode.
 
     Examples:
 
@@ -1677,65 +1766,130 @@ def package_generate(
 
         # Generate without LLM
         auto-mcp package generate json -o json_server.py --no-llm
+
+        # Generate from a specific version (uses uvx)
+        auto-mcp package generate requests==2.28.0 -o server.py
     """
+    from auto_mcp.isolation import IsolationManager, check_uvx_available
+    from auto_mcp.isolation.manager import IsolationConfig, IsolationError, PackageNotFoundError
+
     settings: Settings = ctx.obj["settings"]
-    server_name = name or f"{package_name}-mcp-server"
 
-    # Create LLM provider if enabled
-    llm = None
-    if not no_llm:
-        with console.status("[bold blue]Initializing LLM provider..."):
-            llm = get_llm_provider(llm_provider, llm_model, settings)
-        if llm:
-            console.print(f"[green]✓[/green] Using LLM: {llm.model_name}")
-        else:
-            console.print("[yellow]![/yellow] LLM disabled, using docstrings only")
-
-    # Create cache
-    cache = PromptCache() if not no_cache else PromptCache(cache_dir=None)
-
-    # Create generator config
-    config = GeneratorConfig(
-        server_name=server_name,
-        include_private=include_private,
-        use_cache=not no_cache,
-        use_llm=not no_llm and llm is not None,
-        max_depth=max_depth,
-        public_api_only=public_api_only,
-        include_patterns=list(include_patterns) if include_patterns else None,
-        exclude_patterns=list(exclude_patterns) if exclude_patterns else None,
-        include_reexports=include_reexports,
-        enable_sessions=enable_sessions,
-        session_ttl=session_ttl,
-        max_sessions=max_sessions,
+    # Create isolation manager
+    isolation = IsolationManager(
+        package_name=package_name,
+        version=pkg_version,
+        force_local=no_isolated,
     )
 
-    # Create generator
-    generator = MCPGenerator(llm=llm, cache=cache, config=config)
+    # Determine execution mode
+    use_isolation = isolation.should_use_isolation()
 
-    if enable_sessions:
-        console.print("[green]✓[/green] Session lifecycle enabled")
+    # If version specified, always use isolation
+    if pkg_version:
+        use_isolation = True
 
-    # Generate
+    server_name = name or f"{isolation.package_name}-mcp-server"
     output_path = Path(output)
-    with console.status(f"[bold blue]Analyzing and generating from '{package_name}'..."):
-        try:
-            result = generator.generate_standalone_from_package(
-                package_name,
-                output_path,
-                context=context,
+
+    if use_isolation:
+        # Check if uvx is available
+        if not check_uvx_available():
+            raise click.ClickException(
+                f"Package '{package_name}' is not installed locally and uvx is not available.\n"
+                "Either install the package or install uv: https://docs.astral.sh/uv/"
             )
-        except ImportError as e:
-            raise click.ClickException(f"Cannot import package '{package_name}': {e}") from None
-        except ValueError as e:
-            raise click.ClickException(str(e)) from None
 
-    console.print(f"[green]✓[/green] Generated server at: {result}")
-    console.print(f"\n[dim]To run: python {result}[/dim]")
+        # Warn about LLM being disabled in isolation
+        if not no_llm:
+            console.print("[yellow]![/yellow] LLM disabled in isolation mode (using docstrings only)")
 
-    # Save cache if enabled
-    if not no_cache:
-        cache.save(package_name)
+        console.print(f"[dim]Package not installed locally, using uvx isolation...[/dim]")
+
+        iso_config = IsolationConfig(
+            package_name=isolation.package_name,
+            version=isolation.version,
+            max_depth=max_depth,
+            include_private=include_private,
+            include_reexports=include_reexports,
+            include_patterns=list(include_patterns) if include_patterns else None,
+            exclude_patterns=list(exclude_patterns) if exclude_patterns else None,
+            public_api_only=public_api_only,
+            server_name=server_name,
+            enable_sessions=enable_sessions,
+            session_ttl=session_ttl,
+            max_sessions=max_sessions,
+        )
+
+        if enable_sessions:
+            console.print("[green]✓[/green] Session lifecycle enabled")
+
+        with console.status(f"[bold blue]Generating from '{isolation.get_package_spec()}' via uvx..."):
+            try:
+                result = isolation.run_generate(iso_config, output_path)
+            except PackageNotFoundError as e:
+                raise click.ClickException(str(e)) from None
+            except IsolationError as e:
+                raise click.ClickException(str(e)) from None
+
+        console.print(f"[green]✓[/green] Generated server at: {result}")
+        console.print(f"\n[dim]To run: python {result}[/dim]")
+    else:
+        # Local execution (original flow)
+        # Create LLM provider if enabled
+        llm = None
+        if not no_llm:
+            with console.status("[bold blue]Initializing LLM provider..."):
+                llm = get_llm_provider(llm_provider, llm_model, settings)
+            if llm:
+                console.print(f"[green]✓[/green] Using LLM: {llm.model_name}")
+            else:
+                console.print("[yellow]![/yellow] LLM disabled, using docstrings only")
+
+        # Create cache
+        cache = PromptCache() if not no_cache else PromptCache(cache_dir=None)
+
+        # Create generator config
+        config = GeneratorConfig(
+            server_name=server_name,
+            include_private=include_private,
+            use_cache=not no_cache,
+            use_llm=not no_llm and llm is not None,
+            max_depth=max_depth,
+            public_api_only=public_api_only,
+            include_patterns=list(include_patterns) if include_patterns else None,
+            exclude_patterns=list(exclude_patterns) if exclude_patterns else None,
+            include_reexports=include_reexports,
+            enable_sessions=enable_sessions,
+            session_ttl=session_ttl,
+            max_sessions=max_sessions,
+        )
+
+        # Create generator
+        generator = MCPGenerator(llm=llm, cache=cache, config=config)
+
+        if enable_sessions:
+            console.print("[green]✓[/green] Session lifecycle enabled")
+
+        # Generate
+        with console.status(f"[bold blue]Analyzing and generating from '{package_name}'..."):
+            try:
+                result = generator.generate_standalone_from_package(
+                    package_name,
+                    output_path,
+                    context=context,
+                )
+            except ImportError as e:
+                raise click.ClickException(f"Cannot import package '{package_name}': {e}") from None
+            except ValueError as e:
+                raise click.ClickException(str(e)) from None
+
+        console.print(f"[green]✓[/green] Generated server at: {result}")
+        console.print(f"\n[dim]To run: python {result}[/dim]")
+
+        # Save cache if enabled
+        if not no_cache:
+            cache.save(package_name)
 
 
 @package.command(name="serve")
@@ -1823,6 +1977,18 @@ def package_generate(
     default=100,
     help="Maximum number of concurrent sessions (default: 100)",
 )
+@click.option(
+    "--no-isolated",
+    is_flag=True,
+    help="Force local execution only (fail if package not installed)",
+)
+@click.option(
+    "--version",
+    "pkg_version",
+    type=str,
+    default=None,
+    help="Package version to use with uvx (e.g., '2.28.0')",
+)
 @click.pass_context
 def package_serve(
     ctx: click.Context,
@@ -1842,10 +2008,15 @@ def package_serve(
     enable_sessions: bool,
     session_ttl: int,
     max_sessions: int,
+    no_isolated: bool,
+    pkg_version: str | None,
 ) -> None:
     """Run an MCP server from an installed package.
 
     PACKAGE_NAME: Name of the installed package (e.g., 'requests', 'json')
+
+    If the package is not installed locally, it will automatically be served
+    in an isolated uvx environment.
 
     Examples:
 
@@ -1857,58 +2028,162 @@ def package_serve(
 
         # Serve with filtering
         auto-mcp package serve boto3 --include 'boto3.s3.*' --max-depth 2
+
+        # Serve a specific version (uses uvx)
+        auto-mcp package serve requests==2.28.0
     """
+    from auto_mcp.isolation import IsolationManager, check_uvx_available
+    from auto_mcp.isolation.manager import IsolationConfig, IsolationError
+
     settings: Settings = ctx.obj["settings"]
-    server_name = name or f"{package_name}-mcp-server"
 
-    console.print(f"[bold blue]Loading package '{package_name}'...[/bold blue]")
-
-    # Create LLM provider if enabled
-    llm = None
-    if not no_llm:
-        llm = get_llm_provider(llm_provider, llm_model, settings)
-        if llm:
-            console.print(f"[green]✓[/green] Using LLM: {llm.model_name}")
-
-    # Create cache
-    cache = PromptCache() if not no_cache else PromptCache(cache_dir=None)
-
-    # Create generator config
-    config = GeneratorConfig(
-        server_name=server_name,
-        include_private=include_private,
-        use_cache=not no_cache,
-        use_llm=not no_llm and llm is not None,
-        max_depth=max_depth,
-        public_api_only=public_api_only,
-        include_patterns=list(include_patterns) if include_patterns else None,
-        exclude_patterns=list(exclude_patterns) if exclude_patterns else None,
-        include_reexports=include_reexports,
-        enable_sessions=enable_sessions,
-        session_ttl=session_ttl,
-        max_sessions=max_sessions,
+    # Create isolation manager
+    isolation = IsolationManager(
+        package_name=package_name,
+        version=pkg_version,
+        force_local=no_isolated,
     )
 
-    # Create generator
-    generator = MCPGenerator(llm=llm, cache=cache, config=config)
+    # Determine execution mode
+    use_isolation = isolation.should_use_isolation()
 
-    console.print("[bold blue]Creating MCP server...[/bold blue]")
+    # If version specified, always use isolation
+    if pkg_version:
+        use_isolation = True
 
-    if enable_sessions:
-        console.print("[green]✓[/green] Session lifecycle enabled")
+    server_name = name or f"{isolation.package_name}-mcp-server"
 
-    try:
-        server = generator.create_server_from_package(package_name)
-    except ImportError as e:
-        raise click.ClickException(f"Cannot import package '{package_name}': {e}") from None
-    except ValueError as e:
-        raise click.ClickException(str(e)) from None
+    if use_isolation:
+        # Check if uvx is available
+        if not check_uvx_available():
+            raise click.ClickException(
+                f"Package '{package_name}' is not installed locally and uvx is not available.\n"
+                "Either install the package or install uv: https://docs.astral.sh/uv/"
+            )
 
-    console.print(f"[green]✓[/green] Server '{server_name}' ready")
-    console.print(f"[dim]Transport: {transport}[/dim]\n")
+        console.print(f"[dim]Package not installed locally, using uvx isolation...[/dim]")
+        console.print(f"[bold blue]Starting server for '{isolation.get_package_spec()}'...[/bold blue]")
 
-    # Run server
-    server.run(transport=transport)
+        if enable_sessions:
+            console.print("[green]✓[/green] Session lifecycle enabled")
+
+        console.print(f"[green]✓[/green] Server '{server_name}' ready")
+        console.print(f"[dim]Transport: {transport}[/dim]\n")
+
+        iso_config = IsolationConfig(
+            package_name=isolation.package_name,
+            version=isolation.version,
+            max_depth=max_depth,
+            include_private=include_private,
+            include_reexports=include_reexports,
+            include_patterns=list(include_patterns) if include_patterns else None,
+            exclude_patterns=list(exclude_patterns) if exclude_patterns else None,
+            public_api_only=public_api_only,
+            server_name=server_name,
+            enable_sessions=enable_sessions,
+            session_ttl=session_ttl,
+            max_sessions=max_sessions,
+            transport=transport,
+        )
+
+        # This replaces the current process with uvx
+        # Note: run_serve does not return - it exec's into the subprocess
+        try:
+            isolation.run_serve(iso_config)
+        except IsolationError as e:
+            raise click.ClickException(str(e)) from None
+    else:
+        # Local execution (original flow)
+        console.print(f"[bold blue]Loading package '{package_name}'...[/bold blue]")
+
+        # Create LLM provider if enabled
+        llm = None
+        if not no_llm:
+            llm = get_llm_provider(llm_provider, llm_model, settings)
+            if llm:
+                console.print(f"[green]✓[/green] Using LLM: {llm.model_name}")
+
+        # Create cache
+        cache = PromptCache() if not no_cache else PromptCache(cache_dir=None)
+
+        # Create generator config
+        config = GeneratorConfig(
+            server_name=server_name,
+            include_private=include_private,
+            use_cache=not no_cache,
+            use_llm=not no_llm and llm is not None,
+            max_depth=max_depth,
+            public_api_only=public_api_only,
+            include_patterns=list(include_patterns) if include_patterns else None,
+            exclude_patterns=list(exclude_patterns) if exclude_patterns else None,
+            include_reexports=include_reexports,
+            enable_sessions=enable_sessions,
+            session_ttl=session_ttl,
+            max_sessions=max_sessions,
+        )
+
+        # Create generator
+        generator = MCPGenerator(llm=llm, cache=cache, config=config)
+
+        console.print("[bold blue]Creating MCP server...[/bold blue]")
+
+        if enable_sessions:
+            console.print("[green]✓[/green] Session lifecycle enabled")
+
+        try:
+            server = generator.create_server_from_package(package_name)
+        except ImportError as e:
+            raise click.ClickException(f"Cannot import package '{package_name}': {e}") from None
+        except ValueError as e:
+            raise click.ClickException(str(e)) from None
+
+        console.print(f"[green]✓[/green] Server '{server_name}' ready")
+        console.print(f"[dim]Transport: {transport}[/dim]\n")
+
+        # Run server
+        server.run(transport=transport)
+
+
+# =============================================================================
+# Internal Worker Commands (hidden, for uvx subprocess execution)
+# =============================================================================
+
+
+@cli.group(hidden=True)
+def internal_worker() -> None:
+    """Internal commands for subprocess workers (hidden from help).
+
+    These commands are used by the isolation manager when running
+    package analysis in a uvx subprocess.
+    """
+    pass
+
+
+@internal_worker.command(name="check")
+@click.option("--config", "config_json", required=True, help="JSON configuration")
+def internal_worker_check(config_json: str) -> None:
+    """Internal: Run package check as worker."""
+    from auto_mcp.isolation.worker import worker_check
+
+    worker_check(config_json)
+
+
+@internal_worker.command(name="generate")
+@click.option("--config", "config_json", required=True, help="JSON configuration")
+def internal_worker_generate(config_json: str) -> None:
+    """Internal: Run package generate as worker."""
+    from auto_mcp.isolation.worker import worker_generate
+
+    worker_generate(config_json)
+
+
+@internal_worker.command(name="serve")
+@click.option("--config", "config_json", required=True, help="JSON configuration")
+def internal_worker_serve(config_json: str) -> None:
+    """Internal: Run package serve as worker."""
+    from auto_mcp.isolation.worker import worker_serve
+
+    worker_serve(config_json)
 
 
 def main() -> None:
