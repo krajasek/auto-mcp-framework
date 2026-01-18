@@ -331,6 +331,17 @@ class IsolationManager:
             stderr = result.stderr.strip()
             stdout = result.stdout.strip()
 
+            # First, check if stdout contains a worker JSON error response
+            # The worker outputs {"success": false, "error": "..."} on failure
+            if stdout:
+                try:
+                    worker_output = json.loads(stdout)
+                    if isinstance(worker_output, dict) and not worker_output.get("success"):
+                        error_msg = worker_output.get("error", "Unknown worker error")
+                        raise IsolationError(f"Worker error: {error_msg}")
+                except json.JSONDecodeError:
+                    pass  # Not JSON, continue with other error checks
+
             # Check for auto-mcp not found (tool not published or available)
             if "auto-mcp" in stderr and ("not found" in stderr.lower() or "No such" in stderr):
                 raise IsolationError(
