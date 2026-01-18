@@ -119,7 +119,7 @@ def worker_generate(config_json: str) -> None:
         )
 
         # Generate server code (without LLM - not available in isolation)
-        generator = MCPGenerator(config=gen_config, llm_provider=None, cache=None)
+        generator = MCPGenerator(config=gen_config, llm=None, cache=None)
         code = generator.generate(methods)
 
         # Write output
@@ -155,44 +155,32 @@ def worker_serve(config_json: str) -> None:
     try:
         config = IsolationConfig.from_dict(json.loads(config_json))
 
-        # Import server components
-        from auto_mcp.core.server import AutoMCPServer
+        # Import generator components
+        from auto_mcp.core.generator import GeneratorConfig, MCPGenerator
 
-        analyzer = PackageAnalyzer(
+        # Create generator config
+        server_name = config.server_name or f"{config.package_name}-mcp-server"
+        gen_config = GeneratorConfig(
+            server_name=server_name,
             include_private=config.include_private,
             max_depth=config.max_depth,
-            include_reexports=config.include_reexports,
-        )
-
-        metadata = analyzer.analyze_package(
-            config.package_name,
+            public_api_only=config.public_api_only,
             include_patterns=config.include_patterns,
             exclude_patterns=config.exclude_patterns,
-        )
-
-        # Get methods (filter to public API if requested)
-        methods = (
-            analyzer.get_public_methods(metadata)
-            if config.public_api_only
-            else metadata.methods
-        )
-
-        # Create server
-        server_name = config.server_name or f"{config.package_name}-mcp-server"
-        server = AutoMCPServer(
-            name=server_name,
-            methods=methods,
+            include_reexports=config.include_reexports,
             enable_sessions=config.enable_sessions,
             session_ttl=config.session_ttl,
             max_sessions=config.max_sessions,
         )
 
+        # Create generator (without LLM - not available in isolation)
+        generator = MCPGenerator(config=gen_config, llm=None, cache=None)
+
+        # Create server from package
+        server = generator.create_server_from_package(config.package_name)
+
         # Run server
-        server.run(
-            transport=config.transport,
-            host=config.host,
-            port=config.port,
-        )
+        server.run(transport=config.transport)
 
     except ImportError as e:
         # For serve, we print error to stderr since stdout is for MCP
