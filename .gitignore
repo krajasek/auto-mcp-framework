@@ -76,3 +76,6 @@ dmypy.json
 
 # auto-mcp cache
 .auto_mcp_cache.json
+
+# Database files
+*.db
