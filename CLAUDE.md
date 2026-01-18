@@ -88,6 +88,7 @@ src/auto_mcp/
 | `auto-mcp generate <module> --package <name>` | Generate MCP server package |
 | `auto-mcp serve <module>` | Run in-memory MCP server |
 | `auto-mcp check <module>` | Dry-run validation |
+| `auto-mcp inspect <module>` | Inspect tools, schemas, and metadata |
 | `auto-mcp cache clear <module>` | Clear prompt cache |
 
 ## Environment Variables

@@ -932,6 +932,95 @@ auto-mcp check mymodule.py
 auto-mcp check mymodule.py --verbose
 ```
 
+### `auto-mcp inspect`
+
+Inspect modules and display detailed MCP component information. This command provides deep visibility into what an MCP server exposes, including tools, resources, prompts, JSON schemas, and parameter details.
+
+```bash
+# Basic inspection (table format)
+auto-mcp inspect mymodule.py
+
+# Verbose output with full JSON schemas
+auto-mcp inspect mymodule.py -v
+
+# JSON output for tooling integration
+auto-mcp inspect mymodule.py -f json
+
+# Tree view for hierarchical overview
+auto-mcp inspect mymodule.py -f tree
+
+# Filter by name pattern (glob)
+auto-mcp inspect mymodule.py --filter "get_*"
+auto-mcp inspect mymodule.py --filter "*user*"
+
+# Filter by component type
+auto-mcp inspect mymodule.py -t tools
+auto-mcp inspect mymodule.py -t resources
+
+# Show source code
+auto-mcp inspect mymodule.py --show-source
+
+# Include private methods
+auto-mcp inspect mymodule.py --include-private
+
+# Inspect multiple modules
+auto-mcp inspect module1.py module2.py
+```
+
+**Example Output (table format):**
+```
+Module: calculator.py
+
+Tools (3)
+┌────────────┬─────────────────────────────┬───────┬──────────────┐
+│ Name       │ Description                 │ Async │ Parameters   │
+├────────────┼─────────────────────────────┼───────┼──────────────┤
+│ add        │ Add two numbers together    │       │ a, b         │
+│ multiply   │ Multiply two numbers        │       │ x, y         │
+│ fetch_rate │ Fetch exchange rate         │ ✓     │ currency     │
+└────────────┴─────────────────────────────┴───────┴──────────────┘
+```
+
+**Example Output (verbose mode):**
+```
+Tool: add
+Description: Add two numbers together
+Async: No  |  Session: No
+
+Parameters:
+┌──────┬───────┬──────────┬─────────────────────┐
+│ Name │ Type  │ Default  │ Schema              │
+├──────┼───────┼──────────┼─────────────────────┤
+│ a    │ int   │ required │ {"type": "integer"} │
+│ b    │ int   │ required │ {"type": "integer"} │
+└──────┴───────┴──────────┴─────────────────────┘
+
+Returns: int
+```
+
+**Example Output (tree format):**
+```
+calculator
+├── Tools
+│   ├── add(a: int, b: int) -> int
+│   │   └── Add two numbers together
+│   └── multiply(x: int, y: int) -> int
+│       └── Multiply two numbers
+└── Resources
+    └── (none)
+```
+
+**Options:**
+| Option | Description |
+|--------|-------------|
+| `-f, --format` | Output format: table (default), json, tree |
+| `--filter` | Filter components by name (glob pattern) |
+| `-t, --type` | Component type: tools, resources, prompts, all (default) |
+| `-s, --show-schema` | Display full JSON schemas |
+| `--show-source` | Display function source code |
+| `--include-private` | Include private methods (starting with _) |
+| `-v, --verbose` | Verbose output (implies --show-schema) |
+
 ### `auto-mcp cache`
 
 Manage the description cache.
