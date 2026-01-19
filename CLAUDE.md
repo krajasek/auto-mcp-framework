@@ -20,13 +20,13 @@ uv sync
 uv sync --extra dev
 
 # Run the CLI
-uv run auto-mcp --help
+uv run auto-mcp-tool--help
 
 # Generate an MCP server from a module
-uv run auto-mcp generate mymodule.py -o server.py
+uv run auto-mcp-toolgenerate mymodule.py -o server.py
 
 # Serve a module directly
-uv run auto-mcp serve mymodule.py --port 8080
+uv run auto-mcp-toolserve mymodule.py --port 8080
 ```
 
 ## Code Quality
@@ -84,12 +84,12 @@ src/auto_mcp/
 
 | Command | Description |
 |---------|-------------|
-| `auto-mcp generate <module> -o <output>` | Generate standalone MCP server file |
-| `auto-mcp generate <module> --package <name>` | Generate MCP server package |
-| `auto-mcp serve <module>` | Run in-memory MCP server |
-| `auto-mcp check <module>` | Dry-run validation |
-| `auto-mcp inspect <module>` | Inspect tools, schemas, and metadata |
-| `auto-mcp cache clear <module>` | Clear prompt cache |
+| `auto-mcp-toolgenerate <module> -o <output>` | Generate standalone MCP server file |
+| `auto-mcp-toolgenerate <module> --package <name>` | Generate MCP server package |
+| `auto-mcp-toolserve <module>` | Run in-memory MCP server |
+| `auto-mcp-toolcheck <module>` | Dry-run validation |
+| `auto-mcp-toolinspect <module>` | Inspect tools, schemas, and metadata |
+| `auto-mcp-toolcache clear <module>` | Clear prompt cache |
 
 ## Environment Variables
 

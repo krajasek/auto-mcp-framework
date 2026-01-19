@@ -405,7 +405,7 @@ class TestIsolationManager:
 
         assert cmd[0] == "uvx"
         assert "--from" in cmd
-        assert "auto-mcp" in cmd
+        assert "auto-mcp-tool" in cmd
         assert "--with" in cmd
         assert "requests" in cmd
         assert "internal-worker" in cmd
@@ -476,15 +476,15 @@ class TestIsolationManager:
 
     @patch("subprocess.run")
     def test_run_subprocess_auto_mcp_not_found(self, mock_run: MagicMock) -> None:
-        """Should raise IsolationError when auto-mcp not on PyPI."""
+        """Should raise IsolationError when auto-mcp-tool not on PyPI."""
         mock_run.return_value = MagicMock(
             returncode=1,
             stdout="",
-            stderr="auto-mcp not found on PyPI",
+            stderr="auto-mcp-tool not found on PyPI",
         )
         manager = IsolationManager("requests")
 
-        with pytest.raises(IsolationError, match="auto-mcp is not available"):
+        with pytest.raises(IsolationError, match="auto-mcp-tool is not available"):
             manager._run_subprocess(["uvx", "command"])
 
     @patch("subprocess.run")

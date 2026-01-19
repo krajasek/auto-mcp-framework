@@ -86,10 +86,10 @@ def _private_helper():
 **Using the CLI:**
 ```bash
 # Generate a standalone server file
-auto-mcp generate math_utils.py -o server.py
+auto-mcp-tool generate math_utils.py -o server.py
 
 # Or serve directly
-auto-mcp serve math_utils.py
+auto-mcp-tool serve math_utils.py
 ```
 
 **Using the Python API:**
@@ -106,16 +106,16 @@ server.run()
 
 ```bash
 # Check what would be exposed from the requests package
-auto-mcp package check requests
+auto-mcp-tool package check requests
 
 # Generate a server from the json stdlib package
-auto-mcp package generate json -o json_server.py --no-llm
+auto-mcp-tool package generate json -o json_server.py --no-llm
 
 # Serve directly
-auto-mcp package serve json --no-llm
+auto-mcp-tool package serve json --no-llm
 
 # For packages like pandas/numpy that re-export from submodules:
-auto-mcp package generate pandas -o pandas_server.py --no-llm --include-reexports
+auto-mcp-tool package generate pandas -o pandas_server.py --no-llm --include-reexports
 ```
 
 ---
@@ -131,10 +131,10 @@ Standard input/output transport. Used by Claude Desktop and most MCP clients.
 **CLI:**
 ```bash
 # Explicit (default)
-auto-mcp serve mymodule.py --transport stdio
+auto-mcp-tool serve mymodule.py --transport stdio
 
 # Implicit (stdio is default)
-auto-mcp serve mymodule.py
+auto-mcp-tool serve mymodule.py
 ```
 
 **Python API:**
@@ -163,10 +163,10 @@ HTTP-based transport using Server-Sent Events. Useful for web clients.
 **CLI:**
 ```bash
 # Basic SSE server
-auto-mcp serve mymodule.py --transport sse
+auto-mcp-tool serve mymodule.py --transport sse
 
 # Custom host and port
-auto-mcp serve mymodule.py --transport sse --host 127.0.0.1 --port 3000
+auto-mcp-tool serve mymodule.py --transport sse --host 127.0.0.1 --port 3000
 ```
 
 **Python API:**
@@ -188,10 +188,10 @@ Modern HTTP transport with streaming support. Supports both stateless and statef
 **CLI:**
 ```bash
 # Streamable HTTP (stateless by default)
-auto-mcp serve mymodule.py --transport streamable-http
+auto-mcp-tool serve mymodule.py --transport streamable-http
 
 # With custom settings
-auto-mcp serve mymodule.py --transport streamable-http --port 8080
+auto-mcp-tool serve mymodule.py --transport streamable-http --port 8080
 ```
 
 **Python API:**
@@ -287,35 +287,35 @@ Preview what would be exposed without generating anything:
 
 ```bash
 # Basic check
-auto-mcp package check requests
+auto-mcp-tool package check requests
 
 # With verbose output (shows module tree)
-auto-mcp package check requests -v
+auto-mcp-tool package check requests -v
 
 # Check only public API (__all__ exports)
-auto-mcp package check requests --public-api-only
+auto-mcp-tool package check requests --public-api-only
 
 # Limit recursion depth
-auto-mcp package check boto3 --max-depth 2
+auto-mcp-tool package check boto3 --max-depth 2
 
 # Filter modules with patterns
-auto-mcp package check requests --include 'requests.api.*' --exclude 'requests.compat.*'
+auto-mcp-tool package check requests --include 'requests.api.*' --exclude 'requests.compat.*'
 ```
 
 #### Generate from a Package
 
 ```bash
 # Generate server file
-auto-mcp package generate json -o json_server.py --no-llm
+auto-mcp-tool package generate json -o json_server.py --no-llm
 
 # With LLM descriptions
-auto-mcp package generate requests -o requests_server.py --llm-provider ollama
+auto-mcp-tool package generate requests -o requests_server.py --llm-provider ollama
 
 # Only public API
-auto-mcp package generate pandas -o pandas_server.py --public-api-only
+auto-mcp-tool package generate pandas -o pandas_server.py --public-api-only
 
 # With filtering
-auto-mcp package generate boto3 -o s3_tools.py \
+auto-mcp-tool package generate boto3 -o s3_tools.py \
     --include 'boto3.s3.*' \
     --max-depth 2 \
     --no-llm
@@ -325,16 +325,16 @@ auto-mcp package generate boto3 -o s3_tools.py \
 
 ```bash
 # Serve with stdio transport (for Claude Desktop)
-auto-mcp package serve json --no-llm
+auto-mcp-tool package serve json --no-llm
 
 # Serve with SSE transport
-auto-mcp package serve requests --transport sse --port 3000
+auto-mcp-tool package serve requests --transport sse --port 3000
 
 # Serve with streamable HTTP
-auto-mcp package serve json --transport streamable-http
+auto-mcp-tool package serve json --transport streamable-http
 
 # With options
-auto-mcp package serve requests \
+auto-mcp-tool package serve requests \
     --name "HTTP Tools" \
     --public-api-only \
     --no-llm
@@ -398,13 +398,13 @@ Use `--include-reexports` to include these functions:
 
 ```bash
 # Without --include-reexports: 0 tools found (pandas uses re-exports)
-auto-mcp package check pandas --max-depth 0
+auto-mcp-tool package check pandas --max-depth 0
 
 # With --include-reexports: 530+ tools found
-auto-mcp package check pandas --max-depth 0 --include-reexports
+auto-mcp-tool package check pandas --max-depth 0 --include-reexports
 
 # Generate pandas server with all re-exported functions
-auto-mcp package generate pandas -o pandas_server.py --no-llm --include-reexports
+auto-mcp-tool package generate pandas -o pandas_server.py --no-llm --include-reexports
 ```
 
 **Common packages that need `--include-reexports`:**
@@ -417,7 +417,7 @@ auto-mcp package generate pandas -o pandas_server.py --no-llm --include-reexport
 
 ```bash
 # 1. Check what's available
-auto-mcp package check json -v
+auto-mcp-tool package check json -v
 
 # Output:
 # Package: json
@@ -434,7 +434,7 @@ auto-mcp package check json -v
 # └────────┴────────┴───────┴────────────────┘
 
 # 2. Generate and run
-auto-mcp package serve json --no-llm
+auto-mcp-tool package serve json --no-llm
 
 # 3. Or for Claude Desktop, add to config:
 ```
@@ -854,25 +854,25 @@ print(info.json_schema)  # {"type": "string", "format": "date-time"}
 
 ## CLI Reference
 
-### `auto-mcp generate`
+### `auto-mcp-tool generate`
 
 Generate MCP server code from Python modules.
 
 ```bash
 # Generate standalone file
-auto-mcp generate mymodule.py -o server.py
+auto-mcp-tool generate mymodule.py -o server.py
 
 # Generate with custom server name
-auto-mcp generate mymodule.py -o server.py --name my-server
+auto-mcp-tool generate mymodule.py -o server.py --name my-server
 
 # Generate a complete Python package
-auto-mcp generate mymodule.py --package myserver -o ./dist
+auto-mcp-tool generate mymodule.py --package myserver -o ./dist
 
 # Generate from multiple modules
-auto-mcp generate module1.py module2.py -o server.py
+auto-mcp-tool generate module1.py module2.py -o server.py
 
 # Use LLM for better descriptions
-auto-mcp generate mymodule.py -o server.py --llm-provider ollama --llm-model qwen2.5-coder:7b
+auto-mcp-tool generate mymodule.py -o server.py --llm-provider ollama --llm-model qwen2.5-coder:7b
 ```
 
 **Options:**
@@ -889,25 +889,25 @@ auto-mcp generate mymodule.py -o server.py --llm-provider ollama --llm-model qwe
 | `--session-ttl` | Session TTL in seconds (default: 3600) |
 | `--max-sessions` | Maximum concurrent sessions (default: 100) |
 
-### `auto-mcp serve`
+### `auto-mcp-tool serve`
 
 Run an MCP server directly from Python modules.
 
 ```bash
 # Basic usage (stdio transport)
-auto-mcp serve mymodule.py
+auto-mcp-tool serve mymodule.py
 
 # With SSE transport
-auto-mcp serve mymodule.py --transport sse --port 8080
+auto-mcp-tool serve mymodule.py --transport sse --port 8080
 
 # With streamable HTTP transport
-auto-mcp serve mymodule.py --transport streamable-http --port 3000
+auto-mcp-tool serve mymodule.py --transport streamable-http --port 3000
 
 # With hot-reload for development
-auto-mcp serve mymodule.py --watch
+auto-mcp-tool serve mymodule.py --watch
 
 # With LLM-enhanced descriptions
-auto-mcp serve mymodule.py --llm-provider ollama --llm-model qwen2.5-coder:7b
+auto-mcp-tool serve mymodule.py --llm-provider ollama --llm-model qwen2.5-coder:7b
 ```
 
 **Options:**
@@ -924,51 +924,51 @@ auto-mcp serve mymodule.py --llm-provider ollama --llm-model qwen2.5-coder:7b
 | `--session-ttl` | Session TTL in seconds (default: 3600) |
 | `--max-sessions` | Maximum concurrent sessions (default: 100) |
 
-### `auto-mcp check`
+### `auto-mcp-tool check`
 
 Validate modules without generating output (dry-run).
 
 ```bash
 # Check what tools would be generated
-auto-mcp check mymodule.py
+auto-mcp-tool check mymodule.py
 
 # Verbose output with descriptions
-auto-mcp check mymodule.py --verbose
+auto-mcp-tool check mymodule.py --verbose
 ```
 
-### `auto-mcp inspect`
+### `auto-mcp-tool inspect`
 
 Inspect modules and display detailed MCP component information. This command provides deep visibility into what an MCP server exposes, including tools, resources, prompts, JSON schemas, and parameter details.
 
 ```bash
 # Basic inspection (table format)
-auto-mcp inspect mymodule.py
+auto-mcp-tool inspect mymodule.py
 
 # Verbose output with full JSON schemas
-auto-mcp inspect mymodule.py -v
+auto-mcp-tool inspect mymodule.py -v
 
 # JSON output for tooling integration
-auto-mcp inspect mymodule.py -f json
+auto-mcp-tool inspect mymodule.py -f json
 
 # Tree view for hierarchical overview
-auto-mcp inspect mymodule.py -f tree
+auto-mcp-tool inspect mymodule.py -f tree
 
 # Filter by name pattern (glob)
-auto-mcp inspect mymodule.py --filter "get_*"
-auto-mcp inspect mymodule.py --filter "*user*"
+auto-mcp-tool inspect mymodule.py --filter "get_*"
+auto-mcp-tool inspect mymodule.py --filter "*user*"
 
 # Filter by component type
-auto-mcp inspect mymodule.py -t tools
-auto-mcp inspect mymodule.py -t resources
+auto-mcp-tool inspect mymodule.py -t tools
+auto-mcp-tool inspect mymodule.py -t resources
 
 # Show source code
-auto-mcp inspect mymodule.py --show-source
+auto-mcp-tool inspect mymodule.py --show-source
 
 # Include private methods
-auto-mcp inspect mymodule.py --include-private
+auto-mcp-tool inspect mymodule.py --include-private
 
 # Inspect multiple modules
-auto-mcp inspect module1.py module2.py
+auto-mcp-tool inspect module1.py module2.py
 ```
 
 **Example Output (table format):**
@@ -1025,46 +1025,46 @@ calculator
 | `--include-private` | Include private methods (starting with _) |
 | `-v, --verbose` | Verbose output (implies --show-schema) |
 
-### `auto-mcp cache`
+### `auto-mcp-tool cache`
 
 Manage the description cache.
 
 ```bash
 # Show cache statistics
-auto-mcp cache stats
+auto-mcp-tool cache stats
 
 # Clear cache for specific modules
-auto-mcp cache clear mymodule.py
+auto-mcp-tool cache clear mymodule.py
 
 # Clear all cache
-auto-mcp cache clear
+auto-mcp-tool cache clear
 ```
 
-### `auto-mcp config`
+### `auto-mcp-tool config`
 
 View configuration settings.
 
 ```bash
 # Show current configuration
-auto-mcp config show
+auto-mcp-tool config show
 
 # Show environment variable reference
-auto-mcp config env
+auto-mcp-tool config env
 ```
 
-### `auto-mcp package`
+### `auto-mcp-tool package`
 
 Commands for working with installed Python packages.
 
-#### `auto-mcp package check`
+#### `auto-mcp-tool package check`
 
 Analyze a package and show what would be exposed.
 
 ```bash
-auto-mcp package check requests
-auto-mcp package check requests -v
-auto-mcp package check boto3 --max-depth 2 --public-api-only
-auto-mcp package check pandas --include-reexports  # For packages with re-exports
+auto-mcp-tool package check requests
+auto-mcp-tool package check requests -v
+auto-mcp-tool package check boto3 --max-depth 2 --public-api-only
+auto-mcp-tool package check pandas --include-reexports  # For packages with re-exports
 ```
 
 **Options:**
@@ -1078,14 +1078,14 @@ auto-mcp package check pandas --include-reexports  # For packages with re-export
 | `--include-reexports` | Include functions re-exported from submodules |
 | `-v, --verbose` | Show module tree and details |
 
-#### `auto-mcp package generate`
+#### `auto-mcp-tool package generate`
 
 Generate an MCP server from a package.
 
 ```bash
-auto-mcp package generate json -o server.py --no-llm
-auto-mcp package generate requests -o server.py --public-api-only
-auto-mcp package generate pandas -o pandas_server.py --no-llm --include-reexports
+auto-mcp-tool package generate json -o server.py --no-llm
+auto-mcp-tool package generate requests -o server.py --public-api-only
+auto-mcp-tool package generate pandas -o pandas_server.py --no-llm --include-reexports
 ```
 
 **Options:**
@@ -1101,14 +1101,14 @@ auto-mcp package generate pandas -o pandas_server.py --no-llm --include-reexport
 | `--llm-provider` | LLM provider |
 | `--no-llm` | Disable LLM descriptions |
 
-#### `auto-mcp package serve`
+#### `auto-mcp-tool package serve`
 
 Run an MCP server from a package.
 
 ```bash
-auto-mcp package serve json --no-llm
-auto-mcp package serve requests --transport sse --port 3000
-auto-mcp package serve pandas --no-llm --include-reexports
+auto-mcp-tool package serve json --no-llm
+auto-mcp-tool package serve requests --transport sse --port 3000
+auto-mcp-tool package serve pandas --no-llm --include-reexports
 ```
 
 **Options:**
@@ -1386,13 +1386,13 @@ Tools that declare a `session: SessionContext` parameter receive the session aut
 
 ```bash
 # Generate server with sessions enabled
-auto-mcp generate mymodule.py -o server.py --enable-sessions
+auto-mcp-tool generate mymodule.py -o server.py --enable-sessions
 
 # With custom TTL (2 hours) and max sessions
-auto-mcp generate mymodule.py -o server.py --enable-sessions --session-ttl 7200 --max-sessions 50
+auto-mcp-tool generate mymodule.py -o server.py --enable-sessions --session-ttl 7200 --max-sessions 50
 
 # Serve with sessions
-auto-mcp serve mymodule.py --enable-sessions
+auto-mcp-tool serve mymodule.py --enable-sessions
 ```
 
 #### Python API
@@ -1728,7 +1728,7 @@ Enable hot-reload during development to automatically regenerate the server when
 ### CLI
 
 ```bash
-auto-mcp serve mymodule.py --watch
+auto-mcp-tool serve mymodule.py --watch
 ```
 
 ### Python API
@@ -1770,7 +1770,7 @@ def factorial(n: int) -> int:
 ```
 
 ```bash
-auto-mcp serve examples/simple_math/math_utils.py
+auto-mcp-tool serve examples/simple_math/math_utils.py
 ```
 
 ### Async API (`examples/async_api/`)
@@ -1790,7 +1790,7 @@ async def get_forecast(city: str, days: int = 5) -> list[dict]:
 ```
 
 ```bash
-auto-mcp serve examples/async_api/weather_api.py
+auto-mcp-tool serve examples/async_api/weather_api.py
 ```
 
 ### Class Service (`examples/class_service/`)
@@ -1827,7 +1827,7 @@ list_todos = todo_service.list_all
 ```
 
 ```bash
-auto-mcp serve examples/class_service/todo_service.py
+auto-mcp-tool serve examples/class_service/todo_service.py
 ```
 
 ### Pandas Analytics (`examples/pandas_analytics/`)
@@ -1836,7 +1836,7 @@ Demonstrates generating MCP servers from installed packages with re-exported fun
 
 ```bash
 # Generate the pandas MCP server (530+ tools)
-auto-mcp package generate pandas -o examples/pandas_analytics/pandas_server.py \
+auto-mcp-tool package generate pandas -o examples/pandas_analytics/pandas_server.py \
     --no-llm --max-depth 0 --include-reexports
 
 # Run the test script to verify DataFrame serialization
@@ -1889,7 +1889,7 @@ Generate the pandas MCP server with re-exports enabled (required for pandas):
 
 ```bash
 # Generate the server with all pandas functions
-auto-mcp package generate pandas -o examples/pandas_analytics/pandas_server.py \
+auto-mcp-tool package generate pandas -o examples/pandas_analytics/pandas_server.py \
     --no-llm --max-depth 0 --include-reexports
 
 # Or use the pre-generated server directly
@@ -2421,7 +2421,7 @@ First, generate the MCP server from the SQLite tools module:
 ```bash
 # Generate the server
 cd examples/sqlite_database
-uv run auto-mcp generate sqlite_tools.py -o sqlite_server.py --no-llm --name sqlite-tools
+uv run auto-mcp-tool generate sqlite_tools.py -o sqlite_server.py --no-llm --name sqlite-tools
 ```
 
 Or use the pre-generated `sqlite_server.py` directly.

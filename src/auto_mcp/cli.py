@@ -121,10 +121,10 @@ def get_llm_provider(
 
 
 @click.group()
-@click.version_option(package_name="auto-mcp")
+@click.version_option(package_name="auto-mcp-tool")
 @click.pass_context
 def cli(ctx: click.Context) -> None:
-    """auto-mcp: Automatically generate MCP servers from Python modules.
+    """auto-mcp-tool: Automatically generate MCP servers from Python modules.
 
     Use this tool to analyze Python modules and generate MCP-compatible
     servers with tools, resources, and prompts.
@@ -235,22 +235,22 @@ def generate(
     Examples:
 
         # Generate standalone server file
-        auto-mcp generate mymodule.py -o server.py
+        auto-mcp-tool generate mymodule.py -o server.py
 
         # Generate with custom server name
-        auto-mcp generate mymodule.py -o server.py --name "My MCP Server"
+        auto-mcp-tool generate mymodule.py -o server.py --name "My MCP Server"
 
         # Generate as a package
-        auto-mcp generate mymodule.py --package my-server -o ./dist
+        auto-mcp-tool generate mymodule.py --package my-server -o ./dist
 
         # Generate without LLM (use docstrings only)
-        auto-mcp generate mymodule.py -o server.py --no-llm
+        auto-mcp-tool generate mymodule.py -o server.py --no-llm
 
         # Generate with session lifecycle support
-        auto-mcp generate mymodule.py -o server.py --enable-sessions
+        auto-mcp-tool generate mymodule.py -o server.py --enable-sessions
 
         # Generate with custom session settings
-        auto-mcp generate mymodule.py -o server.py --enable-sessions --session-ttl 7200
+        auto-mcp-tool generate mymodule.py -o server.py --enable-sessions --session-ttl 7200
     """
     settings: Settings = ctx.obj["settings"]
 
@@ -406,22 +406,22 @@ def serve(
     Examples:
 
         # Run server with stdio transport
-        auto-mcp serve mymodule.py
+        auto-mcp-tool serve mymodule.py
 
         # Run with custom name
-        auto-mcp serve mymodule.py --name "My Server"
+        auto-mcp-tool serve mymodule.py --name "My Server"
 
         # Run with SSE transport
-        auto-mcp serve mymodule.py --transport sse
+        auto-mcp-tool serve mymodule.py --transport sse
 
         # Run with hot-reload enabled
-        auto-mcp serve mymodule.py --watch
+        auto-mcp-tool serve mymodule.py --watch
 
         # Run with session lifecycle support
-        auto-mcp serve mymodule.py --enable-sessions
+        auto-mcp-tool serve mymodule.py --enable-sessions
 
         # Run with custom session settings
-        auto-mcp serve mymodule.py --enable-sessions --session-ttl 7200 --max-sessions 50
+        auto-mcp-tool serve mymodule.py --enable-sessions --session-ttl 7200 --max-sessions 50
     """
     settings: Settings = ctx.obj["settings"]
 
@@ -521,13 +521,13 @@ def check(
     Examples:
 
         # Check what would be exposed
-        auto-mcp check mymodule.py
+        auto-mcp-tool check mymodule.py
 
         # Include private methods in check
-        auto-mcp check mymodule.py --include-private
+        auto-mcp-tool check mymodule.py --include-private
 
         # Show detailed information
-        auto-mcp check mymodule.py -v
+        auto-mcp-tool check mymodule.py -v
     """
     # Load modules
     with console.status("[bold blue]Loading modules..."):
@@ -1057,22 +1057,22 @@ def inspect(
     Examples:
 
         # Basic inspection
-        auto-mcp inspect mymodule.py
+        auto-mcp-tool inspect mymodule.py
 
         # Verbose with schemas
-        auto-mcp inspect mymodule.py -v
+        auto-mcp-tool inspect mymodule.py -v
 
         # JSON output
-        auto-mcp inspect mymodule.py -f json
+        auto-mcp-tool inspect mymodule.py -f json
 
         # Tree view
-        auto-mcp inspect mymodule.py -f tree
+        auto-mcp-tool inspect mymodule.py -f tree
 
         # Filter by name
-        auto-mcp inspect mymodule.py --filter "get_*"
+        auto-mcp-tool inspect mymodule.py --filter "get_*"
 
         # Show only tools
-        auto-mcp inspect mymodule.py -t tools
+        auto-mcp-tool inspect mymodule.py -t tools
     """
     # Verbose implies show_schema
     if verbose:
@@ -1193,10 +1193,10 @@ def cache_clear(
     Examples:
 
         # Clear cache for specific modules
-        auto-mcp cache clear mymodule.py
+        auto-mcp-tool cache clear mymodule.py
 
         # Clear all cache
-        auto-mcp cache clear --all
+        auto-mcp-tool cache clear --all
     """
     cache_instance = PromptCache()
 
@@ -1223,7 +1223,7 @@ def cache_stats(ctx: click.Context) -> None:
 
     Examples:
 
-        auto-mcp cache stats
+        auto-mcp-tool cache stats
     """
     cache_instance = PromptCache()
     stats = cache_instance.get_stats()
@@ -1252,7 +1252,7 @@ def config_show(ctx: click.Context) -> None:
 
     Examples:
 
-        auto-mcp config show
+        auto-mcp-tool config show
     """
     settings: Settings = ctx.obj["settings"]
 
@@ -1291,7 +1291,7 @@ def config_env(ctx: click.Context) -> None:
 
     Examples:
 
-        auto-mcp config env
+        auto-mcp-tool config env
     """
     env_vars = [
         ("AUTO_MCP_LLM_PROVIDER", "LLM provider (ollama, openai, anthropic)"),
@@ -1409,23 +1409,23 @@ def package_check(
     Examples:
 
         # Check requests package
-        auto-mcp package check requests
+        auto-mcp-tool package check requests
 
         # Check with depth limit
-        auto-mcp package check boto3 --max-depth 2
+        auto-mcp-tool package check boto3 --max-depth 2
 
         # Check only public API
-        auto-mcp package check requests --public-api-only
+        auto-mcp-tool package check requests --public-api-only
 
         # Check with module filtering
-        auto-mcp package check requests --include 'requests.api.*'
+        auto-mcp-tool package check requests --include 'requests.api.*'
 
         # Verbose output
-        auto-mcp package check requests -v
+        auto-mcp-tool package check requests -v
 
         # Check a specific version (uses uvx)
-        auto-mcp package check requests --version 2.28.0
-        auto-mcp package check requests==2.28.0
+        auto-mcp-tool package check requests --version 2.28.0
+        auto-mcp-tool package check requests==2.28.0
     """
     from auto_mcp.isolation import IsolationManager, check_uvx_available
     from auto_mcp.isolation.manager import IsolationConfig, IsolationError, PackageNotFoundError
@@ -1756,19 +1756,19 @@ def package_generate(
     Examples:
 
         # Generate server from requests
-        auto-mcp package generate requests -o requests_server.py
+        auto-mcp-tool package generate requests -o requests_server.py
 
         # Generate with custom name
-        auto-mcp package generate requests -o server.py --name "HTTP Server"
+        auto-mcp-tool package generate requests -o server.py --name "HTTP Server"
 
         # Generate with filtering
-        auto-mcp package generate requests -o server.py --public-api-only
+        auto-mcp-tool package generate requests -o server.py --public-api-only
 
         # Generate without LLM
-        auto-mcp package generate json -o json_server.py --no-llm
+        auto-mcp-tool package generate json -o json_server.py --no-llm
 
         # Generate from a specific version (uses uvx)
-        auto-mcp package generate requests==2.28.0 -o server.py
+        auto-mcp-tool package generate requests==2.28.0 -o server.py
     """
     from auto_mcp.isolation import IsolationManager, check_uvx_available
     from auto_mcp.isolation.manager import IsolationConfig, IsolationError, PackageNotFoundError
@@ -2021,16 +2021,16 @@ def package_serve(
     Examples:
 
         # Serve requests package
-        auto-mcp package serve requests
+        auto-mcp-tool package serve requests
 
         # Serve with custom name
-        auto-mcp package serve requests --name "HTTP Server"
+        auto-mcp-tool package serve requests --name "HTTP Server"
 
         # Serve with filtering
-        auto-mcp package serve boto3 --include 'boto3.s3.*' --max-depth 2
+        auto-mcp-tool package serve boto3 --include 'boto3.s3.*' --max-depth 2
 
         # Serve a specific version (uses uvx)
-        auto-mcp package serve requests==2.28.0
+        auto-mcp-tool package serve requests==2.28.0
     """
     from auto_mcp.isolation import IsolationManager, check_uvx_available
     from auto_mcp.isolation.manager import IsolationConfig, IsolationError

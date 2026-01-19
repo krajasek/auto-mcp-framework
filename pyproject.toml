@@ -1,6 +1,6 @@
 [project]
 name = "auto-mcp-tool"
-version = "0.1.0"
+version = "0.1.1"
 description = "Automatically generate MCP servers from Python modules using LLM-powered documentation"
 readme = "README.md"
 license = "MIT"
@@ -71,7 +71,7 @@ Issues = "https://github.com/krajasek/auto-mcp-framework/issues"
 Changelog = "https://github.com/krajasek/auto-mcp-framework/blob/main/CHANGELOG.md"
 
 [project.scripts]
-auto-mcp = "auto_mcp.cli:main"
+auto-mcp-tool = "auto_mcp.cli:main"
 
 [build-system]
 requires = ["hatchling"]

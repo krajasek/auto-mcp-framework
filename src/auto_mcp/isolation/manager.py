@@ -46,7 +46,7 @@ def get_auto_mcp_source_dir() -> Path | None:
         if pyproject.exists():
             # Verify it's actually the auto-mcp project
             content = pyproject.read_text()
-            if 'name = "auto-mcp"' in content or "name = 'auto-mcp'" in content:
+            if 'name = "auto-mcp-tool"' in content or "name = 'auto-mcp-tool'" in content:
                 return project_root
 
         return None
@@ -277,13 +277,13 @@ class IsolationManager:
             auto_mcp_source = str(source_dir)
         else:
             # Production mode: use PyPI
-            auto_mcp_source = "auto-mcp"
+            auto_mcp_source = "auto-mcp-tool"
 
         cmd = [
             "uvx",
             "--from", auto_mcp_source,
             "--with", self.get_package_spec(),
-            "auto-mcp",
+            "auto-mcp-tool",
             "internal-worker",
             worker_cmd,
             "--config", config_json,
@@ -342,19 +342,19 @@ class IsolationManager:
                 except json.JSONDecodeError:
                     pass  # Not JSON, continue with other error checks
 
-            # Check for auto-mcp not found (tool not published or available)
-            if "auto-mcp" in stderr and ("not found" in stderr.lower() or "No such" in stderr):
+            # Check for auto-mcp-tool not found (tool not published or available)
+            if "auto-mcp-tool" in stderr and ("not found" in stderr.lower() or "No such" in stderr):
                 raise IsolationError(
-                    "auto-mcp is not available on PyPI or cannot be installed via uvx.\n"
-                    "This feature requires auto-mcp to be published. For local development,\n"
+                    "auto-mcp-tool is not available on PyPI or cannot be installed via uvx.\n"
+                    "This feature requires auto-mcp-tool to be published. For local development,\n"
                     "install the package you want to analyze directly: pip install <package>"
                 )
 
             # Check for internal-worker command not found
             if "internal-worker" in stderr or "No such command" in stderr:
                 raise IsolationError(
-                    "The installed version of auto-mcp does not support isolated execution.\n"
-                    "Please upgrade auto-mcp: pip install --upgrade auto-mcp"
+                    "The installed version of auto-mcp-tool does not support isolated execution.\n"
+                    "Please upgrade auto-mcp-tool: pip install --upgrade auto-mcp-tool"
                 )
 
             # Check for target package not found on PyPI
