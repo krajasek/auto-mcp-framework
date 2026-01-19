@@ -420,6 +420,52 @@ class TestSessionInjection:
         assert needs_session_injection(async_func) is True
         assert get_session_param_name(async_func) == "session"
 
+    def test_optional_session_context(self) -> None:
+        """Test detection of Optional[SessionContext] parameter."""
+        from typing import Optional
+
+        def func_with_optional(ctx: Optional[SessionContext], x: int) -> int:
+            return x
+
+        assert needs_session_injection(func_with_optional) is True
+        assert get_session_param_name(func_with_optional) == "ctx"
+
+    def test_union_session_context(self) -> None:
+        """Test detection of SessionContext | None parameter."""
+
+        def func_with_union(ctx: SessionContext | None, x: int) -> int:
+            return x
+
+        assert needs_session_injection(func_with_union) is True
+        assert get_session_param_name(func_with_union) == "ctx"
+
+    def test_get_type_hints_failure(self) -> None:
+        """Test handling when get_type_hints fails."""
+        # Create a function with an annotation that can't be resolved
+        def problematic_func(x: "NonExistentType") -> None:  # type: ignore
+            pass
+
+        # Should return None gracefully (no SessionContext)
+        assert get_session_param_name(problematic_func) is None
+        assert needs_session_injection(problematic_func) is False
+
+    def test_string_annotation_session_context(self) -> None:
+        """Test detection of string annotation containing SessionContext."""
+        # Use exec to create function with string annotation at runtime
+        func_code = '''
+def func_with_string_annotation(session: "SessionContext", x: int) -> int:
+    return x
+'''
+        local_ns: dict[str, Any] = {}
+        exec(func_code, {"SessionContext": SessionContext}, local_ns)
+        func = local_ns["func_with_string_annotation"]
+
+        # Note: This may or may not work depending on how get_type_hints resolves it
+        # The fallback path checks for string "SessionContext" in annotation
+        result = get_session_param_name(func)
+        # The string annotation should be resolved or detected
+        assert result == "session"
+
 
 class TestSessionIntegration:
     """Integration tests for session lifecycle."""
@@ -483,3 +529,409 @@ class TestSessionIntegration:
         # The session should store the custom TTL
         # (Note: TTL enforcement is not tested here as it would require time manipulation)
         assert session is not None
+
+
+class TestSessionDataExtended:
+    """Extended tests for SessionData class."""
+
+    def test_items(self) -> None:
+        """Test items method returns key-value pairs."""
+        data = SessionData()
+        data.set("key1", "value1")
+        data.set("key2", "value2")
+        items = data.items()
+        assert ("key1", "value1") in items
+        assert ("key2", "value2") in items
+        assert len(items) == 2
+
+    def test_contains_dunder(self) -> None:
+        """Test __contains__ dunder method."""
+        data = SessionData()
+        data.set("exists", "value")
+        assert "exists" in data
+        assert "missing" not in data
+
+
+class TestSessionContextExtended:
+    """Extended tests for SessionContext class."""
+
+    def test_refresh_without_manager(self) -> None:
+        """Test refresh returns False when no manager."""
+        ctx = SessionContext(
+            session_id="session:test",
+            created_at=time.time(),
+            _manager=None,
+        )
+        assert ctx.refresh() is False
+
+    @pytest.mark.asyncio
+    async def test_refresh_with_manager(self) -> None:
+        """Test refresh works with manager."""
+        manager = SessionManager()
+        session = await manager.create_session()
+        assert session.refresh() is True
+
+    def test_invalidate_without_manager(self) -> None:
+        """Test invalidate does nothing without manager."""
+        ctx = SessionContext(
+            session_id="session:test",
+            created_at=time.time(),
+            _manager=None,
+        )
+        # Should not raise
+        ctx.invalidate()
+
+    @pytest.mark.asyncio
+    async def test_invalidate_with_manager(self) -> None:
+        """Test invalidate schedules session closure."""
+        manager = SessionManager()
+        session = await manager.create_session()
+        session_id = session.session_id
+
+        # Invalidate schedules async closure
+        session.invalidate()
+        # Give async task time to run
+        await asyncio.sleep(0.1)
+
+        assert not manager.session_exists(session_id)
+
+    @pytest.mark.asyncio
+    async def test_invalidate_async_without_manager(self) -> None:
+        """Test invalidate_async returns False without manager."""
+        ctx = SessionContext(
+            session_id="session:test",
+            created_at=time.time(),
+            _manager=None,
+        )
+        result = await ctx.invalidate_async()
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_invalidate_async_with_manager(self) -> None:
+        """Test invalidate_async properly closes session."""
+        manager = SessionManager()
+        session = await manager.create_session()
+        session_id = session.session_id
+
+        result = await session.invalidate_async()
+        assert result is True
+        assert not manager.session_exists(session_id)
+
+    def test_copy_raises_error(self) -> None:
+        """Test that copying SessionContext raises RuntimeError."""
+        import copy
+
+        ctx = SessionContext(
+            session_id="session:test",
+            created_at=time.time(),
+        )
+
+        with pytest.raises(RuntimeError, match="cannot be copied"):
+            copy.copy(ctx)
+
+    def test_deepcopy_raises_error(self) -> None:
+        """Test that deep copying SessionContext raises RuntimeError."""
+        import copy
+
+        ctx = SessionContext(
+            session_id="session:test",
+            created_at=time.time(),
+        )
+
+        with pytest.raises(RuntimeError, match="cannot be deep copied"):
+            copy.deepcopy(ctx)
+
+
+class TestStoredSession:
+    """Tests for StoredSession class."""
+
+    def test_is_expired_never_expires(self) -> None:
+        """Test is_expired returns False when expires_at is 0."""
+        from auto_mcp.session.manager import StoredSession
+
+        ctx = SessionContext(
+            session_id="session:test",
+            created_at=time.time(),
+        )
+        stored = StoredSession(
+            context=ctx,
+            expires_at=0,  # Never expires
+            created_at=time.time(),
+        )
+        assert stored.is_expired is False
+
+    def test_is_expired_not_expired(self) -> None:
+        """Test is_expired returns False when not expired."""
+        from auto_mcp.session.manager import StoredSession
+
+        ctx = SessionContext(
+            session_id="session:test",
+            created_at=time.time(),
+        )
+        stored = StoredSession(
+            context=ctx,
+            expires_at=time.time() + 3600,  # 1 hour from now
+            created_at=time.time(),
+        )
+        assert stored.is_expired is False
+
+    def test_is_expired_expired(self) -> None:
+        """Test is_expired returns True when expired."""
+        from auto_mcp.session.manager import StoredSession
+
+        ctx = SessionContext(
+            session_id="session:test",
+            created_at=time.time(),
+        )
+        stored = StoredSession(
+            context=ctx,
+            expires_at=time.time() - 1,  # 1 second ago
+            created_at=time.time(),
+        )
+        assert stored.is_expired is True
+
+
+class TestSessionManagerExtended:
+    """Extended tests for SessionManager class."""
+
+    @pytest.fixture
+    def manager(self) -> SessionManager:
+        """Create a session manager for tests."""
+        return SessionManager(SessionConfig(max_sessions=10))
+
+    @pytest.mark.asyncio
+    async def test_metadata_validation_not_dict(self, manager: SessionManager) -> None:
+        """Test metadata validation rejects non-dict."""
+        with pytest.raises(TypeError, match="must be a dict"):
+            await manager.create_session(metadata="not a dict")  # type: ignore
+
+    @pytest.mark.asyncio
+    async def test_metadata_validation_too_many_keys(self) -> None:
+        """Test metadata validation rejects too many keys."""
+        manager = SessionManager(SessionConfig(max_metadata_keys=2))
+        metadata = {"key1": "v1", "key2": "v2", "key3": "v3"}
+
+        with pytest.raises(ValueError, match="exceeds maximum key count"):
+            await manager.create_session(metadata=metadata)
+
+    @pytest.mark.asyncio
+    async def test_metadata_validation_non_string_key(self, manager: SessionManager) -> None:
+        """Test metadata validation rejects non-string keys."""
+        with pytest.raises(TypeError, match="keys must be strings"):
+            await manager.create_session(metadata={123: "value"})  # type: ignore
+
+    @pytest.mark.asyncio
+    async def test_metadata_validation_value_too_large(self) -> None:
+        """Test metadata validation rejects oversized values."""
+        manager = SessionManager(SessionConfig(max_metadata_value_size=10))
+        metadata = {"key": "x" * 100}  # Value too large
+
+        with pytest.raises(ValueError, match="exceeds maximum size"):
+            await manager.create_session(metadata=metadata)
+
+    @pytest.mark.asyncio
+    async def test_init_hook_error_handling(self, manager: SessionManager) -> None:
+        """Test that init hook errors are logged but don't break session creation."""
+
+        async def failing_hook(session: SessionContext) -> None:
+            raise ValueError("Hook failed!")
+
+        manager.register_init_hook(failing_hook)
+        # Should not raise, session should still be created
+        session = await manager.create_session()
+        assert session is not None
+        assert manager.session_exists(session.session_id)
+
+    @pytest.mark.asyncio
+    async def test_cleanup_hook_error_handling(self, manager: SessionManager) -> None:
+        """Test that cleanup hook errors are logged but don't break session closure."""
+
+        async def failing_hook(session: SessionContext) -> None:
+            raise ValueError("Cleanup failed!")
+
+        manager.register_cleanup_hook(failing_hook)
+        session = await manager.create_session()
+        session_id = session.session_id
+
+        # Should not raise, session should still be closed
+        result = await manager.close_session(session_id)
+        assert result is True
+        assert not manager.session_exists(session_id)
+
+    @pytest.mark.asyncio
+    async def test_get_session_expired(self, manager: SessionManager) -> None:
+        """Test get_session raises ValueError for expired session."""
+        # Create session with very short TTL
+        session = await manager.create_session(ttl=1)
+        session_id = session.session_id
+
+        # Wait for expiration
+        await asyncio.sleep(1.5)
+
+        with pytest.raises(ValueError, match="has expired"):
+            manager.get_session(session_id)
+
+    @pytest.mark.asyncio
+    async def test_session_exists_expired(self, manager: SessionManager) -> None:
+        """Test session_exists returns False for expired session."""
+        session = await manager.create_session(ttl=1)
+        session_id = session.session_id
+
+        await asyncio.sleep(1.5)
+        assert manager.session_exists(session_id) is False
+
+    @pytest.mark.asyncio
+    async def test_refresh_session_not_found(self, manager: SessionManager) -> None:
+        """Test refresh_session returns False for non-existent session."""
+        result = manager.refresh_session("session:nonexistent")
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_refresh_session_expired(self, manager: SessionManager) -> None:
+        """Test refresh_session returns False for expired session."""
+        session = await manager.create_session(ttl=1)
+        session_id = session.session_id
+
+        await asyncio.sleep(1.5)
+        result = manager.refresh_session(session_id)
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_get_stats(self, manager: SessionManager) -> None:
+        """Test get_stats returns correct statistics."""
+        # Create some sessions
+        session1 = await manager.create_session()
+        session2 = await manager.create_session()
+
+        stats = manager.get_stats()
+        assert stats["active_sessions"] == 2
+        assert stats["max_sessions"] == 10
+        assert stats["total_created"] == 2
+        assert stats["total_closed"] == 0
+
+        # Close one session
+        await manager.close_session(session1.session_id)
+        stats = manager.get_stats()
+        assert stats["active_sessions"] == 1
+        assert stats["total_closed"] == 1
+
+    @pytest.mark.asyncio
+    async def test_cleanup_removes_expired(self, manager: SessionManager) -> None:
+        """Test cleanup() removes expired sessions."""
+        # Create session with short TTL
+        session = await manager.create_session(ttl=1)
+        assert manager.session_count == 1
+
+        await asyncio.sleep(1.5)
+
+        count = await manager.cleanup()
+        assert count == 1
+        assert manager.session_count == 0
+
+    @pytest.mark.asyncio
+    async def test_clear_closes_all_sessions(self, manager: SessionManager) -> None:
+        """Test clear() closes all sessions."""
+        await manager.create_session()
+        await manager.create_session()
+        await manager.create_session()
+        assert manager.session_count == 3
+
+        count = await manager.clear()
+        assert count == 3
+        assert manager.session_count == 0
+
+    @pytest.mark.asyncio
+    async def test_never_expiring_session(self, manager: SessionManager) -> None:
+        """Test session with TTL=0 never expires."""
+        session = await manager.create_session(ttl=0)
+        session_id = session.session_id
+
+        # Even after sleep, session should exist
+        await asyncio.sleep(0.1)
+        assert manager.session_exists(session_id)
+        assert manager.get_session(session_id) is session
+
+    @pytest.mark.asyncio
+    async def test_count_method(self, manager: SessionManager) -> None:
+        """Test count() method."""
+        assert manager.count() == 0
+        await manager.create_session()
+        assert manager.count() == 1
+        await manager.create_session()
+        assert manager.count() == 2
+
+
+class TestDefaultSessionManager:
+    """Tests for global default session manager."""
+
+    def test_get_default_session_manager(self) -> None:
+        """Test getting default manager creates one if needed."""
+        from auto_mcp.session.manager import (
+            _default_manager,
+            get_default_session_manager,
+            set_default_session_manager,
+        )
+
+        # Save current default
+        import auto_mcp.session.manager as manager_module
+        original = manager_module._default_manager
+
+        try:
+            # Reset to None
+            manager_module._default_manager = None
+
+            # Get default should create new manager
+            default = get_default_session_manager()
+            assert default is not None
+            assert isinstance(default, SessionManager)
+
+            # Should return same instance
+            assert get_default_session_manager() is default
+        finally:
+            # Restore original
+            manager_module._default_manager = original
+
+    def test_set_default_session_manager(self) -> None:
+        """Test setting default manager."""
+        from auto_mcp.session.manager import (
+            get_default_session_manager,
+            set_default_session_manager,
+        )
+        import auto_mcp.session.manager as manager_module
+        original = manager_module._default_manager
+
+        try:
+            custom_manager = SessionManager(SessionConfig(max_sessions=5))
+            set_default_session_manager(custom_manager)
+
+            assert get_default_session_manager() is custom_manager
+        finally:
+            manager_module._default_manager = original
+
+
+class TestSessionManagerSyncCleanup:
+    """Tests for synchronous cleanup paths."""
+
+    def test_sync_cleanup(self) -> None:
+        """Test _sync_cleanup removes expired sessions without hooks."""
+        from auto_mcp.session.manager import StoredSession
+
+        manager = SessionManager()
+
+        # Manually add an expired session
+        ctx = SessionContext(
+            session_id="session:expired",
+            created_at=time.time() - 100,
+            _manager=manager,
+        )
+        stored = StoredSession(
+            context=ctx,
+            expires_at=time.time() - 1,  # Already expired
+            created_at=time.time() - 100,
+        )
+        manager._sessions["session:expired"] = stored
+
+        # Run sync cleanup
+        count = manager._sync_cleanup()
+        assert count == 1
+        assert "session:expired" not in manager._sessions

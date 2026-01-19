@@ -1560,6 +1560,192 @@ class TestClassWrapper:
         assert result == 2024
 
 
+class TestFunctionWrapperSessionInjection:
+    """Tests for FunctionWrapper session injection."""
+
+    @pytest.mark.asyncio
+    async def test_call_with_session_injection(self) -> None:
+        """Test FunctionWrapper.call() with session injection."""
+        from auto_mcp.session.context import SessionContext
+        from auto_mcp.session.manager import SessionManager
+        from auto_mcp.types.wrapper import FunctionWrapper
+
+        manager = SessionManager()
+        session = await manager.create_session()
+
+        def session_aware_func(session: SessionContext, x: int) -> str:
+            return f"session:{session.session_id}, x:{x}"
+
+        wrapper = FunctionWrapper(
+            session_aware_func,
+            session_manager=manager,
+            session_param_name="session",
+        )
+
+        result = wrapper.call({"session_id": session.session_id, "x": 42})
+        assert f"session:{session.session_id}" in result
+        assert "x:42" in result
+
+    @pytest.mark.asyncio
+    async def test_call_with_session_missing_session_id(self) -> None:
+        """Test FunctionWrapper.call() raises error when session_id is missing."""
+        from auto_mcp.session.context import SessionContext
+        from auto_mcp.session.manager import SessionManager
+        from auto_mcp.types.wrapper import FunctionWrapper
+
+        manager = SessionManager()
+
+        def session_aware_func(session: SessionContext, x: int) -> str:
+            return "result"
+
+        wrapper = FunctionWrapper(
+            session_aware_func,
+            session_manager=manager,
+            session_param_name="session",
+        )
+
+        with pytest.raises(ValueError, match="session_id is required"):
+            wrapper.call({"x": 42})
+
+    @pytest.mark.asyncio
+    async def test_call_with_session_invalid_session_id_type(self) -> None:
+        """Test FunctionWrapper.call() raises error for non-string session_id."""
+        from auto_mcp.session.context import SessionContext
+        from auto_mcp.session.manager import SessionManager
+        from auto_mcp.types.wrapper import FunctionWrapper
+
+        manager = SessionManager()
+
+        def session_aware_func(session: SessionContext, x: int) -> str:
+            return "result"
+
+        wrapper = FunctionWrapper(
+            session_aware_func,
+            session_manager=manager,
+            session_param_name="session",
+        )
+
+        with pytest.raises(TypeError, match="session_id must be a string"):
+            wrapper.call({"session_id": 123, "x": 42})
+
+    @pytest.mark.asyncio
+    async def test_call_async_with_session_injection(self) -> None:
+        """Test FunctionWrapper.call_async() with session injection."""
+        from auto_mcp.session.context import SessionContext
+        from auto_mcp.session.manager import SessionManager
+        from auto_mcp.types.wrapper import FunctionWrapper
+
+        manager = SessionManager()
+        session = await manager.create_session()
+
+        async def async_session_func(session: SessionContext, x: int) -> str:
+            return f"async session:{session.session_id}, x:{x}"
+
+        wrapper = FunctionWrapper(
+            async_session_func,
+            session_manager=manager,
+            session_param_name="session",
+        )
+
+        result = await wrapper.call_async({"session_id": session.session_id, "x": 99})
+        assert f"session:{session.session_id}" in result
+        assert "x:99" in result
+
+    @pytest.mark.asyncio
+    async def test_call_async_missing_session_id(self) -> None:
+        """Test FunctionWrapper.call_async() raises error when session_id is missing."""
+        from auto_mcp.session.context import SessionContext
+        from auto_mcp.session.manager import SessionManager
+        from auto_mcp.types.wrapper import FunctionWrapper
+
+        manager = SessionManager()
+
+        async def async_session_func(session: SessionContext, x: int) -> str:
+            return "result"
+
+        wrapper = FunctionWrapper(
+            async_session_func,
+            session_manager=manager,
+            session_param_name="session",
+        )
+
+        with pytest.raises(ValueError, match="session_id is required"):
+            await wrapper.call_async({"x": 42})
+
+    @pytest.mark.asyncio
+    async def test_call_async_invalid_session_id_type(self) -> None:
+        """Test FunctionWrapper.call_async() raises error for non-string session_id."""
+        from auto_mcp.session.context import SessionContext
+        from auto_mcp.session.manager import SessionManager
+        from auto_mcp.types.wrapper import FunctionWrapper
+
+        manager = SessionManager()
+
+        async def async_session_func(session: SessionContext, x: int) -> str:
+            return "result"
+
+        wrapper = FunctionWrapper(
+            async_session_func,
+            session_manager=manager,
+            session_param_name="session",
+        )
+
+        with pytest.raises(TypeError, match="session_id must be a string"):
+            await wrapper.call_async({"session_id": 123, "x": 42})
+
+
+class TestFunctionWrapperObjectStore:
+    """Tests for FunctionWrapper with object store strategy."""
+
+    def test_object_store_handle_type_error(self) -> None:
+        """Test object store raises TypeError for non-string handle."""
+        from auto_mcp.types.base import TypeInfo, TypeStrategy
+        from auto_mcp.types.wrapper import FunctionWrapper
+
+        def func_with_object(obj: dict) -> str:
+            return str(obj)
+
+        wrapper = FunctionWrapper(func_with_object)
+
+        # Create a TypeInfo with OBJECT_STORE strategy
+        info = TypeInfo(
+            type_=dict,
+            strategy=TypeStrategy.OBJECT_STORE,
+        )
+
+        # This should raise TypeError for non-string handle
+        with pytest.raises(TypeError, match="Expected handle string"):
+            wrapper._apply_input_transform(info, 123)
+
+
+class TestFunctionWrapperOutputTransform:
+    """Tests for FunctionWrapper output transformation edge cases."""
+
+    def test_output_transform_failure_fallback(self) -> None:
+        """Test output transformation fallback on failure."""
+        from auto_mcp.types.base import TypeInfo, TypeStrategy
+        from auto_mcp.types.wrapper import FunctionWrapper
+
+        # A function that returns a custom type
+        class CustomType:
+            def __init__(self, value: int) -> None:
+                self.value = value
+
+            def __str__(self) -> str:
+                return f"CustomType({self.value})"
+
+        def func_with_custom_return() -> CustomType:
+            return CustomType(42)
+
+        # Wrapper without adapter for CustomType
+        wrapper = FunctionWrapper(func_with_custom_return)
+
+        # Should fall back to auto-serialization
+        result = wrapper.call({})
+        # The auto-serialization should have converted it somehow
+        assert result is not None
+
+
 # ============================================================================
 # Extended Adapter Tests
 # ============================================================================
