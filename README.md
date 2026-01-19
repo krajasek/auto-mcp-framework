@@ -1,8 +1,8 @@
 # auto-mcp
 
-[![PyPI version](https://badge.fury.io/py/auto-mcp.svg)](https://pypi.org/project/auto-mcp/)
-[![Python versions](https://img.shields.io/pypi/pyversions/auto-mcp.svg)](https://pypi.org/project/auto-mcp/)
-[![License](https://img.shields.io/pypi/l/auto-mcp.svg)](https://github.com/krajasek/auto-mcp-framework/blob/main/LICENSE)
+[![PyPI version](https://badge.fury.io/py/auto-mcp-tool.svg)](https://pypi.org/project/auto-mcp-tool/)
+[![Python versions](https://img.shields.io/pypi/pyversions/auto-mcp-tool.svg)](https://pypi.org/project/auto-mcp-tool/)
+[![License](https://img.shields.io/pypi/l/auto-mcp-tool.svg)](https://github.com/krajasek/auto-mcp-framework/blob/main/LICENSE)
 
 Automatically generate MCP (Model Context Protocol) servers from Python modules using LLM-powered documentation.
 
@@ -56,10 +56,10 @@ Automatically generate MCP (Model Context Protocol) servers from Python modules 
 
 ```bash
 # Using uv (recommended)
-uv add auto-mcp
+uv add auto-mcp-tool
 
 # Using pip
-pip install auto-mcp
+pip install auto-mcp-tool
 ```
 
 ## Quick Start

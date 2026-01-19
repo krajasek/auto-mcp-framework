@@ -1,5 +1,5 @@
 [project]
-name = "auto-mcp"
+name = "auto-mcp-tool"
 version = "0.1.0"
 description = "Automatically generate MCP servers from Python modules using LLM-powered documentation"
 readme = "README.md"
