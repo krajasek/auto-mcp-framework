@@ -2145,6 +2145,222 @@ def package_serve(
 
 
 # =============================================================================
+# Wrapper Commands (for C extension modules)
+# =============================================================================
+
+
+@cli.group()
+def wrapper() -> None:
+    """Generate Python wrappers for C extension modules.
+
+    C extension modules (like sqlite3, _json, etc.) cannot be directly
+    introspected by Python. These commands generate pure Python wrappers
+    that delegate to the original module, making them analyzable.
+    """
+    pass
+
+
+@wrapper.command(name="generate")
+@click.argument("module_name", required=True)
+@click.option(
+    "-o",
+    "--output",
+    type=click.Path(),
+    required=True,
+    help="Output path for generated wrapper file",
+)
+@click.option(
+    "--include-private",
+    is_flag=True,
+    help="Include private methods (starting with _)",
+)
+@click.option(
+    "--include-dunder",
+    is_flag=True,
+    help="Include dunder methods (__init__, etc.)",
+)
+@click.pass_context
+def wrapper_generate(
+    ctx: click.Context,
+    module_name: str,
+    output: str,
+    include_private: bool,
+    include_dunder: bool,
+) -> None:
+    """Generate a Python wrapper for a C extension module.
+
+    MODULE_NAME: Name of the module to wrap (e.g., 'sqlite3', '_json')
+
+    This creates a pure Python file that wraps the C extension functions,
+    making them introspectable for MCP server generation.
+
+    Examples:
+
+        # Generate wrapper for sqlite3
+        auto-mcp-tool wrapper generate sqlite3 -o sqlite3_wrapper.py
+
+        # Then generate MCP server from the wrapper
+        auto-mcp-tool generate sqlite3_wrapper.py -o sqlite_server.py
+
+        # Include private methods
+        auto-mcp-tool wrapper generate sqlite3 -o wrapper.py --include-private
+    """
+    from auto_mcp.wrapper import WrapperGenerator
+
+    output_path = Path(output)
+
+    # Try to import the module
+    try:
+        module = importlib.import_module(module_name)
+    except ImportError as e:
+        raise click.ClickException(f"Cannot import module '{module_name}': {e}") from None
+
+    # Create generator
+    generator = WrapperGenerator(
+        include_private=include_private,
+        include_dunder=include_dunder,
+    )
+
+    # Check if it's a C extension
+    is_c_ext = generator.is_c_extension_module(module)
+
+    with console.status(f"[bold blue]Analyzing '{module_name}'..."):
+        functions, classes = generator.analyze_module(module)
+
+    # Count callables
+    total_funcs = len(functions)
+    total_methods = sum(len(c.methods) for c in classes)
+    c_ext_funcs = sum(1 for f in functions if f.is_c_extension)
+    c_ext_methods = sum(1 for c in classes for m in c.methods if m.is_c_extension)
+
+    if is_c_ext:
+        console.print("[yellow]![/yellow] Detected C extension module")
+    console.print(
+        f"[dim]Found {total_funcs} functions, {len(classes)} classes "
+        f"with {total_methods} methods[/dim]"
+    )
+    console.print(
+        f"[dim]C extension callables: {c_ext_funcs} functions, "
+        f"{c_ext_methods} methods[/dim]"
+    )
+
+    if total_funcs == 0 and total_methods == 0:
+        raise click.ClickException(f"No callable objects found in '{module_name}'")
+
+    # Generate wrapper
+    with console.status("[bold blue]Generating wrapper..."):
+        code = generator.generate_wrapper(module, output_path)
+
+    # Count generated functions
+    generated_count = code.count("\ndef ")
+
+    console.print(f"[green]✓[/green] Generated wrapper at: {output_path}")
+    console.print(f"[dim]Generated {generated_count} wrapper functions[/dim]")
+    console.print("\n[bold]Next steps:[/bold]")
+    console.print(f"  1. Review and customize the wrapper: {output_path}")
+    console.print(f"  2. Generate MCP server: auto-mcp-tool generate {output_path} -o server.py")
+
+
+@wrapper.command(name="check")
+@click.argument("module_name", required=True)
+@click.option(
+    "--include-private",
+    is_flag=True,
+    help="Include private methods (starting with _)",
+)
+@click.pass_context
+def wrapper_check(
+    ctx: click.Context,
+    module_name: str,
+    include_private: bool,
+) -> None:
+    """Check a module for C extension callables.
+
+    MODULE_NAME: Name of the module to check (e.g., 'sqlite3')
+
+    This analyzes the module and reports which callables are C extensions
+    that would benefit from wrapper generation.
+
+    Examples:
+
+        auto-mcp-tool wrapper check sqlite3
+        auto-mcp-tool wrapper check json
+    """
+    from auto_mcp.wrapper import WrapperGenerator
+
+    # Try to import the module
+    try:
+        module = importlib.import_module(module_name)
+    except ImportError as e:
+        raise click.ClickException(f"Cannot import module '{module_name}': {e}") from None
+
+    generator = WrapperGenerator(include_private=include_private)
+
+    is_c_ext = generator.is_c_extension_module(module)
+    functions, classes = generator.analyze_module(module)
+
+    # Display results
+    panel_content = []
+    panel_content.append(f"[cyan]Module:[/cyan] {module_name}")
+    panel_content.append(f"[cyan]C Extension:[/cyan] {'Yes' if is_c_ext else 'No'}")
+    panel_content.append(f"[cyan]Module File:[/cyan] {getattr(module, '__file__', 'built-in')}")
+
+    console.print(Panel("\n".join(panel_content), title="Module Info"))
+
+    # Functions table
+    if functions:
+        table = Table(title="Functions", show_header=True)
+        table.add_column("Name", style="cyan")
+        table.add_column("C Extension", style="yellow")
+        table.add_column("Has Docstring")
+        table.add_column("Parsed Params")
+
+        for func in functions:
+            table.add_row(
+                func.name,
+                "Yes" if func.is_c_extension else "No",
+                "Yes" if func.docstring else "No",
+                str(len(func.parsed_params)) if func.parsed_params else "0",
+            )
+
+        console.print(table)
+
+    # Classes table
+    for cls_info in classes:
+        if cls_info.methods:
+            table = Table(title=f"Class: {cls_info.name}", show_header=True)
+            table.add_column("Method", style="cyan")
+            table.add_column("C Extension", style="yellow")
+            table.add_column("Has Docstring")
+
+            for method in cls_info.methods:
+                table.add_row(
+                    method.name,
+                    "Yes" if method.is_c_extension else "No",
+                    "Yes" if method.docstring else "No",
+                )
+
+            console.print(table)
+
+    # Summary
+    total_funcs = len(functions)
+    total_methods = sum(len(c.methods) for c in classes)
+    c_ext_funcs = sum(1 for f in functions if f.is_c_extension)
+    c_ext_methods = sum(1 for c in classes for m in c.methods if m.is_c_extension)
+
+    console.print("\n" + "─" * 50)
+    console.print("[bold]Summary:[/bold]")
+    console.print(f"  Functions: {total_funcs} total, {c_ext_funcs} C extension")
+    console.print(f"  Methods: {total_methods} total, {c_ext_methods} C extension")
+
+    if c_ext_funcs > 0 or c_ext_methods > 0:
+        console.print("\n[yellow]Recommendation:[/yellow] Generate a wrapper with:")
+        console.print(
+            f"  auto-mcp-tool wrapper generate {module_name} -o {module_name}_wrapper.py"
+        )
+
+
+# =============================================================================
 # Internal Worker Commands (hidden, for uvx subprocess execution)
 # =============================================================================
 
