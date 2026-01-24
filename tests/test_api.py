@@ -479,3 +479,17 @@ class TestAutoMCPWithLLM:
         auto.shutdown()
 
         # No error means success
+
+
+class TestQuickServerFromPackage:
+    """Tests for quick_server_from_package function."""
+
+    def test_quick_server_from_package_basic(self) -> None:
+        """Test quick_server_from_package creates a server (lines 544-553)."""
+        from auto_mcp.api import quick_server_from_package
+
+        # Use json package which is a valid Python package
+        server = quick_server_from_package("json", use_llm=False)
+
+        # Should return a FastMCP server
+        assert server is not None

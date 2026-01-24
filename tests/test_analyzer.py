@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from auto_mcp.core.analyzer import ModuleAnalyzer
+from auto_mcp.core.analyzer import MethodMetadata, ModuleAnalyzer
 from auto_mcp.decorators import mcp_exclude, mcp_prompt, mcp_resource, mcp_tool
 
 
@@ -446,3 +446,103 @@ class TestClassAnalysis:
 
         sync_method = next(m for m in results if m.name == "public_method")
         assert sync_method.is_async is False
+
+
+class TestMethodMetadataToDict:
+    """Tests for MethodMetadata.to_dict() serialization."""
+
+    def test_to_dict_basic(self) -> None:
+        """Test basic serialization to dict."""
+        analyzer = ModuleAnalyzer()
+        metadata = analyzer._analyze_callable(simple_function, "test_module")
+
+        assert metadata is not None
+        result = metadata.to_dict()
+
+        assert result["name"] == "simple_function"
+        assert "qualified_name" in result
+        assert "signature" in result
+        assert "type_hints" in result
+
+    def test_to_dict_with_generic_type_hints(self) -> None:
+        """Test serialization with generic type hints."""
+        def func_with_generics(items: list[str], mapping: dict[str, int]) -> tuple[int, str]:
+            """Function with generic type hints."""
+            return (1, "test")
+
+        func_with_generics.__module__ = "test_module"
+        analyzer = ModuleAnalyzer()
+        metadata = analyzer._analyze_callable(func_with_generics, "test_module")
+
+        assert metadata is not None
+        result = metadata.to_dict()
+
+        # Type hints should be stringified
+        assert isinstance(result["type_hints"], dict)
+        assert "items" in result["type_hints"]
+        assert "mapping" in result["type_hints"]
+
+    def test_to_dict_with_non_serializable_default(self) -> None:
+        """Test serialization with non-JSON-serializable defaults."""
+        class CustomObj:
+            pass
+
+        sentinel = CustomObj()
+
+        def func_with_complex_default(x: int = 5, obj: object = sentinel) -> None:
+            pass
+
+        func_with_complex_default.__module__ = "test_module"
+        analyzer = ModuleAnalyzer()
+        metadata = analyzer._analyze_callable(func_with_complex_default, "test_module")
+
+        assert metadata is not None
+        result = metadata.to_dict()
+
+        # Should serialize without error
+        assert "parameters" in result
+        # Complex defaults should be converted to repr strings
+        params = result["parameters"]
+        assert len(params) >= 1
+
+    def test_to_dict_with_return_type(self) -> None:
+        """Test serialization with return type annotation."""
+        analyzer = ModuleAnalyzer()
+        metadata = analyzer._analyze_callable(simple_function, "test_module")
+
+        assert metadata is not None
+        result = metadata.to_dict()
+
+        assert "return_type" in result
+        assert result["return_type"] == "int"
+
+    def test_from_dict_roundtrip(self) -> None:
+        """Test that to_dict and from_dict work as a roundtrip."""
+        analyzer = ModuleAnalyzer()
+        metadata = analyzer._analyze_callable(simple_function, "test_module")
+
+        assert metadata is not None
+        serialized = metadata.to_dict()
+
+        # Deserialize
+        restored = MethodMetadata.from_dict(serialized)
+
+        assert restored.name == metadata.name
+        assert restored.qualified_name == metadata.qualified_name
+        assert restored.module_name == metadata.module_name
+        assert restored.is_async == metadata.is_async
+
+    def test_from_dict_minimal(self) -> None:
+        """Test from_dict with minimal data."""
+        data = {
+            "name": "test_func",
+            "qualified_name": "module.test_func",
+            "module_name": "module",
+        }
+
+        restored = MethodMetadata.from_dict(data)
+
+        assert restored.name == "test_func"
+        assert restored.qualified_name == "module.test_func"
+        assert restored.parameters == []
+        assert restored.type_hints == {}

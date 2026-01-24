@@ -316,6 +316,25 @@ class TestTypeRegistry:
 
         assert registry.list_adapters() == []
 
+    def test_overwrite_stored_type_warning(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Test that overwriting stored type config logs a warning (line 141)."""
+        import logging
+
+        registry = TypeRegistry()
+
+        class TestStoredType:
+            pass
+
+        # Register once
+        registry.register_stored_type(TestStoredType)
+
+        # Register again - should warn
+        with caplog.at_level(logging.WARNING):
+            registry.register_stored_type(TestStoredType)
+
+        # Check for warning message
+        assert any("Overwriting" in record.message for record in caplog.records)
+
 
 class TestDefaultRegistry:
     """Tests for default registry functions."""
@@ -541,6 +560,22 @@ class TestObjectStore:
 
         with pytest.raises(ValueError, match="expired"):
             store.get(handle)
+
+    def test_exists_with_expired_object(self) -> None:
+        """Test exists() removes expired objects (lines 278-279)."""
+        store = ObjectStore(auto_cleanup=False)
+        handle = store.store("test", ttl=1)
+
+        # Verify it exists
+        assert store.exists(handle) is True
+
+        # Manually expire
+        store._objects[handle].expires_at = time.time() - 1
+
+        # exists() should return False and remove the expired object
+        assert store.exists(handle) is False
+        # The handle should now be gone
+        assert handle not in store._objects
 
 
 class TestDefaultStore:

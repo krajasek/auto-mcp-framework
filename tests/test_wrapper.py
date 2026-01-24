@@ -12,6 +12,7 @@ from auto_mcp.wrapper.type_mapper import (
     ParameterInfo,
     TypeMapper,
     TypeMapping,
+    format_default_for_code,
     parse_default_value,
 )
 
@@ -65,13 +66,17 @@ class TestTypeMapper:
         assert result.is_handle is True
         assert result.handle_type_name == "Cursor"
 
-    def test_map_unknown_capitalized_type_as_handle(self) -> None:
-        """Test that unknown capitalized types are treated as handles."""
+    def test_map_unknown_capitalized_type_not_handle(self) -> None:
+        """Test that unknown capitalized types are NOT automatically treated as handles.
+
+        Handle types must be explicitly registered (Connection, Cursor, etc.).
+        Unknown types like CustomClass, DataFrame, etc. should return Any.
+        """
         mapper = TypeMapper()
 
         result = mapper.map_type_string("CustomClass")
-        assert result.is_handle is True
-        assert result.handle_type_name == "CustomClass"
+        assert result.is_handle is False
+        assert result.python_type == "Any"
 
     def test_map_generic_list_type(self) -> None:
         """Test mapping list[X] types."""
@@ -627,3 +632,295 @@ class TestHandleBasedTypes:
         # Connection methods should have connection: str as first param
         # and use _get_object to retrieve the instance
         assert "connection: str" in code or "connection:" in code
+
+
+class TestTypeMapperAdvanced:
+    """Additional tests for TypeMapper edge cases."""
+
+    def test_map_with_custom_mappings(self) -> None:
+        """Test TypeMapper with custom additional mappings."""
+        custom_mapping = TypeMapping(
+            python_type="CustomType",
+            json_schema={"type": "string", "format": "custom"}
+        )
+        additional = {"CustomType": custom_mapping}
+
+        mapper = TypeMapper(additional_mappings=additional)
+
+        result = mapper.map_type_string("CustomType")
+        assert result.json_schema["format"] == "custom"
+
+    def test_map_lowercase_type(self) -> None:
+        """Test mapping lowercase type that exists as uppercase."""
+        mapper = TypeMapper()
+
+        # "STRING" should map to string type
+        result = mapper.map_type_string("STRING")
+        assert result.json_schema["type"] == "string"
+
+    def test_map_optional_type(self) -> None:
+        """Test mapping Optional[X] types."""
+        mapper = TypeMapper()
+
+        result = mapper.map_type_string("Optional[str]")
+        assert result.json_schema["type"] == "string"
+
+    def test_map_union_with_none(self) -> None:
+        """Test mapping X | None pattern."""
+        mapper = TypeMapper()
+
+        result = mapper.map_type_string("str | None")
+        assert result.json_schema["type"] == "string"
+
+    def test_map_dict_type(self) -> None:
+        """Test mapping dict[K, V] types."""
+        mapper = TypeMapper()
+
+        result = mapper.map_type_string("dict[str, int]")
+        assert result.json_schema["type"] == "object"
+        assert result.json_schema["additionalProperties"]["type"] == "integer"
+
+    def test_map_tuple_type(self) -> None:
+        """Test mapping tuple types."""
+        mapper = TypeMapper()
+
+        result = mapper.map_type_string("tuple[int, str]")
+        assert result.json_schema["type"] == "array"
+
+    def test_map_union_with_registered_handle(self) -> None:
+        """Test mapping union with a registered handle type (line 231-233)."""
+        # Create mapper with a custom handle mapping
+        connection_mapping = TypeMapping(
+            python_type="str",
+            json_schema={"type": "string"},
+            is_handle=True,
+            handle_type_name="MyConnection"
+        )
+        mapper = TypeMapper(additional_mappings={"MyConnection": connection_mapping})
+
+        # Union with registered handle type should return handle
+        result = mapper.map_type_string("MyConnection | None")
+        assert result.is_handle is True
+        assert result.handle_type_name == "MyConnection"
+
+    def test_map_union_no_handle(self) -> None:
+        """Test mapping union without handles."""
+        mapper = TypeMapper()
+
+        # Union of unknown types returns Any
+        result = mapper.map_type_string("Foo | Bar")
+        assert result.python_type == "Any"
+
+    def test_get_type_str_for_none(self) -> None:
+        """Test getting type string for None type."""
+        mapper = TypeMapper()
+
+        mapping = TypeMapping(python_type=type(None), json_schema={"type": "null"})
+        result = mapper.get_type_str_for_code(mapping)
+        assert result == "None"
+
+
+class TestParseDefaultValueAdvanced:
+    """Additional tests for parse_default_value edge cases."""
+
+    def test_parse_module_qualified_name(self) -> None:
+        """Test parsing module-qualified names like sys.maxsize."""
+        value, code = parse_default_value("sys.maxsize")
+        assert value is None
+        assert code == "None"
+
+    def test_parse_identifier(self) -> None:
+        """Test parsing unknown identifier."""
+        value, code = parse_default_value("some_variable")
+        assert value is None
+        assert code == "None"
+
+    def test_parse_sentinel_value(self) -> None:
+        """Test parsing sentinel-like values."""
+        value, code = parse_default_value("SomeType")
+        assert value is None
+        assert code == "None"
+
+    def test_parse_unrepresentable(self) -> None:
+        """Test parsing unrepresentable values."""
+        value, code = parse_default_value("<unrepresentable>")
+        assert value is None
+        assert code == "None"
+
+    def test_parse_list_literal(self) -> None:
+        """Test parsing list literal."""
+        value, code = parse_default_value("[1, 2, 3]")
+        assert code == "[1, 2, 3]"
+
+    def test_parse_dict_literal(self) -> None:
+        """Test parsing dict literal."""
+        value, code = parse_default_value("{'a': 1}")
+        assert code == "{'a': 1}"
+
+    def test_parse_tuple_literal(self) -> None:
+        """Test parsing tuple literal."""
+        value, code = parse_default_value("(1, 2)")
+        assert code == "(1, 2)"
+
+    def test_parse_nan_float(self) -> None:
+        """Test parsing NaN returns None."""
+        value, code = parse_default_value("nan")
+        assert code == "None"
+
+    def test_parse_inf_float(self) -> None:
+        """Test parsing inf returns None."""
+        value, code = parse_default_value("inf")
+        assert code == "None"
+
+    def test_parse_empty_dict(self) -> None:
+        """Test parsing empty dict literal."""
+        value, code = parse_default_value("{}")
+        assert value == {}
+        assert code == "{}"
+
+    def test_parse_empty_tuple(self) -> None:
+        """Test parsing empty tuple literal."""
+        value, code = parse_default_value("()")
+        assert value == ()
+        assert code == "()"
+
+
+class TestFormatDefaultForCode:
+    """Tests for format_default_for_code function."""
+
+    def test_format_none(self) -> None:
+        """Test formatting None value."""
+        result = format_default_for_code(None)
+        assert result == "None"
+
+    def test_format_bool_true(self) -> None:
+        """Test formatting True value."""
+        result = format_default_for_code(True)
+        assert result == "True"
+
+    def test_format_bool_false(self) -> None:
+        """Test formatting False value."""
+        result = format_default_for_code(False)
+        assert result == "False"
+
+    def test_format_string(self) -> None:
+        """Test formatting string value."""
+        result = format_default_for_code("hello")
+        assert result == "'hello'"
+
+    def test_format_int(self) -> None:
+        """Test formatting integer value."""
+        result = format_default_for_code(42)
+        assert result == "42"
+
+    def test_format_float(self) -> None:
+        """Test formatting float value."""
+        result = format_default_for_code(3.14)
+        assert result == "3.14"
+
+    def test_format_nan(self) -> None:
+        """Test formatting NaN value returns None."""
+        import math
+        result = format_default_for_code(math.nan)
+        assert result == "None"
+
+    def test_format_inf(self) -> None:
+        """Test formatting infinity value returns None."""
+        import math
+        result = format_default_for_code(math.inf)
+        assert result == "None"
+
+    def test_format_list(self) -> None:
+        """Test formatting list value."""
+        result = format_default_for_code([1, 2, 3])
+        assert result == "[1, 2, 3]"
+
+    def test_format_dict(self) -> None:
+        """Test formatting dict value."""
+        result = format_default_for_code({"a": 1})
+        assert "'a': 1" in result
+
+    def test_format_tuple(self) -> None:
+        """Test formatting tuple value."""
+        result = format_default_for_code((1, 2))
+        assert result == "(1, 2)"
+
+    def test_format_object(self) -> None:
+        """Test formatting object falls back to repr."""
+        result = format_default_for_code(object())
+        assert "<object" in result
+
+
+class TestWrapperGeneratorAdvanced:
+    """Additional tests for WrapperGenerator."""
+
+    def test_is_c_extension_module_builtin(self) -> None:
+        """Test detecting builtin modules as C extensions."""
+        gen = WrapperGenerator()
+        import sys
+        assert gen.is_c_extension_module(sys) is True
+
+    def test_is_c_extension_module_pure_python(self) -> None:
+        """Test that pure Python modules are not C extensions."""
+        gen = WrapperGenerator()
+        import json
+        # json is not a C extension itself
+        result = gen.is_c_extension_module(json)
+        # This may vary by Python version
+
+    def test_generate_wrapper_sqlite(self) -> None:
+        """Test generating wrapper for sqlite3."""
+        gen = WrapperGenerator()
+        import sqlite3
+        code = gen.generate_wrapper(sqlite3)
+        # Should produce Python code with functions
+        assert "def connect(" in code or "connect" in code
+
+    def test_is_c_extension_callable(self) -> None:
+        """Test _is_c_extension_callable method."""
+        gen = WrapperGenerator()
+        import sqlite3
+
+        # sqlite3.connect is a C extension callable
+        assert gen._is_c_extension_callable(sqlite3.connect) is True
+
+        # A pure Python function is not
+        def pure_python():
+            pass
+        assert gen._is_c_extension_callable(pure_python) is False
+
+    def test_is_c_extension_module_with_so_file(self) -> None:
+        """Test module with .so extension is detected as C extension."""
+        from types import ModuleType
+        import tempfile
+        import os
+
+        # Create a mock module with .so file
+        mock_module = ModuleType("test_c_module")
+        mock_module.__file__ = "/path/to/module.so"
+
+        gen = WrapperGenerator()
+        result = gen.is_c_extension_module(mock_module)
+        assert result is True
+
+    def test_is_c_extension_module_with_pyd_file(self) -> None:
+        """Test module with .pyd extension is detected as C extension."""
+        from types import ModuleType
+
+        mock_module = ModuleType("test_c_module")
+        mock_module.__file__ = "/path/to/module.pyd"
+
+        gen = WrapperGenerator()
+        result = gen.is_c_extension_module(mock_module)
+        assert result is True
+
+    def test_is_c_extension_module_with_dylib_file(self) -> None:
+        """Test module with .dylib extension is detected as C extension."""
+        from types import ModuleType
+
+        mock_module = ModuleType("test_c_module")
+        mock_module.__file__ = "/path/to/module.dylib"
+
+        gen = WrapperGenerator()
+        result = gen.is_c_extension_module(mock_module)
+        assert result is True

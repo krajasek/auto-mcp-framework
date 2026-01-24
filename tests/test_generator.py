@@ -691,3 +691,41 @@ class TestMCPGeneratorEdgeCases:
         server = generator.create_server([module], context="This is a math library")
 
         assert server is not None
+
+    def test_generate_with_sessions_enabled(self) -> None:
+        """Test generation with sessions enabled."""
+        module = create_sample_module()
+        config = GeneratorConfig(
+            use_llm=False,
+            use_cache=False,
+            enable_sessions=True,
+            session_ttl=1800,
+            max_sessions=50,
+        )
+        generator = MCPGenerator(config=config)
+
+        # Session manager should be created
+        assert generator.session_manager is not None
+        assert generator.config.enable_sessions is True
+
+        server = generator.create_server([module])
+        assert server is not None
+
+    def test_generate_with_custom_session_manager(self) -> None:
+        """Test generation with custom session manager."""
+        from auto_mcp.session.manager import SessionManager, SessionConfig
+
+        custom_session_manager = SessionManager(
+            config=SessionConfig(default_ttl=3600, max_sessions=100)
+        )
+
+        module = create_sample_module()
+        config = GeneratorConfig(
+            use_llm=False,
+            use_cache=False,
+            enable_sessions=True,
+        )
+        generator = MCPGenerator(config=config, session_manager=custom_session_manager)
+
+        # Should use the custom session manager
+        assert generator.session_manager is custom_session_manager

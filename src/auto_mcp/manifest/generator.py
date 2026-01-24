@@ -61,6 +61,11 @@ class ManifestGenerator:
         if manifest.auto_include_dependencies:
             tools = analyze_and_include_dependencies(module, tools)
 
+        # IMPORTANT: Register handle types BEFORE generating code
+        # This ensures the type mapper knows about DataFrame, Series, etc.
+        # when parsing method signatures that reference these types
+        self._register_handle_types_from_tools(tools)
+
         # Generate MCP server code
         code = self._generate_server_code(manifest, tools, module_name)
 
@@ -89,6 +94,40 @@ class ManifestGenerator:
                     tools.append(tool)
 
         return tools
+
+    def _register_handle_types_from_tools(self, tools: list[ResolvedTool]) -> None:
+        """Pre-register handle types from tools before parsing signatures.
+
+        This must be called BEFORE generating tool code so that the type mapper
+        knows about class types (DataFrame, Series, Connection, etc.) when
+        parsing method signatures that reference these types as parameters.
+
+        For example, DataFrame.merge(right: DataFrame) needs to know that
+        DataFrame is a handle type so 'right' is properly resolved.
+        """
+        # Built-in types that should NEVER be handle types
+        # These can appear as class_name for accessors (e.g., Series.str.contains has class_name='str')
+        builtin_types = {
+            'str', 'int', 'float', 'bool', 'list', 'dict', 'set', 'tuple',
+            'bytes', 'type', 'object', 'None', 'complex', 'frozenset',
+        }
+
+        for tool in tools:
+            # Register class names from methods
+            if tool.is_method and tool.class_name:
+                if tool.class_name not in builtin_types:
+                    self.type_mapper.add_handle_type(
+                        tool.class_name,
+                        f"{tool.class_name} instance handle"
+                    )
+            # Register class names from constructors
+            elif tool.is_constructor:
+                class_name = tool.class_name or tool.name
+                if class_name not in builtin_types:
+                    self.type_mapper.add_handle_type(
+                        class_name,
+                        f"{class_name} instance handle"
+                    )
 
     def _get_signature(self, tool: ResolvedTool) -> FunctionSignature:
         """Get signature for a tool, using wrapper generator for C extensions."""
@@ -134,6 +173,13 @@ class ManifestGenerator:
             has_default = param.default != param.empty
             default_value = param.default if has_default else None
             default_repr = repr(default_value) if has_default else "None"
+
+            # Handle special float values (nan, inf) that can't be used without imports
+            if has_default and isinstance(default_value, float):
+                import math
+                if math.isnan(default_value) or math.isinf(default_value):
+                    default_value = None
+                    default_repr = "None"
 
             # Handle sentinel values that aren't valid Python (e.g., pandas' <no_default>)
             # These should be treated as having no default or use None
@@ -494,11 +540,19 @@ class ManifestGenerator:
 
         # Generate body
         # Check if we need kwargs-based calling (for params with None defaults)
-        use_kwargs = self._has_none_default_params(sig.parameters)
+        # Note: C extension methods don't support kwargs, so we must use special handling
+        is_c_extension = self._is_c_extension_callable(tool.callable_obj)
+        has_none_defaults = self._has_none_default_params(sig.parameters)
+        use_kwargs = has_none_defaults and not is_c_extension
 
         if tool.is_constructor:
             # Constructor call
-            if use_kwargs:
+            if is_c_extension and has_none_defaults:
+                # C extension with None defaults - use dynamic args list
+                lines.extend(self._generate_c_extension_call_body(
+                    sig.parameters, call_target, True, handle_type
+                ))
+            elif use_kwargs:
                 lines.extend(self._generate_kwargs_body(
                     sig.parameters, call_target, True, handle_type
                 ))
@@ -512,8 +566,12 @@ class ManifestGenerator:
             lines.append(f"    _instance = _get_object({class_name.lower()})")
             method_name = tool.name.split(".")[-1]
 
-            # For C extension methods, use positional args and skip None defaults
-            if use_kwargs:
+            # For C extension methods, use special handling for optional params
+            if is_c_extension and has_none_defaults:
+                lines.extend(self._generate_c_extension_method_body(
+                    sig.parameters, method_name, returns_handle, handle_type
+                ))
+            elif use_kwargs:
                 lines.extend(self._generate_method_kwargs_body(
                     sig.parameters, method_name, returns_handle, handle_type
                 ))
@@ -525,7 +583,12 @@ class ManifestGenerator:
 
         else:
             # Regular function call
-            if use_kwargs:
+            if is_c_extension and has_none_defaults:
+                # C extension with None defaults - use dynamic args list
+                lines.extend(self._generate_c_extension_call_body(
+                    sig.parameters, call_target, returns_handle, handle_type
+                ))
+            elif use_kwargs:
                 lines.extend(self._generate_kwargs_body(
                     sig.parameters, call_target, returns_handle, handle_type
                 ))
@@ -559,8 +622,13 @@ class ManifestGenerator:
 
         return ", ".join(parts)
 
-    def _build_call_args(self, params: list[ParameterInfo]) -> str:
-        """Build argument string for calling the function."""
+    def _build_call_args(self, params: list[ParameterInfo], use_positional: bool = False) -> str:
+        """Build argument string for calling the function.
+
+        Args:
+            params: Parameter list
+            use_positional: If True, use positional args instead of kwargs
+        """
         if not params:
             return ""
 
@@ -568,11 +636,136 @@ class ManifestGenerator:
         for param in params:
             if param.is_handle_param:
                 # Retrieve the actual object from handle
-                parts.append(f"{param.name}=_get_object({param.name})")
+                if use_positional:
+                    parts.append(f"_get_object({param.name})")
+                else:
+                    parts.append(f"{param.name}=_get_object({param.name})")
             else:
-                parts.append(f"{param.name}={param.name}")
+                if use_positional:
+                    parts.append(param.name)
+                else:
+                    parts.append(f"{param.name}={param.name}")
 
         return ", ".join(parts)
+
+    def _is_c_extension_callable(self, obj: Any) -> bool:
+        """Check if a callable is from a C extension module."""
+        return self.wrapper_gen._is_c_extension_callable(obj)
+
+    def _generate_c_extension_call_body(
+        self,
+        params: list[ParameterInfo],
+        call_target: str,
+        returns_handle: bool,
+        handle_type: str | None,
+    ) -> list[str]:
+        """Generate function body for C extension calls.
+
+        C extensions don't support kwargs, so we build a positional args list.
+        For optional parameters with None defaults, we stop adding args once
+        we hit a None value (since positional args can't skip middle params).
+        """
+        lines: list[str] = []
+
+        # Separate required and optional parameters
+        required_params = [p for p in params if not p.has_default]
+        optional_params = [p for p in params if p.has_default]
+
+        # Build args list
+        lines.append("    _args = []")
+
+        # Add required parameters (they're always passed)
+        for param in required_params:
+            if param.is_handle_param:
+                lines.append(f"    _args.append(_get_object({param.name}))")
+            else:
+                lines.append(f"    _args.append({param.name})")
+
+        # Add optional parameters, but stop once we hit a None-default param that is None
+        # This is because positional args can't skip middle parameters
+        if optional_params:
+            lines.append("    # Add optional params - stop at first None-default param that is None")
+            lines.append("    _stop_adding = False")
+            for param in optional_params:
+                if param.default_value is None:
+                    # This param has None as default - check if we should stop
+                    lines.append(f"    if not _stop_adding and {param.name} is not None:")
+                    if param.is_handle_param:
+                        lines.append(f"        _args.append(_get_object({param.name}))")
+                    else:
+                        lines.append(f"        _args.append({param.name})")
+                    lines.append(f"    elif {param.name} is None:")
+                    lines.append("        _stop_adding = True")
+                else:
+                    # Non-None default - add if we haven't stopped
+                    lines.append("    if not _stop_adding:")
+                    if param.is_handle_param:
+                        lines.append(f"        _args.append(_get_object({param.name}))")
+                    else:
+                        lines.append(f"        _args.append({param.name})")
+
+        if returns_handle and handle_type:
+            lines.append(f"    result = {call_target}(*_args)")
+            lines.append(f'    return _store_object(result, "{handle_type}")')
+        else:
+            lines.append(f"    return {call_target}(*_args)")
+
+        return lines
+
+    def _generate_c_extension_method_body(
+        self,
+        params: list[ParameterInfo],
+        method_name: str,
+        returns_handle: bool,
+        handle_type: str | None,
+    ) -> list[str]:
+        """Generate method body for C extension calls.
+
+        Similar to _generate_c_extension_call_body but for instance methods.
+        """
+        lines: list[str] = []
+
+        # Separate required and optional parameters
+        required_params = [p for p in params if not p.has_default]
+        optional_params = [p for p in params if p.has_default]
+
+        # Build args list
+        lines.append("    _args = []")
+
+        # Add required parameters
+        for param in required_params:
+            if param.is_handle_param:
+                lines.append(f"    _args.append(_get_object({param.name}))")
+            else:
+                lines.append(f"    _args.append({param.name})")
+
+        # Add optional parameters, but stop once we hit a None-default param that is None
+        if optional_params:
+            lines.append("    # Add optional params - stop at first None-default param that is None")
+            lines.append("    _stop_adding = False")
+            for param in optional_params:
+                if param.default_value is None:
+                    lines.append(f"    if not _stop_adding and {param.name} is not None:")
+                    if param.is_handle_param:
+                        lines.append(f"        _args.append(_get_object({param.name}))")
+                    else:
+                        lines.append(f"        _args.append({param.name})")
+                    lines.append(f"    elif {param.name} is None:")
+                    lines.append("        _stop_adding = True")
+                else:
+                    lines.append("    if not _stop_adding:")
+                    if param.is_handle_param:
+                        lines.append(f"        _args.append(_get_object({param.name}))")
+                    else:
+                        lines.append(f"        _args.append({param.name})")
+
+        if returns_handle and handle_type:
+            lines.append(f"    result = _instance.{method_name}(*_args)")
+            lines.append(f'    return _store_object(result, "{handle_type}")')
+        else:
+            lines.append(f"    return _instance.{method_name}(*_args)")
+
+        return lines
 
     def _has_none_default_params(self, params: list[ParameterInfo]) -> bool:
         """Check if any parameters have None as their default value."""
@@ -623,50 +816,32 @@ class ManifestGenerator:
         returns_handle: bool,
         handle_type: str | None,
     ) -> list[str]:
-        """Generate method body using positional args to skip None defaults.
+        """Generate method body using kwargs to properly handle optional parameters.
 
-        C extension methods often don't accept keyword arguments, so we use
-        positional args and conditionally build the argument list.
+        Using keyword arguments allows skipping optional middle parameters,
+        which is essential for methods like groupby() where you might pass
+        'by' but skip 'axis' and 'level'.
         """
         lines: list[str] = []
-        lines.append("    _args = []")
+        lines.append("    _kwargs = {}")
 
-        # For methods, we need to handle this differently - stop adding args
-        # once we hit a None default that should be skipped
-        # This is because positional args can't skip middle arguments
-
-        # Separate required and optional params
-        required_params = [p for p in params if not p.has_default]
-        optional_params = [p for p in params if p.has_default]
-
-        # Required params are always added
-        for param in required_params:
+        for param in params:
             if param.is_handle_param:
-                lines.append(f"    _args.append(_get_object({param.name}))")
+                # Handle params are always passed (resolved from object store)
+                lines.append(f"    _kwargs['{param.name}'] = _get_object({param.name})")
+            elif param.has_default and param.default_value is None:
+                # Only add if not None (skip None defaults)
+                lines.append(f"    if {param.name} is not None:")
+                lines.append(f"        _kwargs['{param.name}'] = {param.name}")
             else:
-                lines.append(f"    _args.append({param.name})")
-
-        # Optional params - add if not None, but stop once we hit None
-        # because we can't skip middle positional args
-        if optional_params:
-            for i, param in enumerate(optional_params):
-                if param.has_default and param.default_value is None:
-                    lines.append(f"    if {param.name} is not None:")
-                    if param.is_handle_param:
-                        lines.append(f"        _args.append(_get_object({param.name}))")
-                    else:
-                        lines.append(f"        _args.append({param.name})")
-                else:
-                    if param.is_handle_param:
-                        lines.append(f"    _args.append(_get_object({param.name}))")
-                    else:
-                        lines.append(f"    _args.append({param.name})")
+                # Always pass this parameter
+                lines.append(f"    _kwargs['{param.name}'] = {param.name}")
 
         if returns_handle and handle_type:
-            lines.append(f"    result = _instance.{method_name}(*_args)")
+            lines.append(f"    result = _instance.{method_name}(**_kwargs)")
             lines.append(f'    return _store_object(result, "{handle_type}")')
         else:
-            lines.append(f"    return _instance.{method_name}(*_args)")
+            lines.append(f"    return _instance.{method_name}(**_kwargs)")
 
         return lines
 

@@ -361,3 +361,42 @@ class TestPackageAnalyzerPrivateModules:
         # With include_private=True, even _internal should be analyzed
         # This is controlled by the should_include check in _discover_modules
         assert analyzer.include_private is True
+
+
+class TestPackageAnalyzerFromPath:
+    """Tests for analyze_package_file."""
+
+    def test_analyze_from_path_not_dir(self, tmp_path: Path) -> None:
+        """Test error when path is not a directory."""
+        analyzer = PackageAnalyzer()
+
+        file_path = tmp_path / "not_a_dir.py"
+        file_path.touch()
+
+        with pytest.raises(ValueError, match="must be a directory"):
+            analyzer.analyze_package_file(file_path)
+
+    def test_analyze_from_path_no_init(self, tmp_path: Path) -> None:
+        """Test error when directory has no __init__.py."""
+        analyzer = PackageAnalyzer()
+
+        pkg_dir = tmp_path / "not_a_package"
+        pkg_dir.mkdir()
+
+        with pytest.raises(ValueError, match="Not a valid Python package"):
+            analyzer.analyze_package_file(pkg_dir)
+
+    def test_analyze_from_path_success(self, tmp_path: Path) -> None:
+        """Test successful analysis from path."""
+        analyzer = PackageAnalyzer()
+
+        # Create a simple package
+        pkg_dir = tmp_path / "my_test_package"
+        pkg_dir.mkdir()
+        init_file = pkg_dir / "__init__.py"
+        init_file.write_text("def sample_func():\n    pass\n")
+
+        metadata = analyzer.analyze_package_file(pkg_dir)
+
+        assert metadata.name == "my_test_package"
+        assert "my_test_package" in metadata.modules

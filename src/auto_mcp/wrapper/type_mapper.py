@@ -221,6 +221,24 @@ class TypeMapper:
                 handle_type_name=inner_mapping.handle_type_name,
             )
 
+        # Handle general Union types like X | Y (e.g., DataFrame | Series)
+        # If ANY component is a registered handle type, treat as handle
+        if "|" in type_str:
+            parts = [p.strip() for p in type_str.split("|")]
+            for part in parts:
+                # Check if this part is a registered handle type
+                if part in self._mappings:
+                    part_mapping = self._mappings[part]
+                    if part_mapping.is_handle:
+                        return TypeMapping(
+                            python_type="str",
+                            json_schema={"type": "string", "description": f"{part_mapping.handle_type_name} handle"},
+                            is_handle=True,
+                            handle_type_name=part_mapping.handle_type_name,
+                        )
+            # No handle types found in union, return Any
+            return TypeMapping("Any", {})
+
         # Handle list[X] pattern
         list_match = re.match(r"list\[(.+)\]", type_str, re.IGNORECASE)
         if list_match:
@@ -249,17 +267,11 @@ class TypeMapper:
                 json_schema={"type": "array"},
             )
 
-        # Unknown type - check if it looks like a class name (capitalized)
-        if type_str and type_str[0].isupper():
-            # Likely a custom class - treat as handle type
-            return TypeMapping(
-                python_type="str",
-                json_schema={"type": "string", "description": f"{type_str} handle"},
-                is_handle=True,
-                handle_type_name=type_str,
-            )
-
-        # Fallback to Any
+        # Unknown type - DO NOT automatically treat as handle type
+        # Handle types must be explicitly registered (Connection, Cursor, etc.)
+        # Unknown capitalized types (DataFrame, Series, Index, etc.) should be
+        # treated as regular input parameters, not handles requiring lookup.
+        # Fallback to Any for unknown types
         return TypeMapping("Any", {})
 
     def get_type_str_for_code(self, mapping: TypeMapping) -> str:
@@ -338,6 +350,10 @@ def parse_default_value(default_str: str) -> tuple[Any, str]:
     # Float
     try:
         value = float(default_str)
+        # Handle special float values that can't be used without imports
+        import math
+        if math.isnan(value) or math.isinf(value):
+            return None, "None"
         return value, str(value)
     except ValueError:
         pass
@@ -393,6 +409,11 @@ def format_default_for_code(value: Any, type_str: str | None = None) -> str:
         return repr(value)
 
     if isinstance(value, (int, float)):
+        # Handle special float values that can't be used without imports
+        if isinstance(value, float):
+            import math
+            if math.isnan(value) or math.isinf(value):
+                return "None"
         return str(value)
 
     if isinstance(value, (list, dict, tuple)):

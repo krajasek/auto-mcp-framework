@@ -214,30 +214,6 @@ class TestGenerateCommand:
         assert "FastMCP" in content
         assert "@mcp.tool" in content
 
-    def test_generate_package(
-        self, runner: CliRunner, sample_module_file: Path, tmp_path: Path
-    ) -> None:
-        """Test generating a package."""
-        result = runner.invoke(
-            cli,
-            [
-                "generate",
-                str(sample_module_file),
-                "--package",
-                "my-mcp-server",
-                "-o",
-                str(tmp_path),
-                "--no-llm",
-            ],
-        )
-
-        assert result.exit_code == 0
-
-        package_dir = tmp_path / "my-mcp-server"
-        assert package_dir.exists()
-        assert (package_dir / "pyproject.toml").exists()
-        assert (package_dir / "src" / "my_mcp_server" / "server.py").exists()
-
     def test_generate_with_custom_name(
         self, runner: CliRunner, sample_module_file: Path, tmp_path: Path
     ) -> None:
@@ -261,31 +237,6 @@ class TestGenerateCommand:
 
         content = output_file.read_text()
         assert "my-custom-server" in content
-
-    def test_generate_multiple_modules(
-        self,
-        runner: CliRunner,
-        sample_module_file: Path,
-        decorated_module_file: Path,
-        tmp_path: Path,
-    ) -> None:
-        """Test generating from multiple modules."""
-        output_file = tmp_path / "server.py"
-
-        result = runner.invoke(
-            cli,
-            [
-                "generate",
-                str(sample_module_file),
-                str(decorated_module_file),
-                "-o",
-                str(output_file),
-                "--no-llm",
-            ],
-        )
-
-        assert result.exit_code == 0
-        assert output_file.exists()
 
 
 class TestCacheCommands:

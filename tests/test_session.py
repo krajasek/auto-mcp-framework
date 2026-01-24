@@ -935,3 +935,101 @@ class TestSessionManagerSyncCleanup:
         count = manager._sync_cleanup()
         assert count == 1
         assert "session:expired" not in manager._sessions
+
+
+class TestSessionInjectionEdgeCases:
+    """Test edge cases in session parameter injection."""
+
+    def test_get_session_param_union_with_none(self) -> None:
+        """Test finding SessionContext | None parameter (line 47)."""
+        from typing import Union
+        from auto_mcp.session.context import SessionContext
+        from auto_mcp.session.injection import get_session_param_name
+
+        # Use Union syntax to ensure __origin__ is checked
+        def func_with_union(ctx: Union[SessionContext, None] = None) -> None:
+            pass
+
+        result = get_session_param_name(func_with_union)
+        assert result == "ctx"
+
+    def test_get_session_param_direct_annotation(self) -> None:
+        """Test finding session param via direct annotation."""
+        from auto_mcp.session.context import SessionContext
+        from auto_mcp.session.injection import get_session_param_name
+
+        def func_with_session(session: SessionContext) -> None:
+            pass
+
+        result = get_session_param_name(func_with_session)
+        assert result == "session"
+
+    def test_get_session_param_none(self) -> None:
+        """Test no session parameter found."""
+        from auto_mcp.session.injection import get_session_param_name
+
+        def func_without_session(x: int, y: str) -> None:
+            pass
+
+        result = get_session_param_name(func_without_session)
+        assert result is None
+
+    def test_get_session_param_with_forward_ref(self) -> None:
+        """Test handling forward reference annotations (line 53 fallback)."""
+        from auto_mcp.session.injection import get_session_param_name
+        import inspect
+
+        # Create a function with a string annotation that won't resolve
+        # This forces the fallback path
+        def func_with_forward_ref(session: "SessionContext") -> None:
+            pass
+
+        result = get_session_param_name(func_with_forward_ref)
+        # The string annotation check should find it
+        assert result == "session"
+
+    def test_needs_session_injection(self) -> None:
+        """Test needs_session_injection function."""
+        from auto_mcp.session.context import SessionContext
+        from auto_mcp.session.injection import needs_session_injection
+
+        def with_session(ctx: SessionContext) -> None:
+            pass
+
+        def without_session(x: int) -> None:
+            pass
+
+        assert needs_session_injection(with_session) is True
+        assert needs_session_injection(without_session) is False
+
+    def test_get_non_session_parameters(self) -> None:
+        """Test get_non_session_parameters function."""
+        from auto_mcp.session.context import SessionContext
+        from auto_mcp.session.injection import get_non_session_parameters
+
+        def func(x: int, ctx: SessionContext, y: str) -> None:
+            pass
+
+        result = get_non_session_parameters(func)
+        assert "x" in result
+        assert "y" in result
+        assert "ctx" not in result
+
+    def test_get_session_hook_metadata(self) -> None:
+        """Test get_session_hook_metadata function (line 114)."""
+        from auto_mcp.session.decorators import get_session_hook_metadata, mcp_session_init
+
+        @mcp_session_init()
+        def my_init_hook() -> None:
+            pass
+
+        def regular_func() -> None:
+            pass
+
+        hooks = get_session_hook_metadata(my_init_hook)
+        assert hooks["is_session_init"] is True
+        assert hooks["is_session_cleanup"] is False
+
+        hooks = get_session_hook_metadata(regular_func)
+        assert hooks["is_session_init"] is False
+        assert hooks["is_session_cleanup"] is False

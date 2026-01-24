@@ -549,6 +549,13 @@ class MCPGenerator:
         elif isinstance(value, bool):
             return "True" if value else "False"
         elif isinstance(value, (int, float)):
+            # Handle special float values that need special representation
+            import math
+            if isinstance(value, float):
+                if math.isnan(value):
+                    return "None"  # Can't represent nan without import
+                elif math.isinf(value):
+                    return "None"  # Can't represent inf without import
             return str(value)
         elif isinstance(value, (list, tuple)):
             return repr(value)

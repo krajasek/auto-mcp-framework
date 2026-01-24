@@ -35,21 +35,27 @@ def _get_object(handle: str) -> Any:
 mcp = FastMCP(name="pandas-mcp-server")
 
 @mcp.tool(name="read_csv")
-def read_csv(filepath_or_buffer: str, sep: str = None, delimiter: str = None, header: Any | None = 'infer', names: str = None, index_col: str = None, usecols: str = None, dtype: str = None, engine: str = None, converters: str = None, true_values: list = None, false_values: list = None, skipinitialspace: bool = False, skiprows: list = None, skipfooter: int = 0, nrows: int = None, na_values: str = None, keep_default_na: bool = True, na_filter: bool = True, verbose: Any = None, skip_blank_lines: bool = True, parse_dates: Any | None = None, infer_datetime_format: Any = None, keep_date_col: Any = None, date_parser: str = None, date_format: Any | None = None, dayfirst: bool = False, cache_dates: bool = True, iterator: bool = False, chunksize: int = None, compression: str = 'infer', thousands: str = None, decimal: str = '.', lineterminator: str = None, quotechar: str = '"', quoting: int = 0, doublequote: bool = True, escapechar: str = None, comment: str = None, encoding: str = None, encoding_errors: str = 'strict', dialect: Any | None = None, on_bad_lines: str = 'error', delim_whitespace: Any = None, low_memory: bool = True, memory_map: bool = False, float_precision: str = None, storage_options: str = None, dtype_backend: str = None) -> str:
+def read_csv(filepath_or_buffer: Any, sep: str = None, delimiter: str = None, header: Any | None = 'infer', names: Any | None = None, index_col: Any | None = None, usecols: Any = None, dtype: Any | None = None, engine: Any | None = None, converters: Any | None = None, true_values: list = None, false_values: list = None, skipinitialspace: bool = False, skiprows: Any | None = None, skipfooter: int = 0, nrows: int = None, na_values: Any | None = None, keep_default_na: bool = True, na_filter: bool = True, verbose: Any = None, skip_blank_lines: bool = True, parse_dates: Any | None = None, infer_datetime_format: Any = None, keep_date_col: Any = None, date_parser: Any = None, date_format: Any | None = None, dayfirst: bool = False, cache_dates: bool = True, iterator: bool = False, chunksize: int = None, compression: Any = 'infer', thousands: str = None, decimal: str = '.', lineterminator: str = None, quotechar: str = '"', quoting: int = 0, doublequote: bool = True, escapechar: str = None, comment: str = None, encoding: str = None, encoding_errors: str = 'strict', dialect: Any | None = None, on_bad_lines: str = 'error', delim_whitespace: Any = None, low_memory: bool = True, memory_map: bool = False, float_precision: Any | None = None, storage_options: Any | None = None, dtype_backend: Any = None) -> str:
     """Read a CSV file into a DataFrame. Supports URLs, file paths, and various parsing options."""
     _kwargs = {}
-    _kwargs['filepath_or_buffer'] = _get_object(filepath_or_buffer)
+    _kwargs['filepath_or_buffer'] = filepath_or_buffer
     if sep is not None:
         _kwargs['sep'] = sep
     if delimiter is not None:
         _kwargs['delimiter'] = delimiter
     _kwargs['header'] = header
-    _kwargs['names'] = _get_object(names)
-    _kwargs['index_col'] = _get_object(index_col)
-    _kwargs['usecols'] = _get_object(usecols)
-    _kwargs['dtype'] = _get_object(dtype)
-    _kwargs['engine'] = _get_object(engine)
-    _kwargs['converters'] = _get_object(converters)
+    if names is not None:
+        _kwargs['names'] = names
+    if index_col is not None:
+        _kwargs['index_col'] = index_col
+    if usecols is not None:
+        _kwargs['usecols'] = usecols
+    if dtype is not None:
+        _kwargs['dtype'] = dtype
+    if engine is not None:
+        _kwargs['engine'] = engine
+    if converters is not None:
+        _kwargs['converters'] = converters
     if true_values is not None:
         _kwargs['true_values'] = true_values
     if false_values is not None:
@@ -60,7 +66,8 @@ def read_csv(filepath_or_buffer: str, sep: str = None, delimiter: str = None, he
     _kwargs['skipfooter'] = skipfooter
     if nrows is not None:
         _kwargs['nrows'] = nrows
-    _kwargs['na_values'] = _get_object(na_values)
+    if na_values is not None:
+        _kwargs['na_values'] = na_values
     _kwargs['keep_default_na'] = keep_default_na
     _kwargs['na_filter'] = na_filter
     if verbose is not None:
@@ -72,7 +79,8 @@ def read_csv(filepath_or_buffer: str, sep: str = None, delimiter: str = None, he
         _kwargs['infer_datetime_format'] = infer_datetime_format
     if keep_date_col is not None:
         _kwargs['keep_date_col'] = keep_date_col
-    _kwargs['date_parser'] = _get_object(date_parser)
+    if date_parser is not None:
+        _kwargs['date_parser'] = date_parser
     if date_format is not None:
         _kwargs['date_format'] = date_format
     _kwargs['dayfirst'] = dayfirst
@@ -80,7 +88,7 @@ def read_csv(filepath_or_buffer: str, sep: str = None, delimiter: str = None, he
     _kwargs['iterator'] = iterator
     if chunksize is not None:
         _kwargs['chunksize'] = chunksize
-    _kwargs['compression'] = _get_object(compression)
+    _kwargs['compression'] = compression
     if thousands is not None:
         _kwargs['thousands'] = thousands
     _kwargs['decimal'] = decimal
@@ -103,31 +111,40 @@ def read_csv(filepath_or_buffer: str, sep: str = None, delimiter: str = None, he
         _kwargs['delim_whitespace'] = delim_whitespace
     _kwargs['low_memory'] = low_memory
     _kwargs['memory_map'] = memory_map
-    _kwargs['float_precision'] = _get_object(float_precision)
-    _kwargs['storage_options'] = _get_object(storage_options)
-    _kwargs['dtype_backend'] = _get_object(dtype_backend)
+    if float_precision is not None:
+        _kwargs['float_precision'] = float_precision
+    if storage_options is not None:
+        _kwargs['storage_options'] = storage_options
+    if dtype_backend is not None:
+        _kwargs['dtype_backend'] = dtype_backend
     result = pandas.read_csv(**_kwargs)
-    return _store_object(result, "DataFrame | TextFileReader")
+    return _store_object(result, "DataFrame")
 
 @mcp.tool(name="read_excel")
-def read_excel(io: Any, sheet_name: Any | None = 0, header: Any | None = 0, names: str = None, index_col: Any | None = None, usecols: Any | None = None, dtype: str = None, engine: str = None, converters: dict = None, true_values: str = None, false_values: str = None, skiprows: str = None, nrows: int = None, na_values: Any = None, keep_default_na: bool = True, na_filter: bool = True, verbose: bool = False, parse_dates: Any = False, date_parser: str = None, date_format: dict = None, thousands: str = None, decimal: str = '.', comment: str = None, skipfooter: int = 0, storage_options: str = None, dtype_backend: str = None, engine_kwargs: dict = None) -> str:
+def read_excel(io: Any, sheet_name: Any | None = 0, header: Any | None = 0, names: Any | None = None, index_col: Any | None = None, usecols: Any | None = None, dtype: Any | None = None, engine: Any | None = None, converters: Any | None = None, true_values: Any | None = None, false_values: Any | None = None, skiprows: Any | None = None, nrows: int = None, na_values: Any = None, keep_default_na: bool = True, na_filter: bool = True, verbose: bool = False, parse_dates: Any = False, date_parser: Any = None, date_format: Any | None = None, thousands: str = None, decimal: str = '.', comment: str = None, skipfooter: int = 0, storage_options: Any | None = None, dtype_backend: Any = None, engine_kwargs: dict = None) -> str:
     """Read an Excel file (.xlsx, .xls) into a DataFrame."""
     _kwargs = {}
     _kwargs['io'] = io
     _kwargs['sheet_name'] = sheet_name
     _kwargs['header'] = header
-    _kwargs['names'] = _get_object(names)
+    if names is not None:
+        _kwargs['names'] = names
     if index_col is not None:
         _kwargs['index_col'] = index_col
     if usecols is not None:
         _kwargs['usecols'] = usecols
-    _kwargs['dtype'] = _get_object(dtype)
-    _kwargs['engine'] = _get_object(engine)
+    if dtype is not None:
+        _kwargs['dtype'] = dtype
+    if engine is not None:
+        _kwargs['engine'] = engine
     if converters is not None:
         _kwargs['converters'] = converters
-    _kwargs['true_values'] = _get_object(true_values)
-    _kwargs['false_values'] = _get_object(false_values)
-    _kwargs['skiprows'] = _get_object(skiprows)
+    if true_values is not None:
+        _kwargs['true_values'] = true_values
+    if false_values is not None:
+        _kwargs['false_values'] = false_values
+    if skiprows is not None:
+        _kwargs['skiprows'] = skiprows
     if nrows is not None:
         _kwargs['nrows'] = nrows
     if na_values is not None:
@@ -136,7 +153,8 @@ def read_excel(io: Any, sheet_name: Any | None = 0, header: Any | None = 0, name
     _kwargs['na_filter'] = na_filter
     _kwargs['verbose'] = verbose
     _kwargs['parse_dates'] = parse_dates
-    _kwargs['date_parser'] = _get_object(date_parser)
+    if date_parser is not None:
+        _kwargs['date_parser'] = date_parser
     if date_format is not None:
         _kwargs['date_format'] = date_format
     if thousands is not None:
@@ -145,22 +163,25 @@ def read_excel(io: Any, sheet_name: Any | None = 0, header: Any | None = 0, name
     if comment is not None:
         _kwargs['comment'] = comment
     _kwargs['skipfooter'] = skipfooter
-    _kwargs['storage_options'] = _get_object(storage_options)
-    _kwargs['dtype_backend'] = _get_object(dtype_backend)
+    if storage_options is not None:
+        _kwargs['storage_options'] = storage_options
+    if dtype_backend is not None:
+        _kwargs['dtype_backend'] = dtype_backend
     if engine_kwargs is not None:
         _kwargs['engine_kwargs'] = engine_kwargs
     result = pandas.read_excel(**_kwargs)
-    return _store_object(result, "DataFrame | dict[IntStrT, DataFrame]")
+    return _store_object(result, "DataFrame")
 
 @mcp.tool(name="read_json")
-def read_json(path_or_buf: str, orient: str = None, typ: str = 'frame', dtype: str = None, convert_axes: bool = None, convert_dates: Any = True, keep_default_dates: bool = True, precise_float: bool = False, date_unit: str = None, encoding: str = None, encoding_errors: str = 'strict', lines: bool = False, chunksize: int = None, compression: str = 'infer', nrows: int = None, storage_options: str = None, dtype_backend: str = None, engine: str = 'ujson') -> str:
+def read_json(path_or_buf: Any, orient: str = None, typ: Any = 'frame', dtype: Any | None = None, convert_axes: bool = None, convert_dates: Any = True, keep_default_dates: bool = True, precise_float: bool = False, date_unit: str = None, encoding: str = None, encoding_errors: str = 'strict', lines: bool = False, chunksize: int = None, compression: Any = 'infer', nrows: int = None, storage_options: Any | None = None, dtype_backend: Any = None, engine: Any = 'ujson') -> str:
     """Read a JSON file or string into a DataFrame or Series."""
     _kwargs = {}
-    _kwargs['path_or_buf'] = _get_object(path_or_buf)
+    _kwargs['path_or_buf'] = path_or_buf
     if orient is not None:
         _kwargs['orient'] = orient
-    _kwargs['typ'] = _get_object(typ)
-    _kwargs['dtype'] = _get_object(dtype)
+    _kwargs['typ'] = typ
+    if dtype is not None:
+        _kwargs['dtype'] = dtype
     if convert_axes is not None:
         _kwargs['convert_axes'] = convert_axes
     _kwargs['convert_dates'] = convert_dates
@@ -174,27 +195,31 @@ def read_json(path_or_buf: str, orient: str = None, typ: str = 'frame', dtype: s
     _kwargs['lines'] = lines
     if chunksize is not None:
         _kwargs['chunksize'] = chunksize
-    _kwargs['compression'] = _get_object(compression)
+    _kwargs['compression'] = compression
     if nrows is not None:
         _kwargs['nrows'] = nrows
-    _kwargs['storage_options'] = _get_object(storage_options)
-    _kwargs['dtype_backend'] = _get_object(dtype_backend)
-    _kwargs['engine'] = _get_object(engine)
+    if storage_options is not None:
+        _kwargs['storage_options'] = storage_options
+    if dtype_backend is not None:
+        _kwargs['dtype_backend'] = dtype_backend
+    _kwargs['engine'] = engine
     result = pandas.read_json(**_kwargs)
-    return _store_object(result, "DataFrame | Series | JsonReader")
+    return _store_object(result, "DataFrame")
 
 @mcp.tool(name="read_parquet")
-def read_parquet(path: str, engine: str = 'auto', columns: list = None, storage_options: str = None, use_nullable_dtypes: Any = None, dtype_backend: str = None, filesystem: Any = None, filters: list = None, **kwargs: Any) -> str:
+def read_parquet(path: Any, engine: str = 'auto', columns: list = None, storage_options: Any | None = None, use_nullable_dtypes: Any = None, dtype_backend: Any = None, filesystem: Any = None, filters: Any | None = None, **kwargs: Any) -> str:
     """Read a Parquet file into a DataFrame. Efficient for large datasets."""
     _kwargs = {}
-    _kwargs['path'] = _get_object(path)
+    _kwargs['path'] = path
     _kwargs['engine'] = engine
     if columns is not None:
         _kwargs['columns'] = columns
-    _kwargs['storage_options'] = _get_object(storage_options)
+    if storage_options is not None:
+        _kwargs['storage_options'] = storage_options
     if use_nullable_dtypes is not None:
         _kwargs['use_nullable_dtypes'] = use_nullable_dtypes
-    _kwargs['dtype_backend'] = _get_object(dtype_backend)
+    if dtype_backend is not None:
+        _kwargs['dtype_backend'] = dtype_backend
     if filesystem is not None:
         _kwargs['filesystem'] = filesystem
     if filters is not None:
@@ -203,7 +228,7 @@ def read_parquet(path: str, engine: str = 'auto', columns: list = None, storage_
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="read_sql")
-def read_sql(sql: Any, con: Any, index_col: Any | None = None, coerce_float: bool = True, params: Any = None, parse_dates: Any = None, columns: list = None, chunksize: int = None, dtype_backend: str = None, dtype: str = None) -> str:
+def read_sql(sql: Any, con: Any, index_col: Any | None = None, coerce_float: bool = True, params: Any = None, parse_dates: Any = None, columns: list = None, chunksize: int = None, dtype_backend: Any = None, dtype: Any | None = None) -> str:
     """Read SQL query or table into a DataFrame."""
     _kwargs = {}
     _kwargs['sql'] = sql
@@ -219,18 +244,21 @@ def read_sql(sql: Any, con: Any, index_col: Any | None = None, coerce_float: boo
         _kwargs['columns'] = columns
     if chunksize is not None:
         _kwargs['chunksize'] = chunksize
-    _kwargs['dtype_backend'] = _get_object(dtype_backend)
-    _kwargs['dtype'] = _get_object(dtype)
+    if dtype_backend is not None:
+        _kwargs['dtype_backend'] = dtype_backend
+    if dtype is not None:
+        _kwargs['dtype'] = dtype
     result = pandas.read_sql(**_kwargs)
-    return _store_object(result, "DataFrame | Iterator[DataFrame]")
+    return _store_object(result, "DataFrame")
 
 @mcp.tool(name="read_html")
-def read_html(io: str, match: Any = '.+', flavor: str = None, header: Any | None = None, index_col: Any | None = None, skiprows: Any | None = None, attrs: dict = None, parse_dates: bool = False, thousands: str = ',', encoding: str = None, decimal: str = '.', converters: dict = None, na_values: str = None, keep_default_na: bool = True, displayed_only: bool = True, extract_links: str = None, dtype_backend: str = None, storage_options: str = None) -> list:
+def read_html(io: Any, match: Any = '.+', flavor: Any | None = None, header: Any | None = None, index_col: Any | None = None, skiprows: Any | None = None, attrs: dict = None, parse_dates: bool = False, thousands: str = ',', encoding: str = None, decimal: str = '.', converters: dict = None, na_values: Any | None = None, keep_default_na: bool = True, displayed_only: bool = True, extract_links: Any = None, dtype_backend: Any = None, storage_options: Any = None) -> list:
     """Read HTML tables from a webpage into a list of DataFrames."""
     _kwargs = {}
-    _kwargs['io'] = _get_object(io)
+    _kwargs['io'] = io
     _kwargs['match'] = match
-    _kwargs['flavor'] = _get_object(flavor)
+    if flavor is not None:
+        _kwargs['flavor'] = flavor
     if header is not None:
         _kwargs['header'] = header
     if index_col is not None:
@@ -246,24 +274,29 @@ def read_html(io: str, match: Any = '.+', flavor: str = None, header: Any | None
     _kwargs['decimal'] = decimal
     if converters is not None:
         _kwargs['converters'] = converters
-    _kwargs['na_values'] = _get_object(na_values)
+    if na_values is not None:
+        _kwargs['na_values'] = na_values
     _kwargs['keep_default_na'] = keep_default_na
     _kwargs['displayed_only'] = displayed_only
-    _kwargs['extract_links'] = _get_object(extract_links)
-    _kwargs['dtype_backend'] = _get_object(dtype_backend)
-    _kwargs['storage_options'] = _get_object(storage_options)
+    if extract_links is not None:
+        _kwargs['extract_links'] = extract_links
+    if dtype_backend is not None:
+        _kwargs['dtype_backend'] = dtype_backend
+    if storage_options is not None:
+        _kwargs['storage_options'] = storage_options
     return pandas.read_html(**_kwargs)
 
 @mcp.tool(name="read_clipboard")
-def read_clipboard(sep: str = '\\s+', dtype_backend: str = None, **kwargs: Any) -> Any:
+def read_clipboard(sep: str = '\\s+', dtype_backend: Any = None, **kwargs: Any) -> Any:
     """Read data from system clipboard into a DataFrame."""
     _kwargs = {}
     _kwargs['sep'] = sep
-    _kwargs['dtype_backend'] = _get_object(dtype_backend)
+    if dtype_backend is not None:
+        _kwargs['dtype_backend'] = dtype_backend
     return pandas.read_clipboard(**_kwargs)
 
 @mcp.tool(name="dataframe")
-def dataframe(data: Any = None, index: str = None, columns: str = None, dtype: str = None, copy: bool = None) -> str:
+def dataframe(data: Any = None, index: Any | None = None, columns: Any | None = None, dtype: Any | None = None, copy: bool = None) -> str:
     """Two-dimensional, size-mutable, potentially heterogeneous tabular data.
     
     Data structure also contains labeled axes (rows and columns).
@@ -399,16 +432,19 @@ def dataframe(data: Any = None, index: str = None, columns: str = None, dtype: s
     _kwargs = {}
     if data is not None:
         _kwargs['data'] = data
-    _kwargs['index'] = _get_object(index)
-    _kwargs['columns'] = _get_object(columns)
-    _kwargs['dtype'] = _get_object(dtype)
+    if index is not None:
+        _kwargs['index'] = index
+    if columns is not None:
+        _kwargs['columns'] = columns
+    if dtype is not None:
+        _kwargs['dtype'] = dtype
     if copy is not None:
         _kwargs['copy'] = copy
     result = pandas.DataFrame(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_abs")
-def dataframe_abs(dataframe: str) -> str:
+def dataframe_abs(dataframe: str) -> Any:
     """Return a Series/DataFrame with absolute numeric value of each element.
     
     This function only applies to elements that are all numeric.
@@ -475,11 +511,10 @@ def dataframe_abs(dataframe: str) -> str:
     3    7   40  -50
     """
     _instance = _get_object(dataframe)
-    result = _instance.abs()
-    return _store_object(result, "Self")
+    return _instance.abs()
 
 @mcp.tool(name="dataframe_add")
-def dataframe_add(dataframe: str, other: Any, axis: str = 'columns', level: Any = None, fill_value: Any = None) -> str:
+def dataframe_add(dataframe: str, other: Any, axis: Any = 'columns', level: Any = None, fill_value: Any = None) -> str:
     """Get Addition of dataframe and other, element-wise (binary operator `add`).
     
     Equivalent to ``dataframe + other``, but with support to substitute a fill_value
@@ -647,18 +682,18 @@ def dataframe_add(dataframe: str, other: Any, axis: str = 'columns', level: Any 
       hexagon       0.0      0.0
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(other)
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['other'] = other
+    _kwargs['axis'] = axis
     if level is not None:
-        _args.append(level)
+        _kwargs['level'] = level
     if fill_value is not None:
-        _args.append(fill_value)
-    result = _instance.add(*_args)
+        _kwargs['fill_value'] = fill_value
+    result = _instance.add(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_add_prefix")
-def dataframe_add_prefix(dataframe: str, prefix: str, axis: str = None) -> str:
+def dataframe_add_prefix(dataframe: str, prefix: str, axis: Any | None = None) -> Any:
     """Prefix labels with string `prefix`.
     
     For Series, the row labels are prefixed.
@@ -716,15 +751,14 @@ def dataframe_add_prefix(dataframe: str, prefix: str, axis: str = None) -> str:
     3       4       6
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(prefix)
+    _kwargs = {}
+    _kwargs['prefix'] = prefix
     if axis is not None:
-        _args.append(_get_object(axis))
-    result = _instance.add_prefix(*_args)
-    return _store_object(result, "Self")
+        _kwargs['axis'] = axis
+    return _instance.add_prefix(**_kwargs)
 
 @mcp.tool(name="dataframe_add_suffix")
-def dataframe_add_suffix(dataframe: str, suffix: str, axis: str = None) -> str:
+def dataframe_add_suffix(dataframe: str, suffix: str, axis: Any | None = None) -> Any:
     """Suffix labels with string `suffix`.
     
     For Series, the row labels are suffixed.
@@ -782,15 +816,14 @@ def dataframe_add_suffix(dataframe: str, suffix: str, axis: str = None) -> str:
     3       4       6
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(suffix)
+    _kwargs = {}
+    _kwargs['suffix'] = suffix
     if axis is not None:
-        _args.append(_get_object(axis))
-    result = _instance.add_suffix(*_args)
-    return _store_object(result, "Self")
+        _kwargs['axis'] = axis
+    return _instance.add_suffix(**_kwargs)
 
 @mcp.tool(name="dataframe_agg")
-def dataframe_agg(dataframe: str, func: Any = None, axis: str = 0, *args: Any, **kwargs: Any) -> Any:
+def dataframe_agg(dataframe: str, func: Any = None, axis: Any = 0, *args: Any, **kwargs: Any) -> Any:
     """Aggregate using one or more operations over the specified axis.
     
     Parameters
@@ -893,14 +926,14 @@ def dataframe_agg(dataframe: str, func: Any = None, axis: str = 0, *args: Any, *
     dtype: float64
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if func is not None:
-        _args.append(func)
-    _args.append(_get_object(axis))
-    return _instance.agg(*_args)
+        _kwargs['func'] = func
+    _kwargs['axis'] = axis
+    return _instance.agg(**_kwargs)
 
 @mcp.tool(name="dataframe_aggregate")
-def dataframe_aggregate(dataframe: str, func: Any = None, axis: str = 0, *args: Any, **kwargs: Any) -> Any:
+def dataframe_aggregate(dataframe: str, func: Any = None, axis: Any = 0, *args: Any, **kwargs: Any) -> Any:
     """Aggregate using one or more operations over the specified axis.
     
     Parameters
@@ -1003,14 +1036,14 @@ def dataframe_aggregate(dataframe: str, func: Any = None, axis: str = 0, *args: 
     dtype: float64
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if func is not None:
-        _args.append(func)
-    _args.append(_get_object(axis))
-    return _instance.aggregate(*_args)
+        _kwargs['func'] = func
+    _kwargs['axis'] = axis
+    return _instance.aggregate(**_kwargs)
 
 @mcp.tool(name="dataframe_align")
-def dataframe_align(dataframe: str, other: str, join: str = 'outer', axis: str = None, level: str = None, copy: Any | None = None, fill_value: str = None, method: str = None, limit: int = None, fill_axis: str = None, broadcast_axis: str = None) -> tuple:
+def dataframe_align(dataframe: str, other: Any, join: Any = 'outer', axis: Any | None = None, level: Any | None = None, copy: Any | None = None, fill_value: Any | None = None, method: Any | None = None, limit: int = None, fill_axis: Any = None, broadcast_axis: Any | None = None) -> tuple:
     """Align two objects on their axes with the specified join method.
     
     Join method is specified for each axis Index.
@@ -1150,29 +1183,29 @@ def dataframe_align(dataframe: str, other: str, join: str = 'outer', axis: str =
     4  600.0  700.0  800.0  900.0 NaN
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(_get_object(other))
-    _args.append(_get_object(join))
+    _kwargs = {}
+    _kwargs['other'] = other
+    _kwargs['join'] = join
     if axis is not None:
-        _args.append(_get_object(axis))
+        _kwargs['axis'] = axis
     if level is not None:
-        _args.append(_get_object(level))
+        _kwargs['level'] = level
     if copy is not None:
-        _args.append(copy)
+        _kwargs['copy'] = copy
     if fill_value is not None:
-        _args.append(_get_object(fill_value))
+        _kwargs['fill_value'] = fill_value
     if method is not None:
-        _args.append(_get_object(method))
+        _kwargs['method'] = method
     if limit is not None:
-        _args.append(limit)
+        _kwargs['limit'] = limit
     if fill_axis is not None:
-        _args.append(_get_object(fill_axis))
+        _kwargs['fill_axis'] = fill_axis
     if broadcast_axis is not None:
-        _args.append(_get_object(broadcast_axis))
-    return _instance.align(*_args)
+        _kwargs['broadcast_axis'] = broadcast_axis
+    return _instance.align(**_kwargs)
 
 @mcp.tool(name="dataframe_all")
-def dataframe_all(dataframe: str, axis: str = 0, bool_only: bool = False, skipna: bool = True, **kwargs: Any) -> str:
+def dataframe_all(dataframe: str, axis: Any | None = 0, bool_only: bool = False, skipna: bool = True, **kwargs: Any) -> Any:
     """Return whether all elements are True, potentially over an axis.
     
     Returns True unless there at least one element within a series or
@@ -1258,11 +1291,10 @@ def dataframe_all(dataframe: str, axis: str = 0, bool_only: bool = False, skipna
     False
     """
     _instance = _get_object(dataframe)
-    result = _instance.all(axis=_get_object(axis), bool_only=bool_only, skipna=skipna, **kwargs)
-    return _store_object(result, "Series | bool")
+    return _instance.all(axis=axis, bool_only=bool_only, skipna=skipna, **kwargs)
 
 @mcp.tool(name="dataframe_any")
-def dataframe_any(dataframe: str, axis: str = 0, bool_only: bool = False, skipna: bool = True, **kwargs: Any) -> str:
+def dataframe_any(dataframe: str, axis: Any | None = 0, bool_only: bool = False, skipna: bool = True, **kwargs: Any) -> Any:
     """Return whether any element is True, potentially over an axis.
     
     Returns False unless there is at least one element within a series or
@@ -1375,11 +1407,10 @@ def dataframe_any(dataframe: str, axis: str = 0, bool_only: bool = False, skipna
     Series([], dtype: bool)
     """
     _instance = _get_object(dataframe)
-    result = _instance.any(axis=_get_object(axis), bool_only=bool_only, skipna=skipna, **kwargs)
-    return _store_object(result, "Series | bool")
+    return _instance.any(axis=axis, bool_only=bool_only, skipna=skipna, **kwargs)
 
 @mcp.tool(name="dataframe_apply")
-def dataframe_apply(dataframe: str, func: str, axis: str = 0, raw: bool = False, result_type: str = None, args: Any = (), by_row: str = 'compat', engine: str = 'python', engine_kwargs: dict = None, **kwargs: Any) -> Any:
+def dataframe_apply(dataframe: str, func: Any, axis: Any = 0, raw: bool = False, result_type: Any | None = None, args: Any = (), by_row: Any = 'compat', engine: Any = 'python', engine_kwargs: dict = None, **kwargs: Any) -> Any:
     """Apply a function along an axis of the DataFrame.
     
     Objects passed to the function are Series objects whose index is
@@ -1558,21 +1589,21 @@ def dataframe_apply(dataframe: str, func: str, axis: str = 0, raw: bool = False,
     2  1  2
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(_get_object(func))
-    _args.append(_get_object(axis))
-    _args.append(raw)
+    _kwargs = {}
+    _kwargs['func'] = func
+    _kwargs['axis'] = axis
+    _kwargs['raw'] = raw
     if result_type is not None:
-        _args.append(_get_object(result_type))
-    _args.append(args)
-    _args.append(_get_object(by_row))
-    _args.append(_get_object(engine))
+        _kwargs['result_type'] = result_type
+    _kwargs['args'] = args
+    _kwargs['by_row'] = by_row
+    _kwargs['engine'] = engine
     if engine_kwargs is not None:
-        _args.append(engine_kwargs)
-    return _instance.apply(*_args)
+        _kwargs['engine_kwargs'] = engine_kwargs
+    return _instance.apply(**_kwargs)
 
 @mcp.tool(name="dataframe_applymap")
-def dataframe_applymap(dataframe: str, func: str, na_action: str = None, **kwargs: Any) -> str:
+def dataframe_applymap(dataframe: str, func: Any, na_action: Any | None = None, **kwargs: Any) -> str:
     """Apply a function to a Dataframe elementwise.
     
     .. deprecated:: 2.1.0
@@ -1617,15 +1648,15 @@ def dataframe_applymap(dataframe: str, func: str, na_action: str = None, **kwarg
     1  5  5
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(_get_object(func))
+    _kwargs = {}
+    _kwargs['func'] = func
     if na_action is not None:
-        _args.append(_get_object(na_action))
-    result = _instance.applymap(*_args)
+        _kwargs['na_action'] = na_action
+    result = _instance.applymap(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_asfreq")
-def dataframe_asfreq(dataframe: str, freq: str, method: str = None, how: str = None, normalize: Any = False, fill_value: str = None) -> str:
+def dataframe_asfreq(dataframe: str, freq: Any, method: Any | None = None, how: Any | None = None, normalize: Any = False, fill_value: Any | None = None) -> Any:
     """Convert time series to specified frequency.
     
     Returns the original data conformed to a new index with the specified
@@ -1731,17 +1762,16 @@ def dataframe_asfreq(dataframe: str, freq: str, method: str = None, how: str = N
     2000-01-01 00:03:00    3.0
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(_get_object(freq))
+    _kwargs = {}
+    _kwargs['freq'] = freq
     if method is not None:
-        _args.append(_get_object(method))
+        _kwargs['method'] = method
     if how is not None:
-        _args.append(_get_object(how))
-    _args.append(normalize)
+        _kwargs['how'] = how
+    _kwargs['normalize'] = normalize
     if fill_value is not None:
-        _args.append(_get_object(fill_value))
-    result = _instance.asfreq(*_args)
-    return _store_object(result, "Self")
+        _kwargs['fill_value'] = fill_value
+    return _instance.asfreq(**_kwargs)
 
 @mcp.tool(name="dataframe_asof")
 def dataframe_asof(dataframe: str, where: Any, subset: Any = None) -> Any:
@@ -1838,11 +1868,11 @@ def dataframe_asof(dataframe: str, where: Any, subset: Any = None) -> Any:
     2018-02-27 09:04:30  40.0 NaN
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(where)
+    _kwargs = {}
+    _kwargs['where'] = where
     if subset is not None:
-        _args.append(subset)
-    return _instance.asof(*_args)
+        _kwargs['subset'] = subset
+    return _instance.asof(**_kwargs)
 
 @mcp.tool(name="dataframe_assign")
 def dataframe_assign(dataframe: str, **kwargs: Any) -> str:
@@ -1911,7 +1941,7 @@ def dataframe_assign(dataframe: str, **kwargs: Any) -> str:
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_astype")
-def dataframe_astype(dataframe: str, dtype: Any, copy: Any | None = None, errors: str = 'raise') -> str:
+def dataframe_astype(dataframe: str, dtype: Any, copy: Any | None = None, errors: Any = 'raise') -> Any:
     """Cast a pandas object to a specified dtype ``dtype``.
     
     Parameters
@@ -2029,16 +2059,15 @@ def dataframe_astype(dataframe: str, dtype: Any, copy: Any | None = None, errors
     dtype: datetime64[ns]
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(dtype)
+    _kwargs = {}
+    _kwargs['dtype'] = dtype
     if copy is not None:
-        _args.append(copy)
-    _args.append(_get_object(errors))
-    result = _instance.astype(*_args)
-    return _store_object(result, "Self")
+        _kwargs['copy'] = copy
+    _kwargs['errors'] = errors
+    return _instance.astype(**_kwargs)
 
 @mcp.tool(name="dataframe_at_time")
-def dataframe_at_time(dataframe: str, time: Any, asof: Any = False, axis: str = None) -> str:
+def dataframe_at_time(dataframe: str, time: Any, asof: Any = False, axis: Any | None = None) -> Any:
     """Select values at particular time of day (e.g., 9:30AM).
     
     Parameters
@@ -2082,16 +2111,15 @@ def dataframe_at_time(dataframe: str, time: Any, asof: Any = False, axis: str = 
     2018-04-10 12:00:00  4
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(time)
-    _args.append(asof)
+    _kwargs = {}
+    _kwargs['time'] = time
+    _kwargs['asof'] = asof
     if axis is not None:
-        _args.append(_get_object(axis))
-    result = _instance.at_time(*_args)
-    return _store_object(result, "Self")
+        _kwargs['axis'] = axis
+    return _instance.at_time(**_kwargs)
 
 @mcp.tool(name="dataframe_backfill")
-def dataframe_backfill(dataframe: str, axis: str = None, inplace: Any = False, limit: str = None, downcast: dict = None) -> str:
+def dataframe_backfill(dataframe: str, axis: Any = None, inplace: Any = False, limit: Any = None, downcast: dict = None) -> Any | None:
     """Fill NA/NaN values by using the next valid observation to fill the gap.
     
     .. deprecated:: 2.0
@@ -2108,19 +2136,18 @@ def dataframe_backfill(dataframe: str, axis: str = None, inplace: Any = False, l
     Please see examples for :meth:`DataFrame.bfill` or :meth:`Series.bfill`.
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if axis is not None:
-        _args.append(_get_object(axis))
-    _args.append(inplace)
+        _kwargs['axis'] = axis
+    _kwargs['inplace'] = inplace
     if limit is not None:
-        _args.append(_get_object(limit))
+        _kwargs['limit'] = limit
     if downcast is not None:
-        _args.append(downcast)
-    result = _instance.backfill(*_args)
-    return _store_object(result, "Self")
+        _kwargs['downcast'] = downcast
+    return _instance.backfill(**_kwargs)
 
 @mcp.tool(name="dataframe_between_time")
-def dataframe_between_time(dataframe: str, start_time: Any, end_time: Any, inclusive: str = 'both', axis: str = None) -> str:
+def dataframe_between_time(dataframe: str, start_time: Any, end_time: Any, inclusive: Any = 'both', axis: Any | None = None) -> Any:
     """Select values between particular times of the day (e.g., 9:00-9:30 AM).
     
     By setting ``start_time`` to be later than ``end_time``,
@@ -2181,17 +2208,16 @@ def dataframe_between_time(dataframe: str, start_time: Any, end_time: Any, inclu
     2018-04-12 01:00:00  4
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(start_time)
-    _args.append(end_time)
-    _args.append(_get_object(inclusive))
+    _kwargs = {}
+    _kwargs['start_time'] = start_time
+    _kwargs['end_time'] = end_time
+    _kwargs['inclusive'] = inclusive
     if axis is not None:
-        _args.append(_get_object(axis))
-    result = _instance.between_time(*_args)
-    return _store_object(result, "Self")
+        _kwargs['axis'] = axis
+    return _instance.between_time(**_kwargs)
 
 @mcp.tool(name="dataframe_bfill")
-def dataframe_bfill(dataframe: str, axis: str = None, inplace: Any = False, limit: str = None, limit_area: str = None, downcast: dict = None) -> str:
+def dataframe_bfill(dataframe: str, axis: Any = None, inplace: Any = False, limit: Any = None, limit_area: Any | None = None, downcast: dict = None) -> Any | None:
     """Fill NA/NaN values by using the next valid observation to fill the gap.
     
     Parameters
@@ -2274,18 +2300,17 @@ def dataframe_bfill(dataframe: str, axis: str = None, inplace: Any = False, limi
     3   4.0   7.0
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if axis is not None:
-        _args.append(_get_object(axis))
-    _args.append(inplace)
+        _kwargs['axis'] = axis
+    _kwargs['inplace'] = inplace
     if limit is not None:
-        _args.append(_get_object(limit))
+        _kwargs['limit'] = limit
     if limit_area is not None:
-        _args.append(_get_object(limit_area))
+        _kwargs['limit_area'] = limit_area
     if downcast is not None:
-        _args.append(downcast)
-    result = _instance.bfill(*_args)
-    return _store_object(result, "Self")
+        _kwargs['downcast'] = downcast
+    return _instance.bfill(**_kwargs)
 
 @mcp.tool(name="dataframe_bool")
 def dataframe_bool(dataframe: str) -> Any:
@@ -2506,29 +2531,29 @@ def dataframe_boxplot(dataframe: str, column: Any = None, by: Any = None, ax: An
         <class 'numpy.ndarray'>
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if column is not None:
-        _args.append(column)
+        _kwargs['column'] = column
     if by is not None:
-        _args.append(by)
+        _kwargs['by'] = by
     if ax is not None:
-        _args.append(ax)
+        _kwargs['ax'] = ax
     if fontsize is not None:
-        _args.append(fontsize)
-    _args.append(rot)
-    _args.append(grid)
+        _kwargs['fontsize'] = fontsize
+    _kwargs['rot'] = rot
+    _kwargs['grid'] = grid
     if figsize is not None:
-        _args.append(figsize)
+        _kwargs['figsize'] = figsize
     if layout is not None:
-        _args.append(layout)
+        _kwargs['layout'] = layout
     if return_type is not None:
-        _args.append(return_type)
+        _kwargs['return_type'] = return_type
     if backend is not None:
-        _args.append(backend)
-    return _instance.boxplot(*_args)
+        _kwargs['backend'] = backend
+    return _instance.boxplot(**_kwargs)
 
 @mcp.tool(name="dataframe_clip")
-def dataframe_clip(dataframe: str, lower: Any = None, upper: Any = None, axis: str = None, inplace: Any = False, **kwargs: Any) -> str:
+def dataframe_clip(dataframe: str, lower: Any = None, upper: Any = None, axis: Any | None = None, inplace: Any = False, **kwargs: Any) -> Any | None:
     """Trim values at input threshold(s).
     
     Assigns values outside boundary to boundary values. Thresholds
@@ -2637,19 +2662,18 @@ def dataframe_clip(dataframe: str, lower: Any = None, upper: Any = None, axis: s
     4      5      3
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if lower is not None:
-        _args.append(lower)
+        _kwargs['lower'] = lower
     if upper is not None:
-        _args.append(upper)
+        _kwargs['upper'] = upper
     if axis is not None:
-        _args.append(_get_object(axis))
-    _args.append(inplace)
-    result = _instance.clip(*_args)
-    return _store_object(result, "Self")
+        _kwargs['axis'] = axis
+    _kwargs['inplace'] = inplace
+    return _instance.clip(**_kwargs)
 
 @mcp.tool(name="dataframe_combine")
-def dataframe_combine(dataframe: str, other: str, func: str, fill_value: Any = None, overwrite: bool = True) -> str:
+def dataframe_combine(dataframe: str, other: str, func: Any, fill_value: Any = None, overwrite: bool = True) -> str:
     """Perform column-wise combine with another DataFrame.
     
     Combines a DataFrame with `other` DataFrame using `func`
@@ -2754,13 +2778,13 @@ def dataframe_combine(dataframe: str, other: str, func: str, fill_value: Any = N
     2  NaN  3.0 1.0
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(_get_object(other))
-    _args.append(_get_object(func))
+    _kwargs = {}
+    _kwargs['other'] = _get_object(other)
+    _kwargs['func'] = func
     if fill_value is not None:
-        _args.append(fill_value)
-    _args.append(overwrite)
-    result = _instance.combine(*_args)
+        _kwargs['fill_value'] = fill_value
+    _kwargs['overwrite'] = overwrite
+    result = _instance.combine(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_combine_first")
@@ -2815,7 +2839,7 @@ def dataframe_combine_first(dataframe: str, other: str) -> str:
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_compare")
-def dataframe_compare(dataframe: str, other: str, align_axis: str = 1, keep_shape: bool = False, keep_equal: bool = False, result_names: str = ('self', 'other')) -> str:
+def dataframe_compare(dataframe: str, other: str, align_axis: Any = 1, keep_shape: bool = False, keep_equal: bool = False, result_names: Any = ('self', 'other')) -> str:
     """Compare to another DataFrame and show the differences.
     
     Parameters
@@ -2954,11 +2978,11 @@ def dataframe_compare(dataframe: str, other: str, align_axis: str = 1, keep_shap
     4    a     a  5.0   5.0  5.0   5.0
     """
     _instance = _get_object(dataframe)
-    result = _instance.compare(other=_get_object(other), align_axis=_get_object(align_axis), keep_shape=keep_shape, keep_equal=keep_equal, result_names=_get_object(result_names))
+    result = _instance.compare(other=_get_object(other), align_axis=align_axis, keep_shape=keep_shape, keep_equal=keep_equal, result_names=result_names)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_convert_dtypes")
-def dataframe_convert_dtypes(dataframe: str, infer_objects: Any = True, convert_string: Any = True, convert_integer: Any = True, convert_boolean: Any = True, convert_floating: Any = True, dtype_backend: str = 'numpy_nullable') -> str:
+def dataframe_convert_dtypes(dataframe: str, infer_objects: Any = True, convert_string: Any = True, convert_integer: Any = True, convert_boolean: Any = True, convert_floating: Any = True, dtype_backend: Any = 'numpy_nullable') -> Any:
     """Convert columns to the best possible dtypes using dtypes supporting ``pd.NA``.
     
     Parameters
@@ -3087,11 +3111,10 @@ def dataframe_convert_dtypes(dataframe: str, infer_objects: Any = True, convert_
     dtype: string
     """
     _instance = _get_object(dataframe)
-    result = _instance.convert_dtypes(infer_objects=infer_objects, convert_string=convert_string, convert_integer=convert_integer, convert_boolean=convert_boolean, convert_floating=convert_floating, dtype_backend=_get_object(dtype_backend))
-    return _store_object(result, "Self")
+    return _instance.convert_dtypes(infer_objects=infer_objects, convert_string=convert_string, convert_integer=convert_integer, convert_boolean=convert_boolean, convert_floating=convert_floating, dtype_backend=dtype_backend)
 
 @mcp.tool(name="dataframe_copy")
-def dataframe_copy(dataframe: str, deep: Any | None = True) -> str:
+def dataframe_copy(dataframe: str, deep: Any | None = True) -> Any:
     """Make a copy of this object's indices and data.
     
     When ``deep=True`` (default), a new object will be created with a
@@ -3239,11 +3262,10 @@ def dataframe_copy(dataframe: str, deep: Any | None = True) -> str:
     dtype: int64
     """
     _instance = _get_object(dataframe)
-    result = _instance.copy(deep=deep)
-    return _store_object(result, "Self")
+    return _instance.copy(deep=deep)
 
 @mcp.tool(name="dataframe_corr")
-def dataframe_corr(dataframe: str, method: str = 'pearson', min_periods: int = 1, numeric_only: bool = False) -> str:
+def dataframe_corr(dataframe: str, method: Any = 'pearson', min_periods: int = 1, numeric_only: bool = False) -> str:
     """Compute pairwise correlation of columns, excluding NA/null values.
     
     Parameters
@@ -3309,11 +3331,11 @@ def dataframe_corr(dataframe: str, method: str = 'pearson', min_periods: int = 1
     cats   NaN   1.0
     """
     _instance = _get_object(dataframe)
-    result = _instance.corr(method=_get_object(method), min_periods=min_periods, numeric_only=numeric_only)
+    result = _instance.corr(method=method, min_periods=min_periods, numeric_only=numeric_only)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_corrwith")
-def dataframe_corrwith(dataframe: str, other: str, axis: str = 0, drop: bool = False, method: str = 'pearson', numeric_only: bool = False) -> str:
+def dataframe_corrwith(dataframe: str, other: str, axis: Any = 0, drop: bool = False, method: Any = 'pearson', numeric_only: bool = False) -> Any:
     """Compute pairwise correlation.
     
     Pairwise correlation is computed between rows or columns of
@@ -3378,11 +3400,10 @@ def dataframe_corrwith(dataframe: str, other: str, axis: str = 0, drop: bool = F
     dtype: float64
     """
     _instance = _get_object(dataframe)
-    result = _instance.corrwith(other=_get_object(other), axis=_get_object(axis), drop=drop, method=_get_object(method), numeric_only=numeric_only)
-    return _store_object(result, "Series")
+    return _instance.corrwith(other=_get_object(other), axis=axis, drop=drop, method=method, numeric_only=numeric_only)
 
 @mcp.tool(name="dataframe_count")
-def dataframe_count(dataframe: str, axis: str = 0, numeric_only: bool = False) -> Any:
+def dataframe_count(dataframe: str, axis: Any = 0, numeric_only: bool = False) -> Any:
     """Count non-NA cells for each column or row.
     
     The values `None`, `NaN`, `NaT`, ``pandas.NA`` are considered NA.
@@ -3444,7 +3465,7 @@ def dataframe_count(dataframe: str, axis: str = 0, numeric_only: bool = False) -
     dtype: int64
     """
     _instance = _get_object(dataframe)
-    return _instance.count(axis=_get_object(axis), numeric_only=numeric_only)
+    return _instance.count(axis=axis, numeric_only=numeric_only)
 
 @mcp.tool(name="dataframe_cov")
 def dataframe_cov(dataframe: str, min_periods: int = None, ddof: int = 1, numeric_only: bool = False) -> str:
@@ -3554,16 +3575,16 @@ def dataframe_cov(dataframe: str, min_periods: int = None, ddof: int = 1, numeri
     c -0.150812  0.191417  0.895202
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if min_periods is not None:
-        _args.append(min_periods)
-    _args.append(ddof)
-    _args.append(numeric_only)
-    result = _instance.cov(*_args)
+        _kwargs['min_periods'] = min_periods
+    _kwargs['ddof'] = ddof
+    _kwargs['numeric_only'] = numeric_only
+    result = _instance.cov(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_cummax")
-def dataframe_cummax(dataframe: str, axis: str = None, skipna: bool = True, *args: Any, **kwargs: Any) -> Any:
+def dataframe_cummax(dataframe: str, axis: Any | None = None, skipna: bool = True, *args: Any, **kwargs: Any) -> Any:
     """Return cumulative maximum over a DataFrame or Series axis.
     
     Returns a DataFrame or Series of the same size containing the cumulative
@@ -3661,14 +3682,14 @@ def dataframe_cummax(dataframe: str, axis: str = None, skipna: bool = True, *arg
     2  1.0  1.0
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if axis is not None:
-        _args.append(_get_object(axis))
-    _args.append(skipna)
-    return _instance.cummax(*_args)
+        _kwargs['axis'] = axis
+    _kwargs['skipna'] = skipna
+    return _instance.cummax(**_kwargs)
 
 @mcp.tool(name="dataframe_cummin")
-def dataframe_cummin(dataframe: str, axis: str = None, skipna: bool = True, *args: Any, **kwargs: Any) -> Any:
+def dataframe_cummin(dataframe: str, axis: Any | None = None, skipna: bool = True, *args: Any, **kwargs: Any) -> Any:
     """Return cumulative minimum over a DataFrame or Series axis.
     
     Returns a DataFrame or Series of the same size containing the cumulative
@@ -3766,14 +3787,14 @@ def dataframe_cummin(dataframe: str, axis: str = None, skipna: bool = True, *arg
     2  1.0  0.0
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if axis is not None:
-        _args.append(_get_object(axis))
-    _args.append(skipna)
-    return _instance.cummin(*_args)
+        _kwargs['axis'] = axis
+    _kwargs['skipna'] = skipna
+    return _instance.cummin(**_kwargs)
 
 @mcp.tool(name="dataframe_cumprod")
-def dataframe_cumprod(dataframe: str, axis: str = None, skipna: bool = True, *args: Any, **kwargs: Any) -> Any:
+def dataframe_cumprod(dataframe: str, axis: Any | None = None, skipna: bool = True, *args: Any, **kwargs: Any) -> Any:
     """Return cumulative product over a DataFrame or Series axis.
     
     Returns a DataFrame or Series of the same size containing the cumulative
@@ -3871,14 +3892,14 @@ def dataframe_cumprod(dataframe: str, axis: str = None, skipna: bool = True, *ar
     2  1.0  0.0
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if axis is not None:
-        _args.append(_get_object(axis))
-    _args.append(skipna)
-    return _instance.cumprod(*_args)
+        _kwargs['axis'] = axis
+    _kwargs['skipna'] = skipna
+    return _instance.cumprod(**_kwargs)
 
 @mcp.tool(name="dataframe_cumsum")
-def dataframe_cumsum(dataframe: str, axis: str = None, skipna: bool = True, *args: Any, **kwargs: Any) -> Any:
+def dataframe_cumsum(dataframe: str, axis: Any | None = None, skipna: bool = True, *args: Any, **kwargs: Any) -> Any:
     """Return cumulative sum over a DataFrame or Series axis.
     
     Returns a DataFrame or Series of the same size containing the cumulative
@@ -3976,14 +3997,14 @@ def dataframe_cumsum(dataframe: str, axis: str = None, skipna: bool = True, *arg
     2  1.0  1.0
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if axis is not None:
-        _args.append(_get_object(axis))
-    _args.append(skipna)
-    return _instance.cumsum(*_args)
+        _kwargs['axis'] = axis
+    _kwargs['skipna'] = skipna
+    return _instance.cumsum(**_kwargs)
 
 @mcp.tool(name="dataframe_describe")
-def dataframe_describe(dataframe: str, percentiles: Any = None, include: Any = None, exclude: Any = None) -> str:
+def dataframe_describe(dataframe: str, percentiles: Any = None, include: Any = None, exclude: Any = None) -> Any:
     """Generate descriptive statistics.
     
     Descriptive statistics include those that summarize the central
@@ -4219,18 +4240,17 @@ def dataframe_describe(dataframe: str, percentiles: Any = None, include: Any = N
     max            NaN      3.0
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if percentiles is not None:
-        _args.append(percentiles)
+        _kwargs['percentiles'] = percentiles
     if include is not None:
-        _args.append(include)
+        _kwargs['include'] = include
     if exclude is not None:
-        _args.append(exclude)
-    result = _instance.describe(*_args)
-    return _store_object(result, "Self")
+        _kwargs['exclude'] = exclude
+    return _instance.describe(**_kwargs)
 
 @mcp.tool(name="dataframe_diff")
-def dataframe_diff(dataframe: str, periods: int = 1, axis: str = 0) -> str:
+def dataframe_diff(dataframe: str, periods: int = 1, axis: Any = 0) -> str:
     """First discrete difference of element.
     
     Calculates the difference of a DataFrame element compared with another
@@ -4331,11 +4351,11 @@ def dataframe_diff(dataframe: str, periods: int = 1, axis: str = 0) -> str:
     1  255.0
     """
     _instance = _get_object(dataframe)
-    result = _instance.diff(periods=periods, axis=_get_object(axis))
+    result = _instance.diff(periods=periods, axis=axis)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_div")
-def dataframe_div(dataframe: str, other: Any, axis: str = 'columns', level: Any = None, fill_value: Any = None) -> str:
+def dataframe_div(dataframe: str, other: Any, axis: Any = 'columns', level: Any = None, fill_value: Any = None) -> str:
     """Get Floating division of dataframe and other, element-wise (binary operator `truediv`).
     
     Equivalent to ``dataframe / other``, but with support to substitute a fill_value
@@ -4503,18 +4523,18 @@ def dataframe_div(dataframe: str, other: Any, axis: str = 'columns', level: Any 
       hexagon       0.0      0.0
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(other)
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['other'] = other
+    _kwargs['axis'] = axis
     if level is not None:
-        _args.append(level)
+        _kwargs['level'] = level
     if fill_value is not None:
-        _args.append(fill_value)
-    result = _instance.div(*_args)
+        _kwargs['fill_value'] = fill_value
+    result = _instance.div(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_divide")
-def dataframe_divide(dataframe: str, other: Any, axis: str = 'columns', level: Any = None, fill_value: Any = None) -> str:
+def dataframe_divide(dataframe: str, other: Any, axis: Any = 'columns', level: Any = None, fill_value: Any = None) -> str:
     """Get Floating division of dataframe and other, element-wise (binary operator `truediv`).
     
     Equivalent to ``dataframe / other``, but with support to substitute a fill_value
@@ -4682,14 +4702,14 @@ def dataframe_divide(dataframe: str, other: Any, axis: str = 'columns', level: A
       hexagon       0.0      0.0
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(other)
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['other'] = other
+    _kwargs['axis'] = axis
     if level is not None:
-        _args.append(level)
+        _kwargs['level'] = level
     if fill_value is not None:
-        _args.append(fill_value)
-    result = _instance.divide(*_args)
+        _kwargs['fill_value'] = fill_value
+    result = _instance.divide(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_dot")
@@ -4771,10 +4791,10 @@ def dataframe_dot(dataframe: str, other: str) -> str:
     """
     _instance = _get_object(dataframe)
     result = _instance.dot(other=_get_object(other))
-    return _store_object(result, "DataFrame | Series")
+    return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_drop")
-def dataframe_drop(dataframe: str, labels: str = None, axis: str = 0, index: str = None, columns: str = None, level: str = None, inplace: bool = False, errors: str = 'raise') -> str:
+def dataframe_drop(dataframe: str, labels: Any | None = None, axis: Any = 0, index: Any | None = None, columns: Any | None = None, level: Any | None = None, inplace: bool = False, errors: Any = 'raise') -> str:
     """Drop specified labels from rows or columns.
     
     Remove rows or columns by specifying label names and corresponding
@@ -4912,23 +4932,23 @@ def dataframe_drop(dataframe: str, labels: str = None, axis: str = 0, index: str
             weight  1.0     0.8
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if labels is not None:
-        _args.append(_get_object(labels))
-    _args.append(_get_object(axis))
+        _kwargs['labels'] = labels
+    _kwargs['axis'] = axis
     if index is not None:
-        _args.append(_get_object(index))
+        _kwargs['index'] = index
     if columns is not None:
-        _args.append(_get_object(columns))
+        _kwargs['columns'] = columns
     if level is not None:
-        _args.append(_get_object(level))
-    _args.append(inplace)
-    _args.append(_get_object(errors))
-    result = _instance.drop(*_args)
+        _kwargs['level'] = level
+    _kwargs['inplace'] = inplace
+    _kwargs['errors'] = errors
+    result = _instance.drop(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_drop_duplicates")
-def dataframe_drop_duplicates(dataframe: str, subset: str = None, keep: str = 'first', inplace: bool = False, ignore_index: bool = False) -> str:
+def dataframe_drop_duplicates(dataframe: str, subset: Any | None = None, keep: Any = 'first', inplace: bool = False, ignore_index: bool = False) -> str:
     """Return DataFrame with duplicate rows removed.
     
     Considering certain columns is optional. Indexes, including time indexes
@@ -5002,17 +5022,17 @@ def dataframe_drop_duplicates(dataframe: str, subset: str = None, keep: str = 'f
     4  Indomie  pack     5.0
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if subset is not None:
-        _args.append(_get_object(subset))
-    _args.append(_get_object(keep))
-    _args.append(inplace)
-    _args.append(ignore_index)
-    result = _instance.drop_duplicates(*_args)
+        _kwargs['subset'] = subset
+    _kwargs['keep'] = keep
+    _kwargs['inplace'] = inplace
+    _kwargs['ignore_index'] = ignore_index
+    result = _instance.drop_duplicates(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_droplevel")
-def dataframe_droplevel(dataframe: str, level: str, axis: str = 0) -> str:
+def dataframe_droplevel(dataframe: str, level: Any, axis: Any = 0) -> Any:
     """Return Series/DataFrame with requested index / column level(s) removed.
     
     Parameters
@@ -5071,11 +5091,10 @@ def dataframe_droplevel(dataframe: str, level: str, axis: str = 0) -> str:
     9 10    11  12
     """
     _instance = _get_object(dataframe)
-    result = _instance.droplevel(level=_get_object(level), axis=_get_object(axis))
-    return _store_object(result, "Self")
+    return _instance.droplevel(level=level, axis=axis)
 
 @mcp.tool(name="dataframe_dropna")
-def dataframe_dropna(dataframe: str, axis: str = 0, how: str = None, thresh: Any = None, subset: str = None, inplace: bool = False, ignore_index: bool = False) -> str:
+def dataframe_dropna(dataframe: str, axis: Any = 0, how: Any = None, thresh: Any = None, subset: Any | None = None, inplace: bool = False, ignore_index: bool = False) -> str:
     """Remove missing values.
     
     See the :ref:`User Guide <missing_data>` for more on which values are
@@ -5173,21 +5192,21 @@ def dataframe_dropna(dataframe: str, axis: str = 0, how: str = None, thresh: Any
     2  Catwoman   Bullwhip        NaT
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['axis'] = axis
     if how is not None:
-        _args.append(_get_object(how))
+        _kwargs['how'] = how
     if thresh is not None:
-        _args.append(thresh)
+        _kwargs['thresh'] = thresh
     if subset is not None:
-        _args.append(_get_object(subset))
-    _args.append(inplace)
-    _args.append(ignore_index)
-    result = _instance.dropna(*_args)
+        _kwargs['subset'] = subset
+    _kwargs['inplace'] = inplace
+    _kwargs['ignore_index'] = ignore_index
+    result = _instance.dropna(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_duplicated")
-def dataframe_duplicated(dataframe: str, subset: str = None, keep: str = 'first') -> str:
+def dataframe_duplicated(dataframe: str, subset: Any | None = None, keep: Any = 'first') -> Any:
     """Return boolean Series denoting duplicate rows.
     
     Considering certain columns is optional.
@@ -5276,15 +5295,14 @@ def dataframe_duplicated(dataframe: str, subset: str = None, keep: str = 'first'
     dtype: bool
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if subset is not None:
-        _args.append(_get_object(subset))
-    _args.append(_get_object(keep))
-    result = _instance.duplicated(*_args)
-    return _store_object(result, "Series")
+        _kwargs['subset'] = subset
+    _kwargs['keep'] = keep
+    return _instance.duplicated(**_kwargs)
 
 @mcp.tool(name="dataframe_eq")
-def dataframe_eq(dataframe: str, other: Any, axis: str = 'columns', level: Any = None) -> str:
+def dataframe_eq(dataframe: str, other: Any, axis: Any = 'columns', level: Any = None) -> str:
     """Get Equal to of dataframe and other, element-wise (binary operator `eq`).
     
     Among flexible wrappers (`eq`, `ne`, `le`, `lt`, `ge`, `gt`) to comparison
@@ -5430,12 +5448,12 @@ def dataframe_eq(dataframe: str, other: Any, axis: str = 'columns', level: Any =
        C   True    False
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(other)
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['other'] = other
+    _kwargs['axis'] = axis
     if level is not None:
-        _args.append(level)
-    result = _instance.eq(*_args)
+        _kwargs['level'] = level
+    result = _instance.eq(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_equals")
@@ -5615,7 +5633,7 @@ def dataframe_eval(dataframe: str, expr: str, inplace: bool = False, **kwargs: A
     return _instance.eval(expr=expr, inplace=inplace, **kwargs)
 
 @mcp.tool(name="dataframe_ewm")
-def dataframe_ewm(dataframe: str, com: float = None, span: float = None, halflife: Any | None = None, alpha: float = None, min_periods: int = 0, adjust: Any = True, ignore_na: Any = False, axis: str = None, times: Any | None = None, method: str = 'single') -> str:
+def dataframe_ewm(dataframe: str, com: float = None, span: float = None, halflife: Any | None = None, alpha: float = None, min_periods: int = 0, adjust: Any = True, ignore_na: Any = False, axis: Any = None, times: str = None, method: Any = 'single') -> Any:
     """Provide exponentially weighted (EW) calculations.
     
     Exactly one of ``com``, ``span``, ``halflife``, or ``alpha`` must be
@@ -5804,28 +5822,26 @@ def dataframe_ewm(dataframe: str, com: float = None, span: float = None, halflif
     4  3.233686
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if com is not None:
-        _args.append(com)
+        _kwargs['com'] = com
     if span is not None:
-        _args.append(span)
+        _kwargs['span'] = span
     if halflife is not None:
-        _args.append(halflife)
+        _kwargs['halflife'] = halflife
     if alpha is not None:
-        _args.append(alpha)
-    _args.append(min_periods)
-    _args.append(adjust)
-    _args.append(ignore_na)
+        _kwargs['alpha'] = alpha
+    _kwargs['min_periods'] = min_periods
+    _kwargs['adjust'] = adjust
+    _kwargs['ignore_na'] = ignore_na
     if axis is not None:
-        _args.append(_get_object(axis))
-    if times is not None:
-        _args.append(times)
-    _args.append(_get_object(method))
-    result = _instance.ewm(*_args)
-    return _store_object(result, "ExponentialMovingWindow")
+        _kwargs['axis'] = axis
+    _kwargs['times'] = _get_object(times)
+    _kwargs['method'] = method
+    return _instance.ewm(**_kwargs)
 
 @mcp.tool(name="dataframe_expanding")
-def dataframe_expanding(dataframe: str, min_periods: int = 1, axis: str = None, method: str = 'single') -> str:
+def dataframe_expanding(dataframe: str, min_periods: int = 1, axis: Any = None, method: Any = 'single') -> Any:
     """Provide expanding window calculations.
     
     Parameters
@@ -5895,16 +5911,15 @@ def dataframe_expanding(dataframe: str, min_periods: int = 1, axis: str = None, 
     4  7.0
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(min_periods)
+    _kwargs = {}
+    _kwargs['min_periods'] = min_periods
     if axis is not None:
-        _args.append(_get_object(axis))
-    _args.append(_get_object(method))
-    result = _instance.expanding(*_args)
-    return _store_object(result, "Expanding")
+        _kwargs['axis'] = axis
+    _kwargs['method'] = method
+    return _instance.expanding(**_kwargs)
 
 @mcp.tool(name="dataframe_explode")
-def dataframe_explode(dataframe: str, column: str, ignore_index: bool = False) -> str:
+def dataframe_explode(dataframe: str, column: Any, ignore_index: bool = False) -> str:
     """Transform each element of a list-like to a row, replicating index values.
     
     Parameters
@@ -5989,11 +6004,11 @@ def dataframe_explode(dataframe: str, column: str, ignore_index: bool = False) -
     3    4  1    e
     """
     _instance = _get_object(dataframe)
-    result = _instance.explode(column=_get_object(column), ignore_index=ignore_index)
+    result = _instance.explode(column=column, ignore_index=ignore_index)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_ffill")
-def dataframe_ffill(dataframe: str, axis: str = None, inplace: Any = False, limit: str = None, limit_area: str = None, downcast: dict = None) -> str:
+def dataframe_ffill(dataframe: str, axis: Any = None, inplace: Any = False, limit: Any = None, limit_area: Any | None = None, downcast: dict = None) -> Any | None:
     """Fill NA/NaN values by propagating the last valid observation to next valid.
     
     Parameters
@@ -6065,21 +6080,20 @@ def dataframe_ffill(dataframe: str, axis: str = None, inplace: Any = False, limi
     dtype: float64
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if axis is not None:
-        _args.append(_get_object(axis))
-    _args.append(inplace)
+        _kwargs['axis'] = axis
+    _kwargs['inplace'] = inplace
     if limit is not None:
-        _args.append(_get_object(limit))
+        _kwargs['limit'] = limit
     if limit_area is not None:
-        _args.append(_get_object(limit_area))
+        _kwargs['limit_area'] = limit_area
     if downcast is not None:
-        _args.append(downcast)
-    result = _instance.ffill(*_args)
-    return _store_object(result, "Self")
+        _kwargs['downcast'] = downcast
+    return _instance.ffill(**_kwargs)
 
 @mcp.tool(name="dataframe_fillna")
-def dataframe_fillna(dataframe: str, value: str = None, method: str = None, axis: str = None, inplace: Any = False, limit: int = None, downcast: dict = None) -> str:
+def dataframe_fillna(dataframe: str, value: str = None, method: Any | None = None, axis: Any | None = None, inplace: Any = False, limit: int = None, downcast: dict = None) -> Any | None:
     """Fill NA/NaN values using the specified method.
     
     Parameters
@@ -6190,23 +6204,21 @@ def dataframe_fillna(dataframe: str, value: str = None, method: str = None, axis
     Note that column D is not affected since it is not present in df2.
     """
     _instance = _get_object(dataframe)
-    _args = []
-    if value is not None:
-        _args.append(_get_object(value))
+    _kwargs = {}
+    _kwargs['value'] = _get_object(value)
     if method is not None:
-        _args.append(_get_object(method))
+        _kwargs['method'] = method
     if axis is not None:
-        _args.append(_get_object(axis))
-    _args.append(inplace)
+        _kwargs['axis'] = axis
+    _kwargs['inplace'] = inplace
     if limit is not None:
-        _args.append(limit)
+        _kwargs['limit'] = limit
     if downcast is not None:
-        _args.append(downcast)
-    result = _instance.fillna(*_args)
-    return _store_object(result, "Self")
+        _kwargs['downcast'] = downcast
+    return _instance.fillna(**_kwargs)
 
 @mcp.tool(name="dataframe_filter")
-def dataframe_filter(dataframe: str, items: Any = None, like: str = None, regex: str = None, axis: str = None) -> str:
+def dataframe_filter(dataframe: str, items: Any = None, like: str = None, regex: str = None, axis: Any | None = None) -> Any:
     """Subset the dataframe rows or columns according to the specified index labels.
     
     Note that this routine does not filter a dataframe on its
@@ -6270,20 +6282,19 @@ def dataframe_filter(dataframe: str, items: Any = None, like: str = None, regex:
     rabbit    4    5      6
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if items is not None:
-        _args.append(items)
+        _kwargs['items'] = items
     if like is not None:
-        _args.append(like)
+        _kwargs['like'] = like
     if regex is not None:
-        _args.append(regex)
+        _kwargs['regex'] = regex
     if axis is not None:
-        _args.append(_get_object(axis))
-    result = _instance.filter(*_args)
-    return _store_object(result, "Self")
+        _kwargs['axis'] = axis
+    return _instance.filter(**_kwargs)
 
 @mcp.tool(name="dataframe_first")
-def dataframe_first(dataframe: str, offset: Any) -> str:
+def dataframe_first(dataframe: str, offset: Any) -> Any:
     """Select initial periods of time series data based on a date offset.
     
     .. deprecated:: 2.1
@@ -6338,11 +6349,10 @@ def dataframe_first(dataframe: str, offset: Any) -> str:
     not returned.
     """
     _instance = _get_object(dataframe)
-    result = _instance.first(offset=offset)
-    return _store_object(result, "Self")
+    return _instance.first(offset=offset)
 
 @mcp.tool(name="dataframe_first_valid_index")
-def dataframe_first_valid_index(dataframe: str) -> str:
+def dataframe_first_valid_index(dataframe: str) -> Any | None:
     """Return index for first non-NA value or None, if no non-NA value is found.
     
     Returns
@@ -6414,11 +6424,10 @@ def dataframe_first_valid_index(dataframe: str) -> str:
     If DataFrame is empty, returns None.
     """
     _instance = _get_object(dataframe)
-    result = _instance.first_valid_index()
-    return _store_object(result, "Hashable")
+    return _instance.first_valid_index()
 
 @mcp.tool(name="dataframe_floordiv")
-def dataframe_floordiv(dataframe: str, other: Any, axis: str = 'columns', level: Any = None, fill_value: Any = None) -> str:
+def dataframe_floordiv(dataframe: str, other: Any, axis: Any = 'columns', level: Any = None, fill_value: Any = None) -> str:
     """Get Integer division of dataframe and other, element-wise (binary operator `floordiv`).
     
     Equivalent to ``dataframe // other``, but with support to substitute a fill_value
@@ -6586,18 +6595,18 @@ def dataframe_floordiv(dataframe: str, other: Any, axis: str = 'columns', level:
       hexagon       0.0      0.0
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(other)
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['other'] = other
+    _kwargs['axis'] = axis
     if level is not None:
-        _args.append(level)
+        _kwargs['level'] = level
     if fill_value is not None:
-        _args.append(fill_value)
-    result = _instance.floordiv(*_args)
+        _kwargs['fill_value'] = fill_value
+    result = _instance.floordiv(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_from_dict")
-def dataframe_from_dict(data: dict, orient: str = 'columns', dtype: str = None, columns: str = None) -> str:
+def dataframe_from_dict(data: dict, orient: Any = 'columns', dtype: Any | None = None, columns: Any | None = None) -> str:
     """Construct DataFrame from dict of array-like or dicts.
     
     Creates DataFrame object from dictionary by columns or by index
@@ -6681,9 +6690,11 @@ def dataframe_from_dict(data: dict, orient: str = 'columns', dtype: str = None, 
     """
     _kwargs = {}
     _kwargs['data'] = data
-    _kwargs['orient'] = _get_object(orient)
-    _kwargs['dtype'] = _get_object(dtype)
-    _kwargs['columns'] = _get_object(columns)
+    _kwargs['orient'] = orient
+    if dtype is not None:
+        _kwargs['dtype'] = dtype
+    if columns is not None:
+        _kwargs['columns'] = columns
     result = pandas.DataFrame.from_dict(**_kwargs)
     return _store_object(result, "DataFrame")
 
@@ -6778,7 +6789,7 @@ def dataframe_from_records(data: Any, index: Any = None, exclude: Any = None, co
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_ge")
-def dataframe_ge(dataframe: str, other: Any, axis: str = 'columns', level: Any = None) -> str:
+def dataframe_ge(dataframe: str, other: Any, axis: Any = 'columns', level: Any = None) -> str:
     """Get Greater than or equal to of dataframe and other, element-wise (binary operator `ge`).
     
     Among flexible wrappers (`eq`, `ne`, `le`, `lt`, `ge`, `gt`) to comparison
@@ -6924,12 +6935,12 @@ def dataframe_ge(dataframe: str, other: Any, axis: str = 'columns', level: Any =
        C   True    False
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(other)
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['other'] = other
+    _kwargs['axis'] = axis
     if level is not None:
-        _args.append(level)
-    result = _instance.ge(*_args)
+        _kwargs['level'] = level
+    result = _instance.ge(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_get")
@@ -6986,14 +6997,14 @@ def dataframe_get(dataframe: str, key: Any, default: Any = None) -> Any:
     '[unknown]'
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(key)
+    _kwargs = {}
+    _kwargs['key'] = key
     if default is not None:
-        _args.append(default)
-    return _instance.get(*_args)
+        _kwargs['default'] = default
+    return _instance.get(**_kwargs)
 
 @mcp.tool(name="dataframe_groupby")
-def dataframe_groupby(dataframe: str, by: Any = None, axis: str = None, level: str = None, as_index: bool = True, sort: bool = True, group_keys: bool = True, observed: Any = None, dropna: bool = True) -> str:
+def dataframe_groupby(dataframe: str, by: Any = None, axis: Any = None, level: Any | None = None, as_index: bool = True, sort: bool = True, group_keys: bool = True, observed: Any = None, dropna: bool = True) -> Any:
     """Group DataFrame using a mapper or by a Series of columns.
     
     A groupby operation involves some combination of splitting the
@@ -7202,24 +7213,23 @@ def dataframe_groupby(dataframe: str, by: Any = None, axis: str = None, level: s
     3       26.0
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if by is not None:
-        _args.append(by)
+        _kwargs['by'] = by
     if axis is not None:
-        _args.append(_get_object(axis))
+        _kwargs['axis'] = axis
     if level is not None:
-        _args.append(_get_object(level))
-    _args.append(as_index)
-    _args.append(sort)
-    _args.append(group_keys)
+        _kwargs['level'] = level
+    _kwargs['as_index'] = as_index
+    _kwargs['sort'] = sort
+    _kwargs['group_keys'] = group_keys
     if observed is not None:
-        _args.append(observed)
-    _args.append(dropna)
-    result = _instance.groupby(*_args)
-    return _store_object(result, "DataFrameGroupBy")
+        _kwargs['observed'] = observed
+    _kwargs['dropna'] = dropna
+    return _instance.groupby(**_kwargs)
 
 @mcp.tool(name="dataframe_gt")
-def dataframe_gt(dataframe: str, other: Any, axis: str = 'columns', level: Any = None) -> str:
+def dataframe_gt(dataframe: str, other: Any, axis: Any = 'columns', level: Any = None) -> str:
     """Get Greater than of dataframe and other, element-wise (binary operator `gt`).
     
     Among flexible wrappers (`eq`, `ne`, `le`, `lt`, `ge`, `gt`) to comparison
@@ -7365,16 +7375,16 @@ def dataframe_gt(dataframe: str, other: Any, axis: str = 'columns', level: Any =
        C   True    False
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(other)
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['other'] = other
+    _kwargs['axis'] = axis
     if level is not None:
-        _args.append(level)
-    result = _instance.gt(*_args)
+        _kwargs['level'] = level
+    result = _instance.gt(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_head")
-def dataframe_head(dataframe: str, n: int = 5) -> str:
+def dataframe_head(dataframe: str, n: int = 5) -> Any:
     """Return the first `n` rows.
     
     This function returns the first `n` rows for the object based
@@ -7446,11 +7456,10 @@ def dataframe_head(dataframe: str, n: int = 5) -> str:
     5     parrot
     """
     _instance = _get_object(dataframe)
-    result = _instance.head(n=n)
-    return _store_object(result, "Self")
+    return _instance.head(n=n)
 
 @mcp.tool(name="dataframe_hist")
-def dataframe_hist(dataframe: str, data: str, column: str = None, by: Any = None, grid: bool = True, xlabelsize: int = None, xrot: float = None, ylabelsize: int = None, yrot: float = None, ax: Any = None, sharex: bool = False, sharey: bool = False, figsize: tuple = None, layout: tuple = None, bins: Any = 10, backend: str = None, legend: bool = False, **kwargs: Any) -> Any:
+def dataframe_hist(dataframe: str, data: str, column: Any | None = None, by: Any = None, grid: bool = True, xlabelsize: int = None, xrot: float = None, ylabelsize: int = None, yrot: float = None, ax: Any = None, sharex: bool = False, sharey: bool = False, figsize: tuple = None, layout: tuple = None, bins: Any = 10, backend: str = None, legend: bool = False, **kwargs: Any) -> Any:
     """Make a histogram of the DataFrame's columns.
     
     A `histogram`_ is a representation of the distribution of data.
@@ -7537,37 +7546,37 @@ def dataframe_hist(dataframe: str, data: str, column: str = None, by: Any = None
         >>> hist = df.hist(bins=3)
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(_get_object(data))
+    _kwargs = {}
+    _kwargs['data'] = _get_object(data)
     if column is not None:
-        _args.append(_get_object(column))
+        _kwargs['column'] = column
     if by is not None:
-        _args.append(by)
-    _args.append(grid)
+        _kwargs['by'] = by
+    _kwargs['grid'] = grid
     if xlabelsize is not None:
-        _args.append(xlabelsize)
+        _kwargs['xlabelsize'] = xlabelsize
     if xrot is not None:
-        _args.append(xrot)
+        _kwargs['xrot'] = xrot
     if ylabelsize is not None:
-        _args.append(ylabelsize)
+        _kwargs['ylabelsize'] = ylabelsize
     if yrot is not None:
-        _args.append(yrot)
+        _kwargs['yrot'] = yrot
     if ax is not None:
-        _args.append(ax)
-    _args.append(sharex)
-    _args.append(sharey)
+        _kwargs['ax'] = ax
+    _kwargs['sharex'] = sharex
+    _kwargs['sharey'] = sharey
     if figsize is not None:
-        _args.append(figsize)
+        _kwargs['figsize'] = figsize
     if layout is not None:
-        _args.append(layout)
-    _args.append(bins)
+        _kwargs['layout'] = layout
+    _kwargs['bins'] = bins
     if backend is not None:
-        _args.append(backend)
-    _args.append(legend)
-    return _instance.hist(*_args)
+        _kwargs['backend'] = backend
+    _kwargs['legend'] = legend
+    return _instance.hist(**_kwargs)
 
 @mcp.tool(name="dataframe_idxmax")
-def dataframe_idxmax(dataframe: str, axis: str = 0, skipna: bool = True, numeric_only: bool = False) -> str:
+def dataframe_idxmax(dataframe: str, axis: Any = 0, skipna: bool = True, numeric_only: bool = False) -> Any:
     """Return index of first occurrence of maximum over requested axis.
     
     NA/null values are excluded.
@@ -7632,11 +7641,10 @@ def dataframe_idxmax(dataframe: str, axis: str = 0, skipna: bool = True, numeric
     dtype: object
     """
     _instance = _get_object(dataframe)
-    result = _instance.idxmax(axis=_get_object(axis), skipna=skipna, numeric_only=numeric_only)
-    return _store_object(result, "Series")
+    return _instance.idxmax(axis=axis, skipna=skipna, numeric_only=numeric_only)
 
 @mcp.tool(name="dataframe_idxmin")
-def dataframe_idxmin(dataframe: str, axis: str = 0, skipna: bool = True, numeric_only: bool = False) -> str:
+def dataframe_idxmin(dataframe: str, axis: Any = 0, skipna: bool = True, numeric_only: bool = False) -> Any:
     """Return index of first occurrence of minimum over requested axis.
     
     NA/null values are excluded.
@@ -7701,11 +7709,10 @@ def dataframe_idxmin(dataframe: str, axis: str = 0, skipna: bool = True, numeric
     dtype: object
     """
     _instance = _get_object(dataframe)
-    result = _instance.idxmin(axis=_get_object(axis), skipna=skipna, numeric_only=numeric_only)
-    return _store_object(result, "Series")
+    return _instance.idxmin(axis=axis, skipna=skipna, numeric_only=numeric_only)
 
 @mcp.tool(name="dataframe_infer_objects")
-def dataframe_infer_objects(dataframe: str, copy: Any | None = None) -> str:
+def dataframe_infer_objects(dataframe: str, copy: Any | None = None) -> Any:
     """Attempt to infer better dtypes for object columns.
     
     Attempts soft conversion of object-dtyped
@@ -7761,14 +7768,13 @@ def dataframe_infer_objects(dataframe: str, copy: Any | None = None) -> str:
     dtype: object
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if copy is not None:
-        _args.append(copy)
-    result = _instance.infer_objects(*_args)
-    return _store_object(result, "Self")
+        _kwargs['copy'] = copy
+    return _instance.infer_objects(**_kwargs)
 
 @mcp.tool(name="dataframe_info")
-def dataframe_info(dataframe: str, verbose: bool = None, buf: str = None, max_cols: int = None, memory_usage: Any | None = None, show_counts: bool = None) -> None:
+def dataframe_info(dataframe: str, verbose: bool = None, buf: Any | None = None, max_cols: int = None, memory_usage: Any | None = None, show_counts: bool = None) -> None:
     """Print a concise summary of a DataFrame.
     
     This method prints information about a DataFrame including
@@ -7906,21 +7912,21 @@ def dataframe_info(dataframe: str, verbose: bool = None, buf: str = None, max_co
     memory usage: 165.9 MB
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if verbose is not None:
-        _args.append(verbose)
+        _kwargs['verbose'] = verbose
     if buf is not None:
-        _args.append(_get_object(buf))
+        _kwargs['buf'] = buf
     if max_cols is not None:
-        _args.append(max_cols)
+        _kwargs['max_cols'] = max_cols
     if memory_usage is not None:
-        _args.append(memory_usage)
+        _kwargs['memory_usage'] = memory_usage
     if show_counts is not None:
-        _args.append(show_counts)
-    return _instance.info(*_args)
+        _kwargs['show_counts'] = show_counts
+    return _instance.info(**_kwargs)
 
 @mcp.tool(name="dataframe_insert")
-def dataframe_insert(dataframe: str, loc: int, column: str, value: str, allow_duplicates: Any = None) -> None:
+def dataframe_insert(dataframe: str, loc: int, column: Any, value: Any, allow_duplicates: Any = None) -> None:
     """Insert column into DataFrame at specified location.
     
     Raises a ValueError if `column` is already contained in the DataFrame,
@@ -7968,16 +7974,16 @@ def dataframe_insert(dataframe: str, loc: int, column: str, value: str, allow_du
     1   5.0   100     2      99     4
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(loc)
-    _args.append(_get_object(column))
-    _args.append(_get_object(value))
+    _kwargs = {}
+    _kwargs['loc'] = loc
+    _kwargs['column'] = column
+    _kwargs['value'] = value
     if allow_duplicates is not None:
-        _args.append(allow_duplicates)
-    return _instance.insert(*_args)
+        _kwargs['allow_duplicates'] = allow_duplicates
+    return _instance.insert(**_kwargs)
 
 @mcp.tool(name="dataframe_interpolate")
-def dataframe_interpolate(dataframe: str, method: str = 'linear', axis: str = 0, limit: int = None, inplace: Any = False, limit_direction: str = None, limit_area: str = None, downcast: str = None, **kwargs: Any) -> str:
+def dataframe_interpolate(dataframe: str, method: Any = 'linear', axis: Any = 0, limit: int = None, inplace: Any = False, limit_direction: Any | None = None, limit_area: Any | None = None, downcast: Any | None = None, **kwargs: Any) -> Any | None:
     """Fill NaN values using an interpolation method.
     
     Please note that only ``method='linear'`` is supported for
@@ -8147,20 +8153,19 @@ def dataframe_interpolate(dataframe: str, method: str = 'linear', axis: str = 0,
     Name: d, dtype: float64
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(_get_object(method))
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['method'] = method
+    _kwargs['axis'] = axis
     if limit is not None:
-        _args.append(limit)
-    _args.append(inplace)
+        _kwargs['limit'] = limit
+    _kwargs['inplace'] = inplace
     if limit_direction is not None:
-        _args.append(_get_object(limit_direction))
+        _kwargs['limit_direction'] = limit_direction
     if limit_area is not None:
-        _args.append(_get_object(limit_area))
+        _kwargs['limit_area'] = limit_area
     if downcast is not None:
-        _args.append(_get_object(downcast))
-    result = _instance.interpolate(*_args)
-    return _store_object(result, "Self")
+        _kwargs['downcast'] = downcast
+    return _instance.interpolate(**_kwargs)
 
 @mcp.tool(name="dataframe_isetitem")
 def dataframe_isetitem(dataframe: str, loc: Any, value: Any) -> None:
@@ -8393,7 +8398,7 @@ def dataframe_isnull(dataframe: str) -> str:
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_items")
-def dataframe_items(dataframe: str) -> str:
+def dataframe_items(dataframe: str) -> Any:
     """Iterate over (column name, Series) pairs.
     
     Iterates over the DataFrame columns, returning a tuple with
@@ -8441,11 +8446,10 @@ def dataframe_items(dataframe: str) -> str:
     Name: population, dtype: int64
     """
     _instance = _get_object(dataframe)
-    result = _instance.items()
-    return _store_object(result, "Iterable[tuple[Hashable, Series]]")
+    return _instance.items()
 
 @mcp.tool(name="dataframe_iterrows")
-def dataframe_iterrows(dataframe: str) -> str:
+def dataframe_iterrows(dataframe: str) -> Any:
     """Iterate over DataFrame rows as (index, Series) pairs.
     
     Yields
@@ -8490,11 +8494,10 @@ def dataframe_iterrows(dataframe: str) -> str:
     int64
     """
     _instance = _get_object(dataframe)
-    result = _instance.iterrows()
-    return _store_object(result, "Iterable[tuple[Hashable, Series]]")
+    return _instance.iterrows()
 
 @mcp.tool(name="dataframe_itertuples")
-def dataframe_itertuples(dataframe: str, index: bool = True, name: str = 'Pandas') -> str:
+def dataframe_itertuples(dataframe: str, index: bool = True, name: str = 'Pandas') -> Any:
     """Iterate over DataFrame rows as namedtuples.
     
     Parameters
@@ -8556,11 +8559,10 @@ def dataframe_itertuples(dataframe: str, index: bool = True, name: str = 'Pandas
     Animal(Index='hawk', num_legs=2, num_wings=2)
     """
     _instance = _get_object(dataframe)
-    result = _instance.itertuples(index=index, name=name)
-    return _store_object(result, "Iterable[tuple[Any, ...]]")
+    return _instance.itertuples(index=index, name=name)
 
 @mcp.tool(name="dataframe_join")
-def dataframe_join(dataframe: str, other: str, on: str = None, how: str = 'left', lsuffix: str = '', rsuffix: str = '', sort: bool = False, validate: str = None) -> str:
+def dataframe_join(dataframe: str, other: str, on: Any | None = None, how: Any = 'left', lsuffix: str = '', rsuffix: str = '', sort: bool = False, validate: Any | None = None) -> str:
     """Join columns of another DataFrame.
     
     Join columns with `other` DataFrame either on index or on a key
@@ -8709,21 +8711,21 @@ def dataframe_join(dataframe: str, other: str, on: str = None, how: str = 'left'
     5  K1  A5   B1
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(_get_object(other))
+    _kwargs = {}
+    _kwargs['other'] = _get_object(other)
     if on is not None:
-        _args.append(_get_object(on))
-    _args.append(_get_object(how))
-    _args.append(lsuffix)
-    _args.append(rsuffix)
-    _args.append(sort)
+        _kwargs['on'] = on
+    _kwargs['how'] = how
+    _kwargs['lsuffix'] = lsuffix
+    _kwargs['rsuffix'] = rsuffix
+    _kwargs['sort'] = sort
     if validate is not None:
-        _args.append(_get_object(validate))
-    result = _instance.join(*_args)
+        _kwargs['validate'] = validate
+    result = _instance.join(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_keys")
-def dataframe_keys(dataframe: str) -> str:
+def dataframe_keys(dataframe: str) -> Any:
     """Get the 'info axis' (see Indexing for more).
     
     This is index for Series, columns for DataFrame.
@@ -8746,11 +8748,10 @@ def dataframe_keys(dataframe: str) -> str:
     Index(['A', 'B'], dtype='object')
     """
     _instance = _get_object(dataframe)
-    result = _instance.keys()
-    return _store_object(result, "Index")
+    return _instance.keys()
 
 @mcp.tool(name="dataframe_kurt")
-def dataframe_kurt(dataframe: str, axis: str = 0, skipna: bool = True, numeric_only: bool = False, **kwargs: Any) -> Any:
+def dataframe_kurt(dataframe: str, axis: Any | None = 0, skipna: bool = True, numeric_only: bool = False, **kwargs: Any) -> Any:
     """Return unbiased kurtosis over requested axis.
     
     Kurtosis obtained using Fisher's definition of
@@ -8821,10 +8822,10 @@ def dataframe_kurt(dataframe: str, axis: str = 0, skipna: bool = True, numeric_o
                 dtype: float64
     """
     _instance = _get_object(dataframe)
-    return _instance.kurt(axis=_get_object(axis), skipna=skipna, numeric_only=numeric_only, **kwargs)
+    return _instance.kurt(axis=axis, skipna=skipna, numeric_only=numeric_only, **kwargs)
 
 @mcp.tool(name="dataframe_kurtosis")
-def dataframe_kurtosis(dataframe: str, axis: str = 0, skipna: bool = True, numeric_only: bool = False, **kwargs: Any) -> Any:
+def dataframe_kurtosis(dataframe: str, axis: Any | None = 0, skipna: bool = True, numeric_only: bool = False, **kwargs: Any) -> Any:
     """Return unbiased kurtosis over requested axis.
     
     Kurtosis obtained using Fisher's definition of
@@ -8895,10 +8896,10 @@ def dataframe_kurtosis(dataframe: str, axis: str = 0, skipna: bool = True, numer
                 dtype: float64
     """
     _instance = _get_object(dataframe)
-    return _instance.kurtosis(axis=_get_object(axis), skipna=skipna, numeric_only=numeric_only, **kwargs)
+    return _instance.kurtosis(axis=axis, skipna=skipna, numeric_only=numeric_only, **kwargs)
 
 @mcp.tool(name="dataframe_last")
-def dataframe_last(dataframe: str, offset: Any) -> str:
+def dataframe_last(dataframe: str, offset: Any) -> Any:
     """Select final periods of time series data based on a date offset.
     
     .. deprecated:: 2.1
@@ -8958,11 +8959,10 @@ def dataframe_last(dataframe: str, offset: Any) -> str:
     not returned.
     """
     _instance = _get_object(dataframe)
-    result = _instance.last(offset=offset)
-    return _store_object(result, "Self")
+    return _instance.last(offset=offset)
 
 @mcp.tool(name="dataframe_last_valid_index")
-def dataframe_last_valid_index(dataframe: str) -> str:
+def dataframe_last_valid_index(dataframe: str) -> Any | None:
     """Return index for last non-NA value or None, if no non-NA value is found.
     
     Returns
@@ -9034,11 +9034,10 @@ def dataframe_last_valid_index(dataframe: str) -> str:
     If DataFrame is empty, returns None.
     """
     _instance = _get_object(dataframe)
-    result = _instance.last_valid_index()
-    return _store_object(result, "Hashable")
+    return _instance.last_valid_index()
 
 @mcp.tool(name="dataframe_le")
-def dataframe_le(dataframe: str, other: Any, axis: str = 'columns', level: Any = None) -> str:
+def dataframe_le(dataframe: str, other: Any, axis: Any = 'columns', level: Any = None) -> str:
     """Get Less than or equal to of dataframe and other, element-wise (binary operator `le`).
     
     Among flexible wrappers (`eq`, `ne`, `le`, `lt`, `ge`, `gt`) to comparison
@@ -9184,16 +9183,16 @@ def dataframe_le(dataframe: str, other: Any, axis: str = 'columns', level: Any =
        C   True    False
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(other)
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['other'] = other
+    _kwargs['axis'] = axis
     if level is not None:
-        _args.append(level)
-    result = _instance.le(*_args)
+        _kwargs['level'] = level
+    result = _instance.le(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_lt")
-def dataframe_lt(dataframe: str, other: Any, axis: str = 'columns', level: Any = None) -> str:
+def dataframe_lt(dataframe: str, other: Any, axis: Any = 'columns', level: Any = None) -> str:
     """Get Less than of dataframe and other, element-wise (binary operator `lt`).
     
     Among flexible wrappers (`eq`, `ne`, `le`, `lt`, `ge`, `gt`) to comparison
@@ -9339,16 +9338,16 @@ def dataframe_lt(dataframe: str, other: Any, axis: str = 'columns', level: Any =
        C   True    False
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(other)
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['other'] = other
+    _kwargs['axis'] = axis
     if level is not None:
-        _args.append(level)
-    result = _instance.lt(*_args)
+        _kwargs['level'] = level
+    result = _instance.lt(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_map")
-def dataframe_map(dataframe: str, func: str, na_action: str = None, **kwargs: Any) -> str:
+def dataframe_map(dataframe: str, func: Any, na_action: str = None, **kwargs: Any) -> str:
     """Apply a function to a Dataframe elementwise.
     
     .. versionadded:: 2.1.0
@@ -9425,15 +9424,15 @@ def dataframe_map(dataframe: str, func: str, na_action: str = None, **kwargs: An
     1  11.262736  20.857489
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(_get_object(func))
+    _kwargs = {}
+    _kwargs['func'] = func
     if na_action is not None:
-        _args.append(na_action)
-    result = _instance.map(*_args)
+        _kwargs['na_action'] = na_action
+    result = _instance.map(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_mask")
-def dataframe_mask(dataframe: str, cond: Any, other: Any = None, inplace: Any = False, axis: str = None, level: str = None) -> str:
+def dataframe_mask(dataframe: str, cond: Any, other: Any = None, inplace: Any = False, axis: Any | None = None, level: Any | None = None) -> Any | None:
     """Replace values where the condition is True.
     
     Parameters
@@ -9571,20 +9570,19 @@ def dataframe_mask(dataframe: str, cond: Any, other: Any = None, inplace: Any = 
     4  True  True
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(cond)
+    _kwargs = {}
+    _kwargs['cond'] = cond
     if other is not None:
-        _args.append(other)
-    _args.append(inplace)
+        _kwargs['other'] = other
+    _kwargs['inplace'] = inplace
     if axis is not None:
-        _args.append(_get_object(axis))
+        _kwargs['axis'] = axis
     if level is not None:
-        _args.append(_get_object(level))
-    result = _instance.mask(*_args)
-    return _store_object(result, "Self")
+        _kwargs['level'] = level
+    return _instance.mask(**_kwargs)
 
 @mcp.tool(name="dataframe_max")
-def dataframe_max(dataframe: str, axis: str = 0, skipna: bool = True, numeric_only: bool = False, **kwargs: Any) -> Any:
+def dataframe_max(dataframe: str, axis: Any | None = 0, skipna: bool = True, numeric_only: bool = False, **kwargs: Any) -> Any:
     """Return the maximum of the values over the requested axis.
     
     If you want the *index* of the maximum, use ``idxmax``. This is the equivalent of the ``numpy.ndarray`` method ``argmax``.
@@ -9644,10 +9642,10 @@ def dataframe_max(dataframe: str, axis: str = 0, skipna: bool = True, numeric_on
     8
     """
     _instance = _get_object(dataframe)
-    return _instance.max(axis=_get_object(axis), skipna=skipna, numeric_only=numeric_only, **kwargs)
+    return _instance.max(axis=axis, skipna=skipna, numeric_only=numeric_only, **kwargs)
 
 @mcp.tool(name="dataframe_mean")
-def dataframe_mean(dataframe: str, axis: str = 0, skipna: bool = True, numeric_only: bool = False, **kwargs: Any) -> Any:
+def dataframe_mean(dataframe: str, axis: Any | None = 0, skipna: bool = True, numeric_only: bool = False, **kwargs: Any) -> Any:
     """Return the mean of the values over the requested axis.
     
     Parameters
@@ -9708,10 +9706,10 @@ def dataframe_mean(dataframe: str, axis: str = 0, skipna: bool = True, numeric_o
                 dtype: float64
     """
     _instance = _get_object(dataframe)
-    return _instance.mean(axis=_get_object(axis), skipna=skipna, numeric_only=numeric_only, **kwargs)
+    return _instance.mean(axis=axis, skipna=skipna, numeric_only=numeric_only, **kwargs)
 
 @mcp.tool(name="dataframe_median")
-def dataframe_median(dataframe: str, axis: str = 0, skipna: bool = True, numeric_only: bool = False, **kwargs: Any) -> Any:
+def dataframe_median(dataframe: str, axis: Any | None = 0, skipna: bool = True, numeric_only: bool = False, **kwargs: Any) -> Any:
     """Return the median of the values over the requested axis.
     
     Parameters
@@ -9772,10 +9770,10 @@ def dataframe_median(dataframe: str, axis: str = 0, skipna: bool = True, numeric
                 dtype: float64
     """
     _instance = _get_object(dataframe)
-    return _instance.median(axis=_get_object(axis), skipna=skipna, numeric_only=numeric_only, **kwargs)
+    return _instance.median(axis=axis, skipna=skipna, numeric_only=numeric_only, **kwargs)
 
 @mcp.tool(name="dataframe_melt")
-def dataframe_melt(dataframe: str, id_vars: Any = None, value_vars: Any = None, var_name: Any = None, value_name: str = 'value', col_level: str = None, ignore_index: bool = True) -> str:
+def dataframe_melt(dataframe: str, id_vars: Any = None, value_vars: Any = None, var_name: Any = None, value_name: Any = 'value', col_level: Any | None = None, ignore_index: bool = True) -> str:
     """Unpivot a DataFrame from wide to long format, optionally leaving identifiers set.
     
     This function is useful to massage a DataFrame into a format where one
@@ -9889,22 +9887,22 @@ def dataframe_melt(dataframe: str, id_vars: Any = None, value_vars: Any = None, 
     2      c          B          E      5
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if id_vars is not None:
-        _args.append(id_vars)
+        _kwargs['id_vars'] = id_vars
     if value_vars is not None:
-        _args.append(value_vars)
+        _kwargs['value_vars'] = value_vars
     if var_name is not None:
-        _args.append(var_name)
-    _args.append(_get_object(value_name))
+        _kwargs['var_name'] = var_name
+    _kwargs['value_name'] = value_name
     if col_level is not None:
-        _args.append(_get_object(col_level))
-    _args.append(ignore_index)
-    result = _instance.melt(*_args)
+        _kwargs['col_level'] = col_level
+    _kwargs['ignore_index'] = ignore_index
+    result = _instance.melt(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_memory_usage")
-def dataframe_memory_usage(dataframe: str, index: bool = True, deep: bool = False) -> str:
+def dataframe_memory_usage(dataframe: str, index: bool = True, deep: bool = False) -> Any:
     """Return the memory usage of each column in bytes.
     
     The memory usage can optionally include the contribution of
@@ -9993,11 +9991,10 @@ def dataframe_memory_usage(dataframe: str, index: bool = True, deep: bool = Fals
     5244
     """
     _instance = _get_object(dataframe)
-    result = _instance.memory_usage(index=index, deep=deep)
-    return _store_object(result, "Series")
+    return _instance.memory_usage(index=index, deep=deep)
 
 @mcp.tool(name="dataframe_merge")
-def dataframe_merge(dataframe: str, right: str, how: str = 'inner', on: str = None, left_on: str = None, right_on: str = None, left_index: bool = False, right_index: bool = False, sort: bool = False, suffixes: str = ('_x', '_y'), copy: bool = None, indicator: Any = False, validate: str = None) -> str:
+def dataframe_merge(dataframe: str, right: str, how: Any = 'inner', on: Any | None = None, left_on: Any | None = None, right_on: Any | None = None, left_index: bool = False, right_index: bool = False, sort: bool = False, suffixes: Any = ('_x', '_y'), copy: bool = None, indicator: Any = False, validate: Any | None = None) -> str:
     """Merge DataFrame or named Series objects with a database-style join.
     
     A named Series object is treated as a DataFrame with a single named column.
@@ -10197,29 +10194,29 @@ def dataframe_merge(dataframe: str, right: str, how: str = 'inner', on: str = No
     3   bar      8
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(_get_object(right))
-    _args.append(_get_object(how))
+    _kwargs = {}
+    _kwargs['right'] = _get_object(right)
+    _kwargs['how'] = how
     if on is not None:
-        _args.append(_get_object(on))
+        _kwargs['on'] = on
     if left_on is not None:
-        _args.append(_get_object(left_on))
+        _kwargs['left_on'] = left_on
     if right_on is not None:
-        _args.append(_get_object(right_on))
-    _args.append(left_index)
-    _args.append(right_index)
-    _args.append(sort)
-    _args.append(_get_object(suffixes))
+        _kwargs['right_on'] = right_on
+    _kwargs['left_index'] = left_index
+    _kwargs['right_index'] = right_index
+    _kwargs['sort'] = sort
+    _kwargs['suffixes'] = suffixes
     if copy is not None:
-        _args.append(copy)
-    _args.append(indicator)
+        _kwargs['copy'] = copy
+    _kwargs['indicator'] = indicator
     if validate is not None:
-        _args.append(_get_object(validate))
-    result = _instance.merge(*_args)
+        _kwargs['validate'] = validate
+    result = _instance.merge(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_min")
-def dataframe_min(dataframe: str, axis: str = 0, skipna: bool = True, numeric_only: bool = False, **kwargs: Any) -> Any:
+def dataframe_min(dataframe: str, axis: Any | None = 0, skipna: bool = True, numeric_only: bool = False, **kwargs: Any) -> Any:
     """Return the minimum of the values over the requested axis.
     
     If you want the *index* of the minimum, use ``idxmin``. This is the equivalent of the ``numpy.ndarray`` method ``argmin``.
@@ -10279,10 +10276,10 @@ def dataframe_min(dataframe: str, axis: str = 0, skipna: bool = True, numeric_on
     0
     """
     _instance = _get_object(dataframe)
-    return _instance.min(axis=_get_object(axis), skipna=skipna, numeric_only=numeric_only, **kwargs)
+    return _instance.min(axis=axis, skipna=skipna, numeric_only=numeric_only, **kwargs)
 
 @mcp.tool(name="dataframe_mod")
-def dataframe_mod(dataframe: str, other: Any, axis: str = 'columns', level: Any = None, fill_value: Any = None) -> str:
+def dataframe_mod(dataframe: str, other: Any, axis: Any = 'columns', level: Any = None, fill_value: Any = None) -> str:
     """Get Modulo of dataframe and other, element-wise (binary operator `mod`).
     
     Equivalent to ``dataframe % other``, but with support to substitute a fill_value
@@ -10450,18 +10447,18 @@ def dataframe_mod(dataframe: str, other: Any, axis: str = 'columns', level: Any 
       hexagon       0.0      0.0
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(other)
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['other'] = other
+    _kwargs['axis'] = axis
     if level is not None:
-        _args.append(level)
+        _kwargs['level'] = level
     if fill_value is not None:
-        _args.append(fill_value)
-    result = _instance.mod(*_args)
+        _kwargs['fill_value'] = fill_value
+    result = _instance.mod(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_mode")
-def dataframe_mode(dataframe: str, axis: str = 0, numeric_only: bool = False, dropna: bool = True) -> str:
+def dataframe_mode(dataframe: str, axis: Any = 0, numeric_only: bool = False, dropna: bool = True) -> str:
     """Get the mode(s) of each element along the selected axis.
     
     The mode of a set of values is the value that appears most often.
@@ -10539,11 +10536,11 @@ def dataframe_mode(dataframe: str, axis: str = 0, numeric_only: bool = False, dr
     ostrich  2.0  NaN
     """
     _instance = _get_object(dataframe)
-    result = _instance.mode(axis=_get_object(axis), numeric_only=numeric_only, dropna=dropna)
+    result = _instance.mode(axis=axis, numeric_only=numeric_only, dropna=dropna)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_mul")
-def dataframe_mul(dataframe: str, other: Any, axis: str = 'columns', level: Any = None, fill_value: Any = None) -> str:
+def dataframe_mul(dataframe: str, other: Any, axis: Any = 'columns', level: Any = None, fill_value: Any = None) -> str:
     """Get Multiplication of dataframe and other, element-wise (binary operator `mul`).
     
     Equivalent to ``dataframe * other``, but with support to substitute a fill_value
@@ -10711,18 +10708,18 @@ def dataframe_mul(dataframe: str, other: Any, axis: str = 'columns', level: Any 
       hexagon       0.0      0.0
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(other)
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['other'] = other
+    _kwargs['axis'] = axis
     if level is not None:
-        _args.append(level)
+        _kwargs['level'] = level
     if fill_value is not None:
-        _args.append(fill_value)
-    result = _instance.mul(*_args)
+        _kwargs['fill_value'] = fill_value
+    result = _instance.mul(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_multiply")
-def dataframe_multiply(dataframe: str, other: Any, axis: str = 'columns', level: Any = None, fill_value: Any = None) -> str:
+def dataframe_multiply(dataframe: str, other: Any, axis: Any = 'columns', level: Any = None, fill_value: Any = None) -> str:
     """Get Multiplication of dataframe and other, element-wise (binary operator `mul`).
     
     Equivalent to ``dataframe * other``, but with support to substitute a fill_value
@@ -10890,18 +10887,18 @@ def dataframe_multiply(dataframe: str, other: Any, axis: str = 'columns', level:
       hexagon       0.0      0.0
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(other)
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['other'] = other
+    _kwargs['axis'] = axis
     if level is not None:
-        _args.append(level)
+        _kwargs['level'] = level
     if fill_value is not None:
-        _args.append(fill_value)
-    result = _instance.multiply(*_args)
+        _kwargs['fill_value'] = fill_value
+    result = _instance.multiply(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_ne")
-def dataframe_ne(dataframe: str, other: Any, axis: str = 'columns', level: Any = None) -> str:
+def dataframe_ne(dataframe: str, other: Any, axis: Any = 'columns', level: Any = None) -> str:
     """Get Not equal to of dataframe and other, element-wise (binary operator `ne`).
     
     Among flexible wrappers (`eq`, `ne`, `le`, `lt`, `ge`, `gt`) to comparison
@@ -11047,16 +11044,16 @@ def dataframe_ne(dataframe: str, other: Any, axis: str = 'columns', level: Any =
        C   True    False
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(other)
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['other'] = other
+    _kwargs['axis'] = axis
     if level is not None:
-        _args.append(level)
-    result = _instance.ne(*_args)
+        _kwargs['level'] = level
+    result = _instance.ne(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_nlargest")
-def dataframe_nlargest(dataframe: str, n: int, columns: str, keep: str = 'first') -> str:
+def dataframe_nlargest(dataframe: str, n: int, columns: Any, keep: Any = 'first') -> str:
     """Return the first `n` rows ordered by `columns` in descending order.
     
     Return the first `n` rows with the largest values in `columns`, in
@@ -11173,7 +11170,7 @@ def dataframe_nlargest(dataframe: str, n: int, columns: str, keep: str = 'first'
     Brunei      434000    12128      BN
     """
     _instance = _get_object(dataframe)
-    result = _instance.nlargest(n=n, columns=_get_object(columns), keep=_get_object(keep))
+    result = _instance.nlargest(n=n, columns=columns, keep=keep)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_notna")
@@ -11307,7 +11304,7 @@ def dataframe_notnull(dataframe: str) -> str:
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_nsmallest")
-def dataframe_nsmallest(dataframe: str, n: int, columns: str, keep: str = 'first') -> str:
+def dataframe_nsmallest(dataframe: str, n: int, columns: Any, keep: Any = 'first') -> str:
     """Return the first `n` rows ordered by `columns` in ascending order.
     
     Return the first `n` rows with the smallest values in `columns`, in
@@ -11415,11 +11412,11 @@ def dataframe_nsmallest(dataframe: str, n: int, columns: str, keep: str = 'first
     Nauru         337000  182      NR
     """
     _instance = _get_object(dataframe)
-    result = _instance.nsmallest(n=n, columns=_get_object(columns), keep=_get_object(keep))
+    result = _instance.nsmallest(n=n, columns=columns, keep=keep)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_nunique")
-def dataframe_nunique(dataframe: str, axis: str = 0, dropna: bool = True) -> str:
+def dataframe_nunique(dataframe: str, axis: Any = 0, dropna: bool = True) -> Any:
     """Count number of distinct elements in specified axis.
     
     Return Series with number of distinct elements. Can ignore NaN
@@ -11457,11 +11454,10 @@ def dataframe_nunique(dataframe: str, axis: str = 0, dropna: bool = True) -> str
     dtype: int64
     """
     _instance = _get_object(dataframe)
-    result = _instance.nunique(axis=_get_object(axis), dropna=dropna)
-    return _store_object(result, "Series")
+    return _instance.nunique(axis=axis, dropna=dropna)
 
 @mcp.tool(name="dataframe_pad")
-def dataframe_pad(dataframe: str, axis: str = None, inplace: Any = False, limit: str = None, downcast: dict = None) -> str:
+def dataframe_pad(dataframe: str, axis: Any = None, inplace: Any = False, limit: Any = None, downcast: dict = None) -> Any | None:
     """Fill NA/NaN values by propagating the last valid observation to next valid.
     
     .. deprecated:: 2.0
@@ -11478,19 +11474,18 @@ def dataframe_pad(dataframe: str, axis: str = None, inplace: Any = False, limit:
     Please see examples for :meth:`DataFrame.ffill` or :meth:`Series.ffill`.
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if axis is not None:
-        _args.append(_get_object(axis))
-    _args.append(inplace)
+        _kwargs['axis'] = axis
+    _kwargs['inplace'] = inplace
     if limit is not None:
-        _args.append(_get_object(limit))
+        _kwargs['limit'] = limit
     if downcast is not None:
-        _args.append(downcast)
-    result = _instance.pad(*_args)
-    return _store_object(result, "Self")
+        _kwargs['downcast'] = downcast
+    return _instance.pad(**_kwargs)
 
 @mcp.tool(name="dataframe_pct_change")
-def dataframe_pct_change(dataframe: str, periods: int = 1, fill_method: str = None, limit: int = None, freq: Any = None, **kwargs: Any) -> str:
+def dataframe_pct_change(dataframe: str, periods: int = 1, fill_method: Any | None = None, limit: int = None, freq: Any = None, **kwargs: Any) -> Any:
     """Fractional change between the current and a prior element.
     
     Computes the fractional change from the immediately previous row by
@@ -11619,19 +11614,18 @@ def dataframe_pct_change(dataframe: str, periods: int = 1, fill_method: str = No
     APPL -0.252395 -0.011860   NaN
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(periods)
+    _kwargs = {}
+    _kwargs['periods'] = periods
     if fill_method is not None:
-        _args.append(_get_object(fill_method))
+        _kwargs['fill_method'] = fill_method
     if limit is not None:
-        _args.append(limit)
+        _kwargs['limit'] = limit
     if freq is not None:
-        _args.append(freq)
-    result = _instance.pct_change(*_args)
-    return _store_object(result, "Self")
+        _kwargs['freq'] = freq
+    return _instance.pct_change(**_kwargs)
 
 @mcp.tool(name="dataframe_pipe")
-def dataframe_pipe(dataframe: str, func: str, *args: Any, **kwargs: Any) -> str:
+def dataframe_pipe(dataframe: str, func: Any, *args: Any, **kwargs: Any) -> Any:
     """Apply chainable functions that expect Series or DataFrames.
     
     Parameters
@@ -11727,8 +11721,7 @@ def dataframe_pipe(dataframe: str, func: str, *args: Any, **kwargs: Any) -> str:
     2  3682.80  1473.12
     """
     _instance = _get_object(dataframe)
-    result = _instance.pipe(func=_get_object(func), *args, **kwargs)
-    return _store_object(result, "T")
+    return _instance.pipe(func=func, *args, **kwargs)
 
 @mcp.tool(name="dataframe_pivot")
 def dataframe_pivot(dataframe: str, columns: Any, index: Any = None, values: Any = None) -> str:
@@ -11866,17 +11859,17 @@ def dataframe_pivot(dataframe: str, columns: Any, index: Any = None, values: Any
     ValueError: Index contains duplicate entries, cannot reshape
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(columns)
+    _kwargs = {}
+    _kwargs['columns'] = columns
     if index is not None:
-        _args.append(index)
+        _kwargs['index'] = index
     if values is not None:
-        _args.append(values)
-    result = _instance.pivot(*_args)
+        _kwargs['values'] = values
+    result = _instance.pivot(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_pivot_table")
-def dataframe_pivot_table(dataframe: str, values: Any = None, index: Any = None, columns: Any = None, aggfunc: str = 'mean', fill_value: Any = None, margins: bool = False, dropna: bool = True, margins_name: str = 'All', observed: Any = None, sort: bool = True) -> str:
+def dataframe_pivot_table(dataframe: str, values: Any = None, index: Any = None, columns: Any = None, aggfunc: Any = 'mean', fill_value: Any = None, margins: bool = False, dropna: bool = True, margins_name: Any = 'All', observed: Any = None, sort: bool = True) -> str:
     """Create a spreadsheet-style pivot table as a DataFrame.
     
     The levels in the pivot table will be stored in MultiIndex objects
@@ -12025,23 +12018,23 @@ def dataframe_pivot_table(dataframe: str, values: Any = None, index: Any = None,
         small  2.333333   6  4.333333    2
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if values is not None:
-        _args.append(values)
+        _kwargs['values'] = values
     if index is not None:
-        _args.append(index)
+        _kwargs['index'] = index
     if columns is not None:
-        _args.append(columns)
-    _args.append(_get_object(aggfunc))
+        _kwargs['columns'] = columns
+    _kwargs['aggfunc'] = aggfunc
     if fill_value is not None:
-        _args.append(fill_value)
-    _args.append(margins)
-    _args.append(dropna)
-    _args.append(_get_object(margins_name))
+        _kwargs['fill_value'] = fill_value
+    _kwargs['margins'] = margins
+    _kwargs['dropna'] = dropna
+    _kwargs['margins_name'] = margins_name
     if observed is not None:
-        _args.append(observed)
-    _args.append(sort)
-    result = _instance.pivot_table(*_args)
+        _kwargs['observed'] = observed
+    _kwargs['sort'] = sort
+    result = _instance.pivot_table(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_plot")
@@ -12244,7 +12237,7 @@ def dataframe_plot(dataframe: str, data: str) -> None:
     return _instance.plot(data=_get_object(data))
 
 @mcp.tool(name="dataframe_pop")
-def dataframe_pop(dataframe: str, item: str) -> str:
+def dataframe_pop(dataframe: str, item: Any) -> Any:
     """Return item and drop from frame. Raise KeyError if not found.
     
     Parameters
@@ -12285,11 +12278,10 @@ def dataframe_pop(dataframe: str, item: str) -> str:
     3  monkey        NaN
     """
     _instance = _get_object(dataframe)
-    result = _instance.pop(item=_get_object(item))
-    return _store_object(result, "Series")
+    return _instance.pop(item=item)
 
 @mcp.tool(name="dataframe_pow")
-def dataframe_pow(dataframe: str, other: Any, axis: str = 'columns', level: Any = None, fill_value: Any = None) -> str:
+def dataframe_pow(dataframe: str, other: Any, axis: Any = 'columns', level: Any = None, fill_value: Any = None) -> str:
     """Get Exponential power of dataframe and other, element-wise (binary operator `pow`).
     
     Equivalent to ``dataframe ** other``, but with support to substitute a fill_value
@@ -12457,18 +12449,18 @@ def dataframe_pow(dataframe: str, other: Any, axis: str = 'columns', level: Any 
       hexagon       0.0      0.0
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(other)
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['other'] = other
+    _kwargs['axis'] = axis
     if level is not None:
-        _args.append(level)
+        _kwargs['level'] = level
     if fill_value is not None:
-        _args.append(fill_value)
-    result = _instance.pow(*_args)
+        _kwargs['fill_value'] = fill_value
+    result = _instance.pow(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_prod")
-def dataframe_prod(dataframe: str, axis: str = 0, skipna: bool = True, numeric_only: bool = False, min_count: int = 0, **kwargs: Any) -> Any:
+def dataframe_prod(dataframe: str, axis: Any | None = 0, skipna: bool = True, numeric_only: bool = False, min_count: int = 0, **kwargs: Any) -> Any:
     """Return the product of the values over the requested axis.
     
     Parameters
@@ -12535,10 +12527,10 @@ def dataframe_prod(dataframe: str, axis: str = 0, skipna: bool = True, numeric_o
     nan
     """
     _instance = _get_object(dataframe)
-    return _instance.prod(axis=_get_object(axis), skipna=skipna, numeric_only=numeric_only, min_count=min_count, **kwargs)
+    return _instance.prod(axis=axis, skipna=skipna, numeric_only=numeric_only, min_count=min_count, **kwargs)
 
 @mcp.tool(name="dataframe_product")
-def dataframe_product(dataframe: str, axis: str = 0, skipna: bool = True, numeric_only: bool = False, min_count: int = 0, **kwargs: Any) -> Any:
+def dataframe_product(dataframe: str, axis: Any | None = 0, skipna: bool = True, numeric_only: bool = False, min_count: int = 0, **kwargs: Any) -> Any:
     """Return the product of the values over the requested axis.
     
     Parameters
@@ -12605,10 +12597,10 @@ def dataframe_product(dataframe: str, axis: str = 0, skipna: bool = True, numeri
     nan
     """
     _instance = _get_object(dataframe)
-    return _instance.product(axis=_get_object(axis), skipna=skipna, numeric_only=numeric_only, min_count=min_count, **kwargs)
+    return _instance.product(axis=axis, skipna=skipna, numeric_only=numeric_only, min_count=min_count, **kwargs)
 
 @mcp.tool(name="dataframe_quantile")
-def dataframe_quantile(dataframe: str, q: Any = 0.5, axis: str = 0, numeric_only: bool = False, interpolation: str = 'linear', method: str = 'single') -> str:
+def dataframe_quantile(dataframe: str, q: Any = 0.5, axis: Any = 0, numeric_only: bool = False, interpolation: Any = 'linear', method: Any = 'single') -> str:
     """Return values at the given quantile over requested axis.
     
     Parameters
@@ -12692,8 +12684,8 @@ def dataframe_quantile(dataframe: str, q: Any = 0.5, axis: str = 0, numeric_only
     Name: 0.5, dtype: object
     """
     _instance = _get_object(dataframe)
-    result = _instance.quantile(q=q, axis=_get_object(axis), numeric_only=numeric_only, interpolation=_get_object(interpolation), method=_get_object(method))
-    return _store_object(result, "Series | DataFrame")
+    result = _instance.quantile(q=q, axis=axis, numeric_only=numeric_only, interpolation=interpolation, method=method)
+    return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_query")
 def dataframe_query(dataframe: str, expr: str, inplace: bool = False, **kwargs: Any) -> str:
@@ -12837,7 +12829,7 @@ def dataframe_query(dataframe: str, expr: str, inplace: bool = False, **kwargs: 
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_radd")
-def dataframe_radd(dataframe: str, other: Any, axis: str = 'columns', level: Any = None, fill_value: Any = None) -> str:
+def dataframe_radd(dataframe: str, other: Any, axis: Any = 'columns', level: Any = None, fill_value: Any = None) -> str:
     """Get Addition of dataframe and other, element-wise (binary operator `radd`).
     
     Equivalent to ``other + dataframe``, but with support to substitute a fill_value
@@ -13005,18 +12997,18 @@ def dataframe_radd(dataframe: str, other: Any, axis: str = 'columns', level: Any
       hexagon       0.0      0.0
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(other)
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['other'] = other
+    _kwargs['axis'] = axis
     if level is not None:
-        _args.append(level)
+        _kwargs['level'] = level
     if fill_value is not None:
-        _args.append(fill_value)
-    result = _instance.radd(*_args)
+        _kwargs['fill_value'] = fill_value
+    result = _instance.radd(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_rank")
-def dataframe_rank(dataframe: str, axis: str = 0, method: str = 'average', numeric_only: Any = False, na_option: str = 'keep', ascending: Any = True, pct: Any = False) -> str:
+def dataframe_rank(dataframe: str, axis: Any = 0, method: Any = 'average', numeric_only: Any = False, na_option: Any = 'keep', ascending: Any = True, pct: Any = False) -> Any:
     """Compute numerical data ranks (1 through n) along axis.
     
     By default, equal values are assigned a rank that is the average of the
@@ -13116,11 +13108,10 @@ def dataframe_rank(dataframe: str, axis: str = 0, method: str = 'average', numer
     4    snake          NaN           NaN       NaN        5.0       NaN
     """
     _instance = _get_object(dataframe)
-    result = _instance.rank(axis=_get_object(axis), method=_get_object(method), numeric_only=numeric_only, na_option=_get_object(na_option), ascending=ascending, pct=pct)
-    return _store_object(result, "Self")
+    return _instance.rank(axis=axis, method=method, numeric_only=numeric_only, na_option=na_option, ascending=ascending, pct=pct)
 
 @mcp.tool(name="dataframe_rdiv")
-def dataframe_rdiv(dataframe: str, other: Any, axis: str = 'columns', level: Any = None, fill_value: Any = None) -> str:
+def dataframe_rdiv(dataframe: str, other: Any, axis: Any = 'columns', level: Any = None, fill_value: Any = None) -> str:
     """Get Floating division of dataframe and other, element-wise (binary operator `rtruediv`).
     
     Equivalent to ``other / dataframe``, but with support to substitute a fill_value
@@ -13288,18 +13279,18 @@ def dataframe_rdiv(dataframe: str, other: Any, axis: str = 'columns', level: Any
       hexagon       0.0      0.0
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(other)
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['other'] = other
+    _kwargs['axis'] = axis
     if level is not None:
-        _args.append(level)
+        _kwargs['level'] = level
     if fill_value is not None:
-        _args.append(fill_value)
-    result = _instance.rdiv(*_args)
+        _kwargs['fill_value'] = fill_value
+    result = _instance.rdiv(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_reindex")
-def dataframe_reindex(dataframe: str, labels: Any = None, index: Any = None, columns: Any = None, axis: str = None, method: str = None, copy: bool = None, level: str = None, fill_value: str = nan, limit: int = None, tolerance: Any = None) -> str:
+def dataframe_reindex(dataframe: str, labels: Any = None, index: Any = None, columns: Any = None, axis: Any | None = None, method: Any | None = None, copy: bool = None, level: Any | None = None, fill_value: Any | None = None, limit: int = None, tolerance: Any = None) -> str:
     """Conform DataFrame to new index with optional filling logic.
     
     Places NA/NaN in locations having no value in the previous index. A new object
@@ -13518,31 +13509,32 @@ def dataframe_reindex(dataframe: str, labels: Any = None, index: Any = None, col
     See the :ref:`user guide <basics.reindexing>` for more.
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if labels is not None:
-        _args.append(labels)
+        _kwargs['labels'] = labels
     if index is not None:
-        _args.append(index)
+        _kwargs['index'] = index
     if columns is not None:
-        _args.append(columns)
+        _kwargs['columns'] = columns
     if axis is not None:
-        _args.append(_get_object(axis))
+        _kwargs['axis'] = axis
     if method is not None:
-        _args.append(_get_object(method))
+        _kwargs['method'] = method
     if copy is not None:
-        _args.append(copy)
+        _kwargs['copy'] = copy
     if level is not None:
-        _args.append(_get_object(level))
-    _args.append(_get_object(fill_value))
+        _kwargs['level'] = level
+    if fill_value is not None:
+        _kwargs['fill_value'] = fill_value
     if limit is not None:
-        _args.append(limit)
+        _kwargs['limit'] = limit
     if tolerance is not None:
-        _args.append(tolerance)
-    result = _instance.reindex(*_args)
+        _kwargs['tolerance'] = tolerance
+    result = _instance.reindex(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_reindex_like")
-def dataframe_reindex_like(dataframe: str, other: Any, method: str = None, copy: Any | None = None, limit: int = None, tolerance: Any = None) -> str:
+def dataframe_reindex_like(dataframe: str, other: Any, method: Any | None = None, copy: Any | None = None, limit: int = None, tolerance: Any = None) -> Any:
     """Return an object with matching indices as other object.
     
     Conform the object to the same index on all axes. Optional
@@ -13648,21 +13640,20 @@ def dataframe_reindex_like(dataframe: str, other: Any, method: str = None, copy:
     2014-02-15          35.1              NaN    medium
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(other)
+    _kwargs = {}
+    _kwargs['other'] = other
     if method is not None:
-        _args.append(_get_object(method))
+        _kwargs['method'] = method
     if copy is not None:
-        _args.append(copy)
+        _kwargs['copy'] = copy
     if limit is not None:
-        _args.append(limit)
+        _kwargs['limit'] = limit
     if tolerance is not None:
-        _args.append(tolerance)
-    result = _instance.reindex_like(*_args)
-    return _store_object(result, "Self")
+        _kwargs['tolerance'] = tolerance
+    return _instance.reindex_like(**_kwargs)
 
 @mcp.tool(name="dataframe_rename")
-def dataframe_rename(dataframe: str, mapper: str = None, index: str = None, columns: str = None, axis: str = None, copy: bool = None, inplace: bool = False, level: str = None, errors: str = 'ignore') -> str:
+def dataframe_rename(dataframe: str, mapper: Any | None = None, index: Any | None = None, columns: Any | None = None, axis: Any | None = None, copy: bool = None, inplace: bool = False, level: Any | None = None, errors: Any = 'ignore') -> str:
     """Rename columns or index labels.
     
     Function / dict values must be unique (1-to-1). Labels not contained in
@@ -13782,26 +13773,26 @@ def dataframe_rename(dataframe: str, mapper: str = None, index: str = None, colu
     4  3  6
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if mapper is not None:
-        _args.append(_get_object(mapper))
+        _kwargs['mapper'] = mapper
     if index is not None:
-        _args.append(_get_object(index))
+        _kwargs['index'] = index
     if columns is not None:
-        _args.append(_get_object(columns))
+        _kwargs['columns'] = columns
     if axis is not None:
-        _args.append(_get_object(axis))
+        _kwargs['axis'] = axis
     if copy is not None:
-        _args.append(copy)
-    _args.append(inplace)
+        _kwargs['copy'] = copy
+    _kwargs['inplace'] = inplace
     if level is not None:
-        _args.append(_get_object(level))
-    _args.append(_get_object(errors))
-    result = _instance.rename(*_args)
+        _kwargs['level'] = level
+    _kwargs['errors'] = errors
+    result = _instance.rename(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_rename_axis")
-def dataframe_rename_axis(dataframe: str, mapper: str = None, index: Any = None, columns: Any = None, axis: str = 0, copy: Any | None = None, inplace: Any = False) -> str:
+def dataframe_rename_axis(dataframe: str, mapper: Any = None, index: Any = None, columns: Any = None, axis: Any = 0, copy: Any | None = None, inplace: Any = False) -> Any | None:
     """Set the name of the axis for the index or columns.
     
     Parameters
@@ -13937,22 +13928,21 @@ def dataframe_rename_axis(dataframe: str, mapper: str = None, index: Any = None,
            monkey         2         2
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if mapper is not None:
-        _args.append(_get_object(mapper))
+        _kwargs['mapper'] = mapper
     if index is not None:
-        _args.append(index)
+        _kwargs['index'] = index
     if columns is not None:
-        _args.append(columns)
-    _args.append(_get_object(axis))
+        _kwargs['columns'] = columns
+    _kwargs['axis'] = axis
     if copy is not None:
-        _args.append(copy)
-    _args.append(inplace)
-    result = _instance.rename_axis(*_args)
-    return _store_object(result, "Self")
+        _kwargs['copy'] = copy
+    _kwargs['inplace'] = inplace
+    return _instance.rename_axis(**_kwargs)
 
 @mcp.tool(name="dataframe_reorder_levels")
-def dataframe_reorder_levels(dataframe: str, order: str, axis: str = 0) -> str:
+def dataframe_reorder_levels(dataframe: str, order: Any, axis: Any = 0) -> str:
     """Rearrange index levels using input order. May not drop or duplicate levels.
     
     Parameters
@@ -13993,11 +13983,11 @@ def dataframe_reorder_levels(dataframe: str, order: str, axis: str = 0) -> str:
               Reptiles                 Snakes
     """
     _instance = _get_object(dataframe)
-    result = _instance.reorder_levels(order=_get_object(order), axis=_get_object(axis))
+    result = _instance.reorder_levels(order=order, axis=axis)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_replace")
-def dataframe_replace(dataframe: str, to_replace: Any = None, value: Any = None, inplace: Any = False, limit: int = None, regex: Any = False, method: str = None) -> str:
+def dataframe_replace(dataframe: str, to_replace: Any = None, value: Any = None, inplace: Any = False, limit: int = None, regex: Any = False, method: Any = None) -> Any | None:
     """Replace values given in `to_replace` with `value`.
     
     Values of the Series/DataFrame are replaced with other values dynamically.
@@ -14321,22 +14311,21 @@ def dataframe_replace(dataframe: str, to_replace: Any = None, value: Any = None,
     4  4  e  e
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if to_replace is not None:
-        _args.append(to_replace)
+        _kwargs['to_replace'] = to_replace
     if value is not None:
-        _args.append(value)
-    _args.append(inplace)
+        _kwargs['value'] = value
+    _kwargs['inplace'] = inplace
     if limit is not None:
-        _args.append(limit)
-    _args.append(regex)
+        _kwargs['limit'] = limit
+    _kwargs['regex'] = regex
     if method is not None:
-        _args.append(_get_object(method))
-    result = _instance.replace(*_args)
-    return _store_object(result, "Self")
+        _kwargs['method'] = method
+    return _instance.replace(**_kwargs)
 
 @mcp.tool(name="dataframe_resample")
-def dataframe_resample(dataframe: str, rule: Any, axis: str = None, closed: str = None, label: str = None, convention: str = 'start', kind: str = None, on: str = None, level: str = None, origin: Any = 'start_day', offset: str = None, group_keys: Any = False) -> str:
+def dataframe_resample(dataframe: str, rule: Any, axis: Any = None, closed: Any | None = None, label: Any | None = None, convention: Any = 'start', kind: Any | None = None, on: Any | None = None, level: Any | None = None, origin: Any = 'start_day', offset: Any | None = None, group_keys: Any = False) -> Any:
     """Resample time-series data.
     
     Convenience method for frequency conversion and resampling of time series.
@@ -14712,30 +14701,29 @@ def dataframe_resample(dataframe: str, rule: Any, axis: str = None, closed: str 
     Freq: 17min, dtype: int64
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(rule)
+    _kwargs = {}
+    _kwargs['rule'] = rule
     if axis is not None:
-        _args.append(_get_object(axis))
+        _kwargs['axis'] = axis
     if closed is not None:
-        _args.append(_get_object(closed))
+        _kwargs['closed'] = closed
     if label is not None:
-        _args.append(_get_object(label))
-    _args.append(_get_object(convention))
+        _kwargs['label'] = label
+    _kwargs['convention'] = convention
     if kind is not None:
-        _args.append(_get_object(kind))
+        _kwargs['kind'] = kind
     if on is not None:
-        _args.append(_get_object(on))
+        _kwargs['on'] = on
     if level is not None:
-        _args.append(_get_object(level))
-    _args.append(origin)
+        _kwargs['level'] = level
+    _kwargs['origin'] = origin
     if offset is not None:
-        _args.append(_get_object(offset))
-    _args.append(group_keys)
-    result = _instance.resample(*_args)
-    return _store_object(result, "Resampler")
+        _kwargs['offset'] = offset
+    _kwargs['group_keys'] = group_keys
+    return _instance.resample(**_kwargs)
 
 @mcp.tool(name="dataframe_reset_index")
-def dataframe_reset_index(dataframe: str, level: str = None, drop: bool = False, inplace: bool = False, col_level: str = 0, col_fill: str = '', allow_duplicates: Any = None, names: str = None) -> str:
+def dataframe_reset_index(dataframe: str, level: Any | None = None, drop: bool = False, inplace: bool = False, col_level: Any = 0, col_fill: Any = '', allow_duplicates: Any = None, names: Any | None = None) -> str:
     """Reset the index, or a level of it.
     
     Reset the index of the DataFrame, and use the default one instead.
@@ -14898,22 +14886,22 @@ def dataframe_reset_index(dataframe: str, level: str = None, drop: bool = False,
     monkey         mammal    NaN    jump
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if level is not None:
-        _args.append(_get_object(level))
-    _args.append(drop)
-    _args.append(inplace)
-    _args.append(_get_object(col_level))
-    _args.append(_get_object(col_fill))
+        _kwargs['level'] = level
+    _kwargs['drop'] = drop
+    _kwargs['inplace'] = inplace
+    _kwargs['col_level'] = col_level
+    _kwargs['col_fill'] = col_fill
     if allow_duplicates is not None:
-        _args.append(allow_duplicates)
+        _kwargs['allow_duplicates'] = allow_duplicates
     if names is not None:
-        _args.append(_get_object(names))
-    result = _instance.reset_index(*_args)
+        _kwargs['names'] = names
+    result = _instance.reset_index(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_rfloordiv")
-def dataframe_rfloordiv(dataframe: str, other: Any, axis: str = 'columns', level: Any = None, fill_value: Any = None) -> str:
+def dataframe_rfloordiv(dataframe: str, other: Any, axis: Any = 'columns', level: Any = None, fill_value: Any = None) -> str:
     """Get Integer division of dataframe and other, element-wise (binary operator `rfloordiv`).
     
     Equivalent to ``other // dataframe``, but with support to substitute a fill_value
@@ -15081,18 +15069,18 @@ def dataframe_rfloordiv(dataframe: str, other: Any, axis: str = 'columns', level
       hexagon       0.0      0.0
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(other)
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['other'] = other
+    _kwargs['axis'] = axis
     if level is not None:
-        _args.append(level)
+        _kwargs['level'] = level
     if fill_value is not None:
-        _args.append(fill_value)
-    result = _instance.rfloordiv(*_args)
+        _kwargs['fill_value'] = fill_value
+    result = _instance.rfloordiv(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_rmod")
-def dataframe_rmod(dataframe: str, other: Any, axis: str = 'columns', level: Any = None, fill_value: Any = None) -> str:
+def dataframe_rmod(dataframe: str, other: Any, axis: Any = 'columns', level: Any = None, fill_value: Any = None) -> str:
     """Get Modulo of dataframe and other, element-wise (binary operator `rmod`).
     
     Equivalent to ``other % dataframe``, but with support to substitute a fill_value
@@ -15260,18 +15248,18 @@ def dataframe_rmod(dataframe: str, other: Any, axis: str = 'columns', level: Any
       hexagon       0.0      0.0
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(other)
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['other'] = other
+    _kwargs['axis'] = axis
     if level is not None:
-        _args.append(level)
+        _kwargs['level'] = level
     if fill_value is not None:
-        _args.append(fill_value)
-    result = _instance.rmod(*_args)
+        _kwargs['fill_value'] = fill_value
+    result = _instance.rmod(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_rmul")
-def dataframe_rmul(dataframe: str, other: Any, axis: str = 'columns', level: Any = None, fill_value: Any = None) -> str:
+def dataframe_rmul(dataframe: str, other: Any, axis: Any = 'columns', level: Any = None, fill_value: Any = None) -> str:
     """Get Multiplication of dataframe and other, element-wise (binary operator `rmul`).
     
     Equivalent to ``other * dataframe``, but with support to substitute a fill_value
@@ -15439,18 +15427,18 @@ def dataframe_rmul(dataframe: str, other: Any, axis: str = 'columns', level: Any
       hexagon       0.0      0.0
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(other)
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['other'] = other
+    _kwargs['axis'] = axis
     if level is not None:
-        _args.append(level)
+        _kwargs['level'] = level
     if fill_value is not None:
-        _args.append(fill_value)
-    result = _instance.rmul(*_args)
+        _kwargs['fill_value'] = fill_value
+    result = _instance.rmul(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_rolling")
-def dataframe_rolling(dataframe: str, window: Any, min_periods: int = None, center: Any = False, win_type: str = None, on: str = None, axis: str = None, closed: str = None, step: int = None, method: str = 'single') -> str:
+def dataframe_rolling(dataframe: str, window: Any, min_periods: int = None, center: Any = False, win_type: str = None, on: str = None, axis: Any = None, closed: Any | None = None, step: int = None, method: str = 'single') -> Any:
     """Provide rolling window calculations.
     
     Parameters
@@ -15701,24 +15689,23 @@ def dataframe_rolling(dataframe: str, window: Any, min_periods: int = None, cent
     2020-01-03 2020-01-02  6.0
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(window)
+    _kwargs = {}
+    _kwargs['window'] = window
     if min_periods is not None:
-        _args.append(min_periods)
-    _args.append(center)
+        _kwargs['min_periods'] = min_periods
+    _kwargs['center'] = center
     if win_type is not None:
-        _args.append(win_type)
+        _kwargs['win_type'] = win_type
     if on is not None:
-        _args.append(on)
+        _kwargs['on'] = on
     if axis is not None:
-        _args.append(_get_object(axis))
+        _kwargs['axis'] = axis
     if closed is not None:
-        _args.append(_get_object(closed))
+        _kwargs['closed'] = closed
     if step is not None:
-        _args.append(step)
-    _args.append(method)
-    result = _instance.rolling(*_args)
-    return _store_object(result, "Window | Rolling")
+        _kwargs['step'] = step
+    _kwargs['method'] = method
+    return _instance.rolling(**_kwargs)
 
 @mcp.tool(name="dataframe_round")
 def dataframe_round(dataframe: str, decimals: Any = 0, *args: Any, **kwargs: Any) -> str:
@@ -15802,7 +15789,7 @@ def dataframe_round(dataframe: str, decimals: Any = 0, *args: Any, **kwargs: Any
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_rpow")
-def dataframe_rpow(dataframe: str, other: Any, axis: str = 'columns', level: Any = None, fill_value: Any = None) -> str:
+def dataframe_rpow(dataframe: str, other: Any, axis: Any = 'columns', level: Any = None, fill_value: Any = None) -> str:
     """Get Exponential power of dataframe and other, element-wise (binary operator `rpow`).
     
     Equivalent to ``other ** dataframe``, but with support to substitute a fill_value
@@ -15970,18 +15957,18 @@ def dataframe_rpow(dataframe: str, other: Any, axis: str = 'columns', level: Any
       hexagon       0.0      0.0
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(other)
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['other'] = other
+    _kwargs['axis'] = axis
     if level is not None:
-        _args.append(level)
+        _kwargs['level'] = level
     if fill_value is not None:
-        _args.append(fill_value)
-    result = _instance.rpow(*_args)
+        _kwargs['fill_value'] = fill_value
+    result = _instance.rpow(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_rsub")
-def dataframe_rsub(dataframe: str, other: Any, axis: str = 'columns', level: Any = None, fill_value: Any = None) -> str:
+def dataframe_rsub(dataframe: str, other: Any, axis: Any = 'columns', level: Any = None, fill_value: Any = None) -> str:
     """Get Subtraction of dataframe and other, element-wise (binary operator `rsub`).
     
     Equivalent to ``other - dataframe``, but with support to substitute a fill_value
@@ -16149,18 +16136,18 @@ def dataframe_rsub(dataframe: str, other: Any, axis: str = 'columns', level: Any
       hexagon       0.0      0.0
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(other)
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['other'] = other
+    _kwargs['axis'] = axis
     if level is not None:
-        _args.append(level)
+        _kwargs['level'] = level
     if fill_value is not None:
-        _args.append(fill_value)
-    result = _instance.rsub(*_args)
+        _kwargs['fill_value'] = fill_value
+    result = _instance.rsub(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_rtruediv")
-def dataframe_rtruediv(dataframe: str, other: Any, axis: str = 'columns', level: Any = None, fill_value: Any = None) -> str:
+def dataframe_rtruediv(dataframe: str, other: Any, axis: Any = 'columns', level: Any = None, fill_value: Any = None) -> str:
     """Get Floating division of dataframe and other, element-wise (binary operator `rtruediv`).
     
     Equivalent to ``other / dataframe``, but with support to substitute a fill_value
@@ -16328,18 +16315,18 @@ def dataframe_rtruediv(dataframe: str, other: Any, axis: str = 'columns', level:
       hexagon       0.0      0.0
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(other)
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['other'] = other
+    _kwargs['axis'] = axis
     if level is not None:
-        _args.append(level)
+        _kwargs['level'] = level
     if fill_value is not None:
-        _args.append(fill_value)
-    result = _instance.rtruediv(*_args)
+        _kwargs['fill_value'] = fill_value
+    result = _instance.rtruediv(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_sample")
-def dataframe_sample(dataframe: str, n: int = None, frac: float = None, replace: Any = False, weights: Any = None, random_state: str = None, axis: str = None, ignore_index: Any = False) -> str:
+def dataframe_sample(dataframe: str, n: int = None, frac: float = None, replace: Any = False, weights: Any = None, random_state: Any | None = None, axis: Any | None = None, ignore_index: Any = False) -> Any:
     """Return a random sample of items from an axis of object.
     
     You can use `random_state` for reproducibility.
@@ -16454,24 +16441,23 @@ def dataframe_sample(dataframe: str, n: int = None, frac: float = None, replace:
     fish           0          0                  8
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if n is not None:
-        _args.append(n)
+        _kwargs['n'] = n
     if frac is not None:
-        _args.append(frac)
-    _args.append(replace)
+        _kwargs['frac'] = frac
+    _kwargs['replace'] = replace
     if weights is not None:
-        _args.append(weights)
+        _kwargs['weights'] = weights
     if random_state is not None:
-        _args.append(_get_object(random_state))
+        _kwargs['random_state'] = random_state
     if axis is not None:
-        _args.append(_get_object(axis))
-    _args.append(ignore_index)
-    result = _instance.sample(*_args)
-    return _store_object(result, "Self")
+        _kwargs['axis'] = axis
+    _kwargs['ignore_index'] = ignore_index
+    return _instance.sample(**_kwargs)
 
 @mcp.tool(name="dataframe_select_dtypes")
-def dataframe_select_dtypes(dataframe: str, include: Any = None, exclude: Any = None) -> str:
+def dataframe_select_dtypes(dataframe: str, include: Any = None, exclude: Any = None) -> Any:
     """Return a subset of the DataFrame's columns based on the column dtypes.
     
     Parameters
@@ -16556,16 +16542,15 @@ def dataframe_select_dtypes(dataframe: str, include: Any = None, exclude: Any = 
     5  False  2.0
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if include is not None:
-        _args.append(include)
+        _kwargs['include'] = include
     if exclude is not None:
-        _args.append(exclude)
-    result = _instance.select_dtypes(*_args)
-    return _store_object(result, "Self")
+        _kwargs['exclude'] = exclude
+    return _instance.select_dtypes(**_kwargs)
 
 @mcp.tool(name="dataframe_sem")
-def dataframe_sem(dataframe: str, axis: str = 0, skipna: bool = True, ddof: int = 1, numeric_only: bool = False, **kwargs: Any) -> Any:
+def dataframe_sem(dataframe: str, axis: Any | None = 0, skipna: bool = True, ddof: int = 1, numeric_only: bool = False, **kwargs: Any) -> Any:
     """Return unbiased standard error of the mean over requested axis.
     
     Normalized by N-1 by default. This can be changed using the ddof argument
@@ -16629,10 +16614,10 @@ def dataframe_sem(dataframe: str, axis: str = 0, skipna: bool = True, ddof: int 
                 dtype: float64
     """
     _instance = _get_object(dataframe)
-    return _instance.sem(axis=_get_object(axis), skipna=skipna, ddof=ddof, numeric_only=numeric_only, **kwargs)
+    return _instance.sem(axis=axis, skipna=skipna, ddof=ddof, numeric_only=numeric_only, **kwargs)
 
 @mcp.tool(name="dataframe_set_axis")
-def dataframe_set_axis(dataframe: str, labels: Any, axis: str = 0, copy: bool = None) -> str:
+def dataframe_set_axis(dataframe: str, labels: Any, axis: Any = 0, copy: bool = None) -> str:
     """Assign desired index to given axis.
     
     Indexes for column or row labels can be changed by assigning
@@ -16692,16 +16677,16 @@ def dataframe_set_axis(dataframe: str, labels: Any, axis: str = 0, copy: bool = 
             2  3   6
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(labels)
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['labels'] = labels
+    _kwargs['axis'] = axis
     if copy is not None:
-        _args.append(copy)
-    result = _instance.set_axis(*_args)
+        _kwargs['copy'] = copy
+    result = _instance.set_axis(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_set_flags")
-def dataframe_set_flags(dataframe: str, copy: Any = False, allows_duplicate_labels: Any | None = None) -> str:
+def dataframe_set_flags(dataframe: str, copy: Any = False, allows_duplicate_labels: Any | None = None) -> Any:
     """Return a new object with updated flags.
     
     Parameters
@@ -16755,12 +16740,11 @@ def dataframe_set_flags(dataframe: str, copy: Any = False, allows_duplicate_labe
     False
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(copy)
+    _kwargs = {}
+    _kwargs['copy'] = copy
     if allows_duplicate_labels is not None:
-        _args.append(allows_duplicate_labels)
-    result = _instance.set_flags(*_args)
-    return _store_object(result, "Self")
+        _kwargs['allows_duplicate_labels'] = allows_duplicate_labels
+    return _instance.set_flags(**_kwargs)
 
 @mcp.tool(name="dataframe_set_index")
 def dataframe_set_index(dataframe: str, keys: Any, drop: bool = True, append: bool = False, inplace: bool = False, verify_integrity: bool = False) -> str:
@@ -16857,7 +16841,7 @@ def dataframe_set_index(dataframe: str, keys: Any, drop: bool = True, append: bo
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_shift")
-def dataframe_shift(dataframe: str, periods: Any = 1, freq: str = None, axis: str = 0, fill_value: str = None, suffix: str = None) -> str:
+def dataframe_shift(dataframe: str, periods: Any = 1, freq: Any | None = None, axis: Any = 0, fill_value: Any = None, suffix: str = None) -> str:
     """Shift index by desired number of periods with an optional time `freq`.
     
     When `freq` is not passed, shift the index without realigning the data.
@@ -16970,20 +16954,20 @@ def dataframe_shift(dataframe: str, periods: Any = 1, freq: str = None, axis: st
     2020-01-05      45    30.0    15.0
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(periods)
+    _kwargs = {}
+    _kwargs['periods'] = periods
     if freq is not None:
-        _args.append(_get_object(freq))
-    _args.append(_get_object(axis))
+        _kwargs['freq'] = freq
+    _kwargs['axis'] = axis
     if fill_value is not None:
-        _args.append(_get_object(fill_value))
+        _kwargs['fill_value'] = fill_value
     if suffix is not None:
-        _args.append(suffix)
-    result = _instance.shift(*_args)
+        _kwargs['suffix'] = suffix
+    result = _instance.shift(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_skew")
-def dataframe_skew(dataframe: str, axis: str = 0, skipna: bool = True, numeric_only: bool = False, **kwargs: Any) -> Any:
+def dataframe_skew(dataframe: str, axis: Any | None = 0, skipna: bool = True, numeric_only: bool = False, **kwargs: Any) -> Any:
     """Return unbiased skew over requested axis.
     
     Normalized by N-1.
@@ -17050,10 +17034,10 @@ def dataframe_skew(dataframe: str, axis: str = 0, skipna: bool = True, numeric_o
                 dtype: float64
     """
     _instance = _get_object(dataframe)
-    return _instance.skew(axis=_get_object(axis), skipna=skipna, numeric_only=numeric_only, **kwargs)
+    return _instance.skew(axis=axis, skipna=skipna, numeric_only=numeric_only, **kwargs)
 
 @mcp.tool(name="dataframe_sort_index")
-def dataframe_sort_index(dataframe: str, axis: str = 0, level: str = None, ascending: Any = True, inplace: bool = False, kind: str = 'quicksort', na_position: str = 'last', sort_remaining: bool = True, ignore_index: bool = False, key: str = None) -> str:
+def dataframe_sort_index(dataframe: str, axis: Any = 0, level: Any | None = None, ascending: Any = True, inplace: bool = False, kind: Any = 'quicksort', na_position: Any = 'last', sort_remaining: bool = True, ignore_index: bool = False, key: Any | None = None) -> str:
     """Sort object by labels (along an axis).
     
     Returns a new DataFrame sorted by label if `inplace` argument is
@@ -17138,23 +17122,23 @@ def dataframe_sort_index(dataframe: str, axis: str = 0, level: str = None, ascen
     d  4
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['axis'] = axis
     if level is not None:
-        _args.append(_get_object(level))
-    _args.append(ascending)
-    _args.append(inplace)
-    _args.append(_get_object(kind))
-    _args.append(_get_object(na_position))
-    _args.append(sort_remaining)
-    _args.append(ignore_index)
+        _kwargs['level'] = level
+    _kwargs['ascending'] = ascending
+    _kwargs['inplace'] = inplace
+    _kwargs['kind'] = kind
+    _kwargs['na_position'] = na_position
+    _kwargs['sort_remaining'] = sort_remaining
+    _kwargs['ignore_index'] = ignore_index
     if key is not None:
-        _args.append(_get_object(key))
-    result = _instance.sort_index(*_args)
+        _kwargs['key'] = key
+    result = _instance.sort_index(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_sort_values")
-def dataframe_sort_values(dataframe: str, by: str, axis: str = 0, ascending: Any = True, inplace: bool = False, kind: str = 'quicksort', na_position: str = 'last', ignore_index: bool = False, key: str = None) -> str:
+def dataframe_sort_values(dataframe: str, by: Any, axis: Any = 0, ascending: Any = True, inplace: bool = False, kind: Any = 'quicksort', na_position: str = 'last', ignore_index: bool = False, key: Any | None = None) -> str:
     """Sort by the values along either axis.
     
     Parameters
@@ -17301,17 +17285,17 @@ def dataframe_sort_values(dataframe: str, by: str, axis: str = 0, ascending: Any
     1  128hr     20
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(_get_object(by))
-    _args.append(_get_object(axis))
-    _args.append(ascending)
-    _args.append(inplace)
-    _args.append(_get_object(kind))
-    _args.append(na_position)
-    _args.append(ignore_index)
+    _kwargs = {}
+    _kwargs['by'] = by
+    _kwargs['axis'] = axis
+    _kwargs['ascending'] = ascending
+    _kwargs['inplace'] = inplace
+    _kwargs['kind'] = kind
+    _kwargs['na_position'] = na_position
+    _kwargs['ignore_index'] = ignore_index
     if key is not None:
-        _args.append(_get_object(key))
-    result = _instance.sort_values(*_args)
+        _kwargs['key'] = key
+    result = _instance.sort_values(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_sparse")
@@ -17326,13 +17310,13 @@ def dataframe_sparse(dataframe: str, data: Any = None) -> None:
     0.5
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if data is not None:
-        _args.append(data)
-    return _instance.sparse(*_args)
+        _kwargs['data'] = data
+    return _instance.sparse(**_kwargs)
 
 @mcp.tool(name="dataframe_squeeze")
-def dataframe_squeeze(dataframe: str, axis: str = None) -> Any:
+def dataframe_squeeze(dataframe: str, axis: Any | None = None) -> Any:
     """Squeeze 1 dimensional axis objects into scalars.
     
     Series or DataFrames with a single element are squeezed to a scalar.
@@ -17435,13 +17419,13 @@ def dataframe_squeeze(dataframe: str, axis: str = None) -> Any:
     1
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if axis is not None:
-        _args.append(_get_object(axis))
-    return _instance.squeeze(*_args)
+        _kwargs['axis'] = axis
+    return _instance.squeeze(**_kwargs)
 
 @mcp.tool(name="dataframe_stack")
-def dataframe_stack(dataframe: str, level: str = -1, dropna: Any = None, sort: Any = None, future_stack: bool = False) -> Any:
+def dataframe_stack(dataframe: str, level: Any = -1, dropna: Any = None, sort: Any = None, future_stack: bool = False) -> Any:
     """Stack the prescribed level(s) from columns to index.
     
     Return a reshaped DataFrame or Series having a multi-level
@@ -17584,17 +17568,17 @@ def dataframe_stack(dataframe: str, level: str = -1, dropna: Any = None, sort: A
     dtype: float64
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(_get_object(level))
+    _kwargs = {}
+    _kwargs['level'] = level
     if dropna is not None:
-        _args.append(dropna)
+        _kwargs['dropna'] = dropna
     if sort is not None:
-        _args.append(sort)
-    _args.append(future_stack)
-    return _instance.stack(*_args)
+        _kwargs['sort'] = sort
+    _kwargs['future_stack'] = future_stack
+    return _instance.stack(**_kwargs)
 
 @mcp.tool(name="dataframe_std")
-def dataframe_std(dataframe: str, axis: str = 0, skipna: bool = True, ddof: int = 1, numeric_only: bool = False, **kwargs: Any) -> Any:
+def dataframe_std(dataframe: str, axis: Any | None = 0, skipna: bool = True, ddof: int = 1, numeric_only: bool = False, **kwargs: Any) -> Any:
     """Return sample standard deviation over requested axis.
     
     Normalized by N-1 by default. This can be changed using the ddof argument.
@@ -17657,10 +17641,10 @@ def dataframe_std(dataframe: str, axis: str = 0, skipna: bool = True, ddof: int 
     dtype: float64
     """
     _instance = _get_object(dataframe)
-    return _instance.std(axis=_get_object(axis), skipna=skipna, ddof=ddof, numeric_only=numeric_only, **kwargs)
+    return _instance.std(axis=axis, skipna=skipna, ddof=ddof, numeric_only=numeric_only, **kwargs)
 
 @mcp.tool(name="dataframe_sub")
-def dataframe_sub(dataframe: str, other: Any, axis: str = 'columns', level: Any = None, fill_value: Any = None) -> str:
+def dataframe_sub(dataframe: str, other: Any, axis: Any = 'columns', level: Any = None, fill_value: Any = None) -> str:
     """Get Subtraction of dataframe and other, element-wise (binary operator `sub`).
     
     Equivalent to ``dataframe - other``, but with support to substitute a fill_value
@@ -17828,18 +17812,18 @@ def dataframe_sub(dataframe: str, other: Any, axis: str = 'columns', level: Any 
       hexagon       0.0      0.0
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(other)
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['other'] = other
+    _kwargs['axis'] = axis
     if level is not None:
-        _args.append(level)
+        _kwargs['level'] = level
     if fill_value is not None:
-        _args.append(fill_value)
-    result = _instance.sub(*_args)
+        _kwargs['fill_value'] = fill_value
+    result = _instance.sub(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_subtract")
-def dataframe_subtract(dataframe: str, other: Any, axis: str = 'columns', level: Any = None, fill_value: Any = None) -> str:
+def dataframe_subtract(dataframe: str, other: Any, axis: Any = 'columns', level: Any = None, fill_value: Any = None) -> str:
     """Get Subtraction of dataframe and other, element-wise (binary operator `sub`).
     
     Equivalent to ``dataframe - other``, but with support to substitute a fill_value
@@ -18007,18 +17991,18 @@ def dataframe_subtract(dataframe: str, other: Any, axis: str = 'columns', level:
       hexagon       0.0      0.0
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(other)
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['other'] = other
+    _kwargs['axis'] = axis
     if level is not None:
-        _args.append(level)
+        _kwargs['level'] = level
     if fill_value is not None:
-        _args.append(fill_value)
-    result = _instance.subtract(*_args)
+        _kwargs['fill_value'] = fill_value
+    result = _instance.subtract(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_sum")
-def dataframe_sum(dataframe: str, axis: str = 0, skipna: bool = True, numeric_only: bool = False, min_count: int = 0, **kwargs: Any) -> Any:
+def dataframe_sum(dataframe: str, axis: Any | None = 0, skipna: bool = True, numeric_only: bool = False, min_count: int = 0, **kwargs: Any) -> Any:
     """Return the sum of the values over the requested axis.
     
     This is equivalent to the method ``numpy.sum``.
@@ -18104,10 +18088,10 @@ def dataframe_sum(dataframe: str, axis: str = 0, skipna: bool = True, numeric_on
     nan
     """
     _instance = _get_object(dataframe)
-    return _instance.sum(axis=_get_object(axis), skipna=skipna, numeric_only=numeric_only, min_count=min_count, **kwargs)
+    return _instance.sum(axis=axis, skipna=skipna, numeric_only=numeric_only, min_count=min_count, **kwargs)
 
 @mcp.tool(name="dataframe_swapaxes")
-def dataframe_swapaxes(dataframe: str, axis1: str, axis2: str, copy: Any | None = None) -> str:
+def dataframe_swapaxes(dataframe: str, axis1: Any, axis2: Any, copy: Any | None = None) -> Any:
     """Interchange axes and swap values axes appropriately.
     
     .. deprecated:: 2.1.0
@@ -18123,16 +18107,15 @@ def dataframe_swapaxes(dataframe: str, axis1: str, axis2: str, copy: Any | None 
     Please see examples for :meth:`DataFrame.transpose`.
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(_get_object(axis1))
-    _args.append(_get_object(axis2))
+    _kwargs = {}
+    _kwargs['axis1'] = axis1
+    _kwargs['axis2'] = axis2
     if copy is not None:
-        _args.append(copy)
-    result = _instance.swapaxes(*_args)
-    return _store_object(result, "Self")
+        _kwargs['copy'] = copy
+    return _instance.swapaxes(**_kwargs)
 
 @mcp.tool(name="dataframe_swaplevel")
-def dataframe_swaplevel(dataframe: str, i: str = -2, j: str = -1, axis: str = 0) -> str:
+def dataframe_swaplevel(dataframe: str, i: Any = -2, j: Any = -1, axis: Any = 0) -> str:
     """Swap levels i and j in a :class:`MultiIndex`.
     
     Default is to swap the two innermost levels of the index.
@@ -18202,11 +18185,11 @@ def dataframe_swaplevel(dataframe: str, i: str = -2, j: str = -1, axis: str = 0)
     Geography   Coursework  April           C
     """
     _instance = _get_object(dataframe)
-    result = _instance.swaplevel(i=_get_object(i), j=_get_object(j), axis=_get_object(axis))
+    result = _instance.swaplevel(i=i, j=j, axis=axis)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_tail")
-def dataframe_tail(dataframe: str, n: int = 5) -> str:
+def dataframe_tail(dataframe: str, n: int = 5) -> Any:
     """Return the last `n` rows.
     
     This function returns last `n` rows from the object based on
@@ -18278,11 +18261,10 @@ def dataframe_tail(dataframe: str, n: int = 5) -> str:
     8   zebra
     """
     _instance = _get_object(dataframe)
-    result = _instance.tail(n=n)
-    return _store_object(result, "Self")
+    return _instance.tail(n=n)
 
 @mcp.tool(name="dataframe_take")
-def dataframe_take(dataframe: str, indices: Any, axis: str = 0, **kwargs: Any) -> str:
+def dataframe_take(dataframe: str, indices: Any, axis: Any = 0, **kwargs: Any) -> Any:
     """Return the elements in the given *positional* indices along an axis.
     
     This means that we are not indexing according to actual values in
@@ -18356,8 +18338,7 @@ def dataframe_take(dataframe: str, indices: Any, axis: str = 0, **kwargs: Any) -
     3    lion  mammal       80.5
     """
     _instance = _get_object(dataframe)
-    result = _instance.take(indices=indices, axis=_get_object(axis), **kwargs)
-    return _store_object(result, "Self")
+    return _instance.take(indices=indices, axis=axis, **kwargs)
 
 @mcp.tool(name="dataframe_to_clipboard")
 def dataframe_to_clipboard(dataframe: str, excel: Any = True, sep: str = None, **kwargs: Any) -> None:
@@ -18426,14 +18407,14 @@ def dataframe_to_clipboard(dataframe: str, excel: Any = True, sep: str = None, *
        pyperclip.copy(html)
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(excel)
+    _kwargs = {}
+    _kwargs['excel'] = excel
     if sep is not None:
-        _args.append(sep)
-    return _instance.to_clipboard(*_args)
+        _kwargs['sep'] = sep
+    return _instance.to_clipboard(**_kwargs)
 
 @mcp.tool(name="dataframe_to_csv")
-def dataframe_to_csv(dataframe: str, path_or_buf: str = None, sep: str = ',', na_rep: str = '', float_format: Any | None = None, columns: str = None, header: Any = True, index: Any = True, index_label: str = None, mode: str = 'w', encoding: str = None, compression: str = 'infer', quoting: int = None, quotechar: str = '"', lineterminator: str = None, chunksize: int = None, date_format: str = None, doublequote: Any = True, escapechar: str = None, decimal: str = '.', errors: str = 'strict', storage_options: str = None) -> str:
+def dataframe_to_csv(dataframe: str, path_or_buf: Any | None = None, sep: str = ',', na_rep: str = '', float_format: Any | None = None, columns: Any | None = None, header: Any = True, index: Any = True, index_label: Any | None = None, mode: str = 'w', encoding: str = None, compression: Any = 'infer', quoting: int = None, quotechar: str = '"', lineterminator: str = None, chunksize: int = None, date_format: str = None, doublequote: Any = True, escapechar: str = None, decimal: str = '.', errors: Any = 'strict', storage_options: Any | None = None) -> str:
     """Write object to a comma-separated values (csv) file.
     
     Parameters
@@ -18586,43 +18567,43 @@ def dataframe_to_csv(dataframe: str, path_or_buf: str = None, sep: str = ',', na
     >>> df.to_csv('folder/subfolder/out.csv')  # doctest: +SKIP
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if path_or_buf is not None:
-        _args.append(_get_object(path_or_buf))
-    _args.append(sep)
-    _args.append(na_rep)
+        _kwargs['path_or_buf'] = path_or_buf
+    _kwargs['sep'] = sep
+    _kwargs['na_rep'] = na_rep
     if float_format is not None:
-        _args.append(float_format)
+        _kwargs['float_format'] = float_format
     if columns is not None:
-        _args.append(_get_object(columns))
-    _args.append(header)
-    _args.append(index)
+        _kwargs['columns'] = columns
+    _kwargs['header'] = header
+    _kwargs['index'] = index
     if index_label is not None:
-        _args.append(_get_object(index_label))
-    _args.append(mode)
+        _kwargs['index_label'] = index_label
+    _kwargs['mode'] = mode
     if encoding is not None:
-        _args.append(encoding)
-    _args.append(_get_object(compression))
+        _kwargs['encoding'] = encoding
+    _kwargs['compression'] = compression
     if quoting is not None:
-        _args.append(quoting)
-    _args.append(quotechar)
+        _kwargs['quoting'] = quoting
+    _kwargs['quotechar'] = quotechar
     if lineterminator is not None:
-        _args.append(lineterminator)
+        _kwargs['lineterminator'] = lineterminator
     if chunksize is not None:
-        _args.append(chunksize)
+        _kwargs['chunksize'] = chunksize
     if date_format is not None:
-        _args.append(date_format)
-    _args.append(doublequote)
+        _kwargs['date_format'] = date_format
+    _kwargs['doublequote'] = doublequote
     if escapechar is not None:
-        _args.append(escapechar)
-    _args.append(decimal)
-    _args.append(_get_object(errors))
+        _kwargs['escapechar'] = escapechar
+    _kwargs['decimal'] = decimal
+    _kwargs['errors'] = errors
     if storage_options is not None:
-        _args.append(_get_object(storage_options))
-    return _instance.to_csv(*_args)
+        _kwargs['storage_options'] = storage_options
+    return _instance.to_csv(**_kwargs)
 
 @mcp.tool(name="dataframe_to_dict")
-def dataframe_to_dict(dataframe: str, orient: str = 'dict', into: Any = None, index: bool = True) -> str:
+def dataframe_to_dict(dataframe: str, orient: Any = 'dict', into: Any = None, index: bool = True) -> Any:
     """Convert the DataFrame to a dictionary.
     
     The type of the key-value pairs can be customized with the parameters
@@ -18724,16 +18705,15 @@ def dataframe_to_dict(dataframe: str, orient: str = 'dict', into: Any = None, in
      defaultdict(<class 'list'>, {'col1': 2, 'col2': 0.75})]
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(_get_object(orient))
+    _kwargs = {}
+    _kwargs['orient'] = orient
     if into is not None:
-        _args.append(into)
-    _args.append(index)
-    result = _instance.to_dict(*_args)
-    return _store_object(result, "MutableMappingT | list[MutableMappingT]")
+        _kwargs['into'] = into
+    _kwargs['index'] = index
+    return _instance.to_dict(**_kwargs)
 
 @mcp.tool(name="dataframe_to_excel")
-def dataframe_to_excel(dataframe: str, excel_writer: str, sheet_name: str = 'Sheet1', na_rep: str = '', float_format: str = None, columns: str = None, header: str = True, index: Any = True, index_label: str = None, startrow: int = 0, startcol: int = 0, engine: str = None, merge_cells: Any = True, inf_rep: str = 'inf', freeze_panes: tuple = None, storage_options: str = None, engine_kwargs: dict = None) -> None:
+def dataframe_to_excel(dataframe: str, excel_writer: Any, sheet_name: str = 'Sheet1', na_rep: str = '', float_format: str = None, columns: Any | None = None, header: Any = True, index: Any = True, index_label: Any | None = None, startrow: int = 0, startcol: int = 0, engine: Any | None = None, merge_cells: Any = True, inf_rep: str = 'inf', freeze_panes: tuple = None, storage_options: Any | None = None, engine_kwargs: dict = None) -> None:
     """Write object to an Excel sheet.
     
     To write a single object to an Excel .xlsx file it is only necessary to
@@ -18851,34 +18831,34 @@ def dataframe_to_excel(dataframe: str, excel_writer: str, sheet_name: str = 'She
     >>> df1.to_excel('output1.xlsx', engine='xlsxwriter')  # doctest: +SKIP
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(_get_object(excel_writer))
-    _args.append(sheet_name)
-    _args.append(na_rep)
+    _kwargs = {}
+    _kwargs['excel_writer'] = excel_writer
+    _kwargs['sheet_name'] = sheet_name
+    _kwargs['na_rep'] = na_rep
     if float_format is not None:
-        _args.append(float_format)
+        _kwargs['float_format'] = float_format
     if columns is not None:
-        _args.append(_get_object(columns))
-    _args.append(_get_object(header))
-    _args.append(index)
+        _kwargs['columns'] = columns
+    _kwargs['header'] = header
+    _kwargs['index'] = index
     if index_label is not None:
-        _args.append(_get_object(index_label))
-    _args.append(startrow)
-    _args.append(startcol)
+        _kwargs['index_label'] = index_label
+    _kwargs['startrow'] = startrow
+    _kwargs['startcol'] = startcol
     if engine is not None:
-        _args.append(_get_object(engine))
-    _args.append(merge_cells)
-    _args.append(inf_rep)
+        _kwargs['engine'] = engine
+    _kwargs['merge_cells'] = merge_cells
+    _kwargs['inf_rep'] = inf_rep
     if freeze_panes is not None:
-        _args.append(freeze_panes)
+        _kwargs['freeze_panes'] = freeze_panes
     if storage_options is not None:
-        _args.append(_get_object(storage_options))
+        _kwargs['storage_options'] = storage_options
     if engine_kwargs is not None:
-        _args.append(engine_kwargs)
-    return _instance.to_excel(*_args)
+        _kwargs['engine_kwargs'] = engine_kwargs
+    return _instance.to_excel(**_kwargs)
 
 @mcp.tool(name="dataframe_to_feather")
-def dataframe_to_feather(dataframe: str, path: str, **kwargs: Any) -> None:
+def dataframe_to_feather(dataframe: str, path: Any, **kwargs: Any) -> None:
     """Write a DataFrame to the binary Feather format.
     
     Parameters
@@ -18905,10 +18885,10 @@ def dataframe_to_feather(dataframe: str, path: str, **kwargs: Any) -> None:
     >>> df.to_feather("file.feather")  # doctest: +SKIP
     """
     _instance = _get_object(dataframe)
-    return _instance.to_feather(path=_get_object(path), **kwargs)
+    return _instance.to_feather(path=path, **kwargs)
 
 @mcp.tool(name="dataframe_to_gbq")
-def dataframe_to_gbq(dataframe: str, destination_table: str, project_id: str = None, chunksize: int = None, reauth: bool = False, if_exists: str = 'fail', auth_local_webserver: bool = True, table_schema: list = None, location: str = None, progress_bar: bool = True, credentials: Any = None) -> None:
+def dataframe_to_gbq(dataframe: str, destination_table: str, project_id: str = None, chunksize: int = None, reauth: bool = False, if_exists: Any = 'fail', auth_local_webserver: bool = True, table_schema: list = None, location: str = None, progress_bar: bool = True, credentials: Any = None) -> None:
     """Write a DataFrame to a Google BigQuery table.
     
     .. deprecated:: 2.2.0
@@ -19015,26 +18995,26 @@ def dataframe_to_gbq(dataframe: str, destination_table: str, project_id: str = N
     >>> df.to_gbq(table_id, project_id=project_id)  # doctest: +SKIP
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(destination_table)
+    _kwargs = {}
+    _kwargs['destination_table'] = destination_table
     if project_id is not None:
-        _args.append(project_id)
+        _kwargs['project_id'] = project_id
     if chunksize is not None:
-        _args.append(chunksize)
-    _args.append(reauth)
-    _args.append(_get_object(if_exists))
-    _args.append(auth_local_webserver)
+        _kwargs['chunksize'] = chunksize
+    _kwargs['reauth'] = reauth
+    _kwargs['if_exists'] = if_exists
+    _kwargs['auth_local_webserver'] = auth_local_webserver
     if table_schema is not None:
-        _args.append(table_schema)
+        _kwargs['table_schema'] = table_schema
     if location is not None:
-        _args.append(location)
-    _args.append(progress_bar)
+        _kwargs['location'] = location
+    _kwargs['progress_bar'] = progress_bar
     if credentials is not None:
-        _args.append(credentials)
-    return _instance.to_gbq(*_args)
+        _kwargs['credentials'] = credentials
+    return _instance.to_gbq(**_kwargs)
 
 @mcp.tool(name="dataframe_to_hdf")
-def dataframe_to_hdf(dataframe: str, path_or_buf: str, key: str, mode: str = 'a', complevel: int = None, complib: str = None, append: Any = False, format: str = None, index: Any = True, min_itemsize: Any | None = None, nan_rep: Any = None, dropna: Any | None = None, data_columns: str = None, errors: str = 'strict', encoding: str = 'UTF-8') -> None:
+def dataframe_to_hdf(dataframe: str, path_or_buf: Any, key: str, mode: Any = 'a', complevel: int = None, complib: Any | None = None, append: Any = False, format: Any | None = None, index: Any = True, min_itemsize: Any | None = None, nan_rep: Any = None, dropna: Any | None = None, data_columns: Any | None = None, errors: Any = 'strict', encoding: str = 'UTF-8') -> None:
     """Write the contained data to an HDF5 file using HDFStore.
     
     Hierarchical Data Format (HDF) is self-describing, allowing an
@@ -19146,32 +19126,32 @@ def dataframe_to_hdf(dataframe: str, path_or_buf: str, key: str, mode: str = 'a'
     dtype: int64
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(_get_object(path_or_buf))
-    _args.append(key)
-    _args.append(_get_object(mode))
+    _kwargs = {}
+    _kwargs['path_or_buf'] = path_or_buf
+    _kwargs['key'] = key
+    _kwargs['mode'] = mode
     if complevel is not None:
-        _args.append(complevel)
+        _kwargs['complevel'] = complevel
     if complib is not None:
-        _args.append(_get_object(complib))
-    _args.append(append)
+        _kwargs['complib'] = complib
+    _kwargs['append'] = append
     if format is not None:
-        _args.append(_get_object(format))
-    _args.append(index)
+        _kwargs['format'] = format
+    _kwargs['index'] = index
     if min_itemsize is not None:
-        _args.append(min_itemsize)
+        _kwargs['min_itemsize'] = min_itemsize
     if nan_rep is not None:
-        _args.append(nan_rep)
+        _kwargs['nan_rep'] = nan_rep
     if dropna is not None:
-        _args.append(dropna)
+        _kwargs['dropna'] = dropna
     if data_columns is not None:
-        _args.append(_get_object(data_columns))
-    _args.append(_get_object(errors))
-    _args.append(encoding)
-    return _instance.to_hdf(*_args)
+        _kwargs['data_columns'] = data_columns
+    _kwargs['errors'] = errors
+    _kwargs['encoding'] = encoding
+    return _instance.to_hdf(**_kwargs)
 
 @mcp.tool(name="dataframe_to_html")
-def dataframe_to_html(dataframe: str, buf: str = None, columns: str = None, col_space: str = None, header: bool = True, index: bool = True, na_rep: str = 'NaN', formatters: str = None, float_format: str = None, sparsify: bool = None, index_names: bool = True, justify: str = None, max_rows: int = None, max_cols: int = None, show_dimensions: Any = False, decimal: str = '.', bold_rows: bool = True, classes: Any | None = None, escape: bool = True, notebook: bool = False, border: Any | None = None, table_id: str = None, render_links: bool = False, encoding: str = None) -> str:
+def dataframe_to_html(dataframe: str, buf: Any | None = None, columns: Any | None = None, col_space: Any | None = None, header: bool = True, index: bool = True, na_rep: str = 'NaN', formatters: Any | None = None, float_format: Any | None = None, sparsify: bool = None, index_names: bool = True, justify: str = None, max_rows: int = None, max_cols: int = None, show_dimensions: Any = False, decimal: str = '.', bold_rows: bool = True, classes: Any | None = None, escape: bool = True, notebook: bool = False, border: Any | None = None, table_id: str = None, render_links: bool = False, encoding: str = None) -> str:
     """Render a DataFrame as an HTML table.
     
     Parameters
@@ -19283,47 +19263,47 @@ def dataframe_to_html(dataframe: str, buf: str = None, columns: str = None, col_
     >>> assert html_string == df.to_html()
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if buf is not None:
-        _args.append(_get_object(buf))
+        _kwargs['buf'] = buf
     if columns is not None:
-        _args.append(_get_object(columns))
+        _kwargs['columns'] = columns
     if col_space is not None:
-        _args.append(_get_object(col_space))
-    _args.append(header)
-    _args.append(index)
-    _args.append(na_rep)
+        _kwargs['col_space'] = col_space
+    _kwargs['header'] = header
+    _kwargs['index'] = index
+    _kwargs['na_rep'] = na_rep
     if formatters is not None:
-        _args.append(_get_object(formatters))
+        _kwargs['formatters'] = formatters
     if float_format is not None:
-        _args.append(_get_object(float_format))
+        _kwargs['float_format'] = float_format
     if sparsify is not None:
-        _args.append(sparsify)
-    _args.append(index_names)
+        _kwargs['sparsify'] = sparsify
+    _kwargs['index_names'] = index_names
     if justify is not None:
-        _args.append(justify)
+        _kwargs['justify'] = justify
     if max_rows is not None:
-        _args.append(max_rows)
+        _kwargs['max_rows'] = max_rows
     if max_cols is not None:
-        _args.append(max_cols)
-    _args.append(show_dimensions)
-    _args.append(decimal)
-    _args.append(bold_rows)
+        _kwargs['max_cols'] = max_cols
+    _kwargs['show_dimensions'] = show_dimensions
+    _kwargs['decimal'] = decimal
+    _kwargs['bold_rows'] = bold_rows
     if classes is not None:
-        _args.append(classes)
-    _args.append(escape)
-    _args.append(notebook)
+        _kwargs['classes'] = classes
+    _kwargs['escape'] = escape
+    _kwargs['notebook'] = notebook
     if border is not None:
-        _args.append(border)
+        _kwargs['border'] = border
     if table_id is not None:
-        _args.append(table_id)
-    _args.append(render_links)
+        _kwargs['table_id'] = table_id
+    _kwargs['render_links'] = render_links
     if encoding is not None:
-        _args.append(encoding)
-    return _instance.to_html(*_args)
+        _kwargs['encoding'] = encoding
+    return _instance.to_html(**_kwargs)
 
 @mcp.tool(name="dataframe_to_json")
-def dataframe_to_json(dataframe: str, path_or_buf: str = None, orient: str = None, date_format: str = None, double_precision: int = 10, force_ascii: Any = True, date_unit: str = 'ms', default_handler: str = None, lines: Any = False, compression: str = 'infer', index: Any | None = None, indent: int = None, storage_options: str = None, mode: str = 'w') -> str:
+def dataframe_to_json(dataframe: str, path_or_buf: Any | None = None, orient: Any | None = None, date_format: str = None, double_precision: int = 10, force_ascii: Any = True, date_unit: Any = 'ms', default_handler: Any | None = None, lines: Any = False, compression: Any = 'infer', index: Any | None = None, indent: int = None, storage_options: Any | None = None, mode: Any = 'w') -> str:
     """Convert the object to a JSON string.
     
     Note NaN's and None will be converted to null and datetime objects
@@ -19588,31 +19568,31 @@ def dataframe_to_json(dataframe: str, path_or_buf: str = None, orient: str = Non
     }
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if path_or_buf is not None:
-        _args.append(_get_object(path_or_buf))
+        _kwargs['path_or_buf'] = path_or_buf
     if orient is not None:
-        _args.append(_get_object(orient))
+        _kwargs['orient'] = orient
     if date_format is not None:
-        _args.append(date_format)
-    _args.append(double_precision)
-    _args.append(force_ascii)
-    _args.append(_get_object(date_unit))
+        _kwargs['date_format'] = date_format
+    _kwargs['double_precision'] = double_precision
+    _kwargs['force_ascii'] = force_ascii
+    _kwargs['date_unit'] = date_unit
     if default_handler is not None:
-        _args.append(_get_object(default_handler))
-    _args.append(lines)
-    _args.append(_get_object(compression))
+        _kwargs['default_handler'] = default_handler
+    _kwargs['lines'] = lines
+    _kwargs['compression'] = compression
     if index is not None:
-        _args.append(index)
+        _kwargs['index'] = index
     if indent is not None:
-        _args.append(indent)
+        _kwargs['indent'] = indent
     if storage_options is not None:
-        _args.append(_get_object(storage_options))
-    _args.append(_get_object(mode))
-    return _instance.to_json(*_args)
+        _kwargs['storage_options'] = storage_options
+    _kwargs['mode'] = mode
+    return _instance.to_json(**_kwargs)
 
 @mcp.tool(name="dataframe_to_latex")
-def dataframe_to_latex(dataframe: str, buf: str = None, columns: str = None, header: Any = True, index: Any = True, na_rep: str = 'NaN', formatters: str = None, float_format: str = None, sparsify: Any | None = None, index_names: Any = True, bold_rows: Any = False, column_format: str = None, longtable: Any | None = None, escape: Any | None = None, encoding: str = None, decimal: str = '.', multicolumn: Any | None = None, multicolumn_format: str = None, multirow: Any | None = None, caption: Any | None = None, label: str = None, position: str = None) -> str:
+def dataframe_to_latex(dataframe: str, buf: Any | None = None, columns: Any | None = None, header: Any = True, index: Any = True, na_rep: str = 'NaN', formatters: Any | None = None, float_format: Any | None = None, sparsify: Any | None = None, index_names: Any = True, bold_rows: Any = False, column_format: str = None, longtable: Any | None = None, escape: Any | None = None, encoding: str = None, decimal: str = '.', multicolumn: Any | None = None, multicolumn_format: str = None, multirow: Any | None = None, caption: Any | None = None, label: str = None, position: str = None) -> str:
     """Render object to a LaTeX tabular, longtable, or nested table.
     
     Requires ``\\usepackage{{booktabs}}``.  The output can be copy/pasted
@@ -19760,47 +19740,47 @@ def dataframe_to_latex(dataframe: str, buf: str = None, columns: str = None, hea
     \\end{tabular}
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if buf is not None:
-        _args.append(_get_object(buf))
+        _kwargs['buf'] = buf
     if columns is not None:
-        _args.append(_get_object(columns))
-    _args.append(header)
-    _args.append(index)
-    _args.append(na_rep)
+        _kwargs['columns'] = columns
+    _kwargs['header'] = header
+    _kwargs['index'] = index
+    _kwargs['na_rep'] = na_rep
     if formatters is not None:
-        _args.append(_get_object(formatters))
+        _kwargs['formatters'] = formatters
     if float_format is not None:
-        _args.append(_get_object(float_format))
+        _kwargs['float_format'] = float_format
     if sparsify is not None:
-        _args.append(sparsify)
-    _args.append(index_names)
-    _args.append(bold_rows)
+        _kwargs['sparsify'] = sparsify
+    _kwargs['index_names'] = index_names
+    _kwargs['bold_rows'] = bold_rows
     if column_format is not None:
-        _args.append(column_format)
+        _kwargs['column_format'] = column_format
     if longtable is not None:
-        _args.append(longtable)
+        _kwargs['longtable'] = longtable
     if escape is not None:
-        _args.append(escape)
+        _kwargs['escape'] = escape
     if encoding is not None:
-        _args.append(encoding)
-    _args.append(decimal)
+        _kwargs['encoding'] = encoding
+    _kwargs['decimal'] = decimal
     if multicolumn is not None:
-        _args.append(multicolumn)
+        _kwargs['multicolumn'] = multicolumn
     if multicolumn_format is not None:
-        _args.append(multicolumn_format)
+        _kwargs['multicolumn_format'] = multicolumn_format
     if multirow is not None:
-        _args.append(multirow)
+        _kwargs['multirow'] = multirow
     if caption is not None:
-        _args.append(caption)
+        _kwargs['caption'] = caption
     if label is not None:
-        _args.append(label)
+        _kwargs['label'] = label
     if position is not None:
-        _args.append(position)
-    return _instance.to_latex(*_args)
+        _kwargs['position'] = position
+    return _instance.to_latex(**_kwargs)
 
 @mcp.tool(name="dataframe_to_markdown")
-def dataframe_to_markdown(dataframe: str, buf: str = None, mode: str = 'wt', index: bool = True, storage_options: str = None, **kwargs: Any) -> str:
+def dataframe_to_markdown(dataframe: str, buf: Any | None = None, mode: str = 'wt', index: bool = True, storage_options: Any | None = None, **kwargs: Any) -> str:
     """Print DataFrame in Markdown-friendly format.
     
     Parameters
@@ -19857,14 +19837,14 @@ def dataframe_to_markdown(dataframe: str, buf: str = None, mode: str = 'wt', ind
             +----+------------+------------+
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if buf is not None:
-        _args.append(_get_object(buf))
-    _args.append(mode)
-    _args.append(index)
+        _kwargs['buf'] = buf
+    _kwargs['mode'] = mode
+    _kwargs['index'] = index
     if storage_options is not None:
-        _args.append(_get_object(storage_options))
-    return _instance.to_markdown(*_args)
+        _kwargs['storage_options'] = storage_options
+    return _instance.to_markdown(**_kwargs)
 
 @mcp.tool(name="dataframe_to_numpy")
 def dataframe_to_numpy(dataframe: str, dtype: Any | None = None, copy: bool = False, na_value: Any = None) -> Any:
@@ -19920,16 +19900,16 @@ def dataframe_to_numpy(dataframe: str, dtype: Any | None = None, copy: bool = Fa
            [2, 4.5, Timestamp('2000-01-02 00:00:00')]], dtype=object)
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if dtype is not None:
-        _args.append(dtype)
-    _args.append(copy)
+        _kwargs['dtype'] = dtype
+    _kwargs['copy'] = copy
     if na_value is not None:
-        _args.append(na_value)
-    return _instance.to_numpy(*_args)
+        _kwargs['na_value'] = na_value
+    return _instance.to_numpy(**_kwargs)
 
 @mcp.tool(name="dataframe_to_orc")
-def dataframe_to_orc(dataframe: str, path: str = None, engine: str = 'pyarrow', index: bool = None, engine_kwargs: dict = None) -> bytes:
+def dataframe_to_orc(dataframe: str, path: Any | None = None, engine: Any = 'pyarrow', index: bool = None, engine_kwargs: dict = None) -> bytes:
     """Write a DataFrame to the ORC format.
     
     .. versionadded:: 1.5.0
@@ -20004,18 +19984,18 @@ def dataframe_to_orc(dataframe: str, path: str = None, engine: str = 'pyarrow', 
     >>> content = b.read()  # doctest: +SKIP
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if path is not None:
-        _args.append(_get_object(path))
-    _args.append(_get_object(engine))
+        _kwargs['path'] = path
+    _kwargs['engine'] = engine
     if index is not None:
-        _args.append(index)
+        _kwargs['index'] = index
     if engine_kwargs is not None:
-        _args.append(engine_kwargs)
-    return _instance.to_orc(*_args)
+        _kwargs['engine_kwargs'] = engine_kwargs
+    return _instance.to_orc(**_kwargs)
 
 @mcp.tool(name="dataframe_to_parquet")
-def dataframe_to_parquet(dataframe: str, path: str = None, engine: str = 'auto', compression: str = 'snappy', index: bool = None, partition_cols: list = None, storage_options: str = None, **kwargs: Any) -> bytes:
+def dataframe_to_parquet(dataframe: str, path: Any | None = None, engine: Any = 'auto', compression: str = 'snappy', index: bool = None, partition_cols: list = None, storage_options: Any | None = None, **kwargs: Any) -> bytes:
     """Write a DataFrame to the binary parquet format.
     
     This function writes the dataframe as a `parquet file
@@ -20103,21 +20083,21 @@ def dataframe_to_parquet(dataframe: str, path: str = None, engine: str = 'auto',
     >>> content = f.read()
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if path is not None:
-        _args.append(_get_object(path))
-    _args.append(_get_object(engine))
-    _args.append(compression)
+        _kwargs['path'] = path
+    _kwargs['engine'] = engine
+    _kwargs['compression'] = compression
     if index is not None:
-        _args.append(index)
+        _kwargs['index'] = index
     if partition_cols is not None:
-        _args.append(partition_cols)
+        _kwargs['partition_cols'] = partition_cols
     if storage_options is not None:
-        _args.append(_get_object(storage_options))
-    return _instance.to_parquet(*_args)
+        _kwargs['storage_options'] = storage_options
+    return _instance.to_parquet(**_kwargs)
 
 @mcp.tool(name="dataframe_to_period")
-def dataframe_to_period(dataframe: str, freq: str = None, axis: str = 0, copy: bool = None) -> str:
+def dataframe_to_period(dataframe: str, freq: Any | None = None, axis: Any = 0, copy: bool = None) -> str:
     """Convert DataFrame from DatetimeIndex to PeriodIndex.
     
     Convert DataFrame from DatetimeIndex to PeriodIndex with desired
@@ -20172,17 +20152,17 @@ def dataframe_to_period(dataframe: str, freq: str = None, axis: str = 0, copy: b
     PeriodIndex(['2001', '2002', '2003'], dtype='period[Y-DEC]')
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if freq is not None:
-        _args.append(_get_object(freq))
-    _args.append(_get_object(axis))
+        _kwargs['freq'] = freq
+    _kwargs['axis'] = axis
     if copy is not None:
-        _args.append(copy)
-    result = _instance.to_period(*_args)
+        _kwargs['copy'] = copy
+    result = _instance.to_period(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_to_pickle")
-def dataframe_to_pickle(dataframe: str, path: str, compression: str = 'infer', protocol: int = 5, storage_options: str = None) -> None:
+def dataframe_to_pickle(dataframe: str, path: Any, compression: Any = 'infer', protocol: int = 5, storage_options: Any | None = None) -> None:
     """Pickle (serialize) object to file.
     
     Parameters
@@ -20256,13 +20236,13 @@ def dataframe_to_pickle(dataframe: str, path: str, compression: str = 'infer', p
     4    4    9
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(_get_object(path))
-    _args.append(_get_object(compression))
-    _args.append(protocol)
+    _kwargs = {}
+    _kwargs['path'] = path
+    _kwargs['compression'] = compression
+    _kwargs['protocol'] = protocol
     if storage_options is not None:
-        _args.append(_get_object(storage_options))
-    return _instance.to_pickle(*_args)
+        _kwargs['storage_options'] = storage_options
+    return _instance.to_pickle(**_kwargs)
 
 @mcp.tool(name="dataframe_to_records")
 def dataframe_to_records(dataframe: str, index: bool = True, column_dtypes: Any = None, index_dtypes: Any = None) -> Any:
@@ -20346,16 +20326,16 @@ def dataframe_to_records(dataframe: str, index: bool = True, column_dtypes: Any 
               dtype=[('I', 'S1'), ('A', '<i8'), ('B', '<f8')])
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(index)
+    _kwargs = {}
+    _kwargs['index'] = index
     if column_dtypes is not None:
-        _args.append(column_dtypes)
+        _kwargs['column_dtypes'] = column_dtypes
     if index_dtypes is not None:
-        _args.append(index_dtypes)
-    return _instance.to_records(*_args)
+        _kwargs['index_dtypes'] = index_dtypes
+    return _instance.to_records(**_kwargs)
 
 @mcp.tool(name="dataframe_to_sql")
-def dataframe_to_sql(dataframe: str, name: str, con: Any, schema: str = None, if_exists: str = 'fail', index: Any = True, index_label: str = None, chunksize: int = None, dtype: str = None, method: str = None) -> int:
+def dataframe_to_sql(dataframe: str, name: str, con: Any, schema: str = None, if_exists: Any = 'fail', index: Any = True, index_label: Any | None = None, chunksize: int = None, dtype: Any | None = None, method: Any | None = None) -> int:
     """Write records stored in a DataFrame to a SQL database.
     
     Databases supported by SQLAlchemy [1]_ are supported. Tables can be
@@ -20551,25 +20531,25 @@ def dataframe_to_sql(dataframe: str, name: str, con: Any, schema: str = None, if
     [(1,), (None,), (2,)]
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(name)
-    _args.append(con)
+    _kwargs = {}
+    _kwargs['name'] = name
+    _kwargs['con'] = con
     if schema is not None:
-        _args.append(schema)
-    _args.append(_get_object(if_exists))
-    _args.append(index)
+        _kwargs['schema'] = schema
+    _kwargs['if_exists'] = if_exists
+    _kwargs['index'] = index
     if index_label is not None:
-        _args.append(_get_object(index_label))
+        _kwargs['index_label'] = index_label
     if chunksize is not None:
-        _args.append(chunksize)
+        _kwargs['chunksize'] = chunksize
     if dtype is not None:
-        _args.append(_get_object(dtype))
+        _kwargs['dtype'] = dtype
     if method is not None:
-        _args.append(_get_object(method))
-    return _instance.to_sql(*_args)
+        _kwargs['method'] = method
+    return _instance.to_sql(**_kwargs)
 
 @mcp.tool(name="dataframe_to_stata")
-def dataframe_to_stata(dataframe: str, path: str, convert_dates: dict = None, write_index: bool = True, byteorder: str = None, time_stamp: Any | None = None, data_label: str = None, variable_labels: dict = None, version: int = 114, convert_strl: str = None, compression: str = 'infer', storage_options: str = None, value_labels: dict = None) -> None:
+def dataframe_to_stata(dataframe: str, path: Any, convert_dates: dict = None, write_index: bool = True, byteorder: Any | None = None, time_stamp: Any | None = None, data_label: str = None, variable_labels: dict = None, version: int = 114, convert_strl: Any | None = None, compression: Any = 'infer', storage_options: Any | None = None, value_labels: dict = None) -> None:
     """Export DataFrame object to Stata dta format.
     
     Writes the DataFrame to a Stata dataset file.
@@ -20685,31 +20665,31 @@ def dataframe_to_stata(dataframe: str, path: str, convert_dates: dict = None, wr
     >>> df.to_stata('animals.dta')  # doctest: +SKIP
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(_get_object(path))
+    _kwargs = {}
+    _kwargs['path'] = path
     if convert_dates is not None:
-        _args.append(convert_dates)
-    _args.append(write_index)
+        _kwargs['convert_dates'] = convert_dates
+    _kwargs['write_index'] = write_index
     if byteorder is not None:
-        _args.append(_get_object(byteorder))
+        _kwargs['byteorder'] = byteorder
     if time_stamp is not None:
-        _args.append(time_stamp)
+        _kwargs['time_stamp'] = time_stamp
     if data_label is not None:
-        _args.append(data_label)
+        _kwargs['data_label'] = data_label
     if variable_labels is not None:
-        _args.append(variable_labels)
-    _args.append(version)
+        _kwargs['variable_labels'] = variable_labels
+    _kwargs['version'] = version
     if convert_strl is not None:
-        _args.append(_get_object(convert_strl))
-    _args.append(_get_object(compression))
+        _kwargs['convert_strl'] = convert_strl
+    _kwargs['compression'] = compression
     if storage_options is not None:
-        _args.append(_get_object(storage_options))
+        _kwargs['storage_options'] = storage_options
     if value_labels is not None:
-        _args.append(value_labels)
-    return _instance.to_stata(*_args)
+        _kwargs['value_labels'] = value_labels
+    return _instance.to_stata(**_kwargs)
 
 @mcp.tool(name="dataframe_to_string")
-def dataframe_to_string(dataframe: str, buf: str = None, columns: str = None, col_space: Any | None = None, header: Any = True, index: bool = True, na_rep: str = 'NaN', formatters: Any | None = None, float_format: Any | None = None, sparsify: bool = None, index_names: bool = True, justify: str = None, max_rows: int = None, max_cols: int = None, show_dimensions: bool = False, decimal: str = '.', line_width: int = None, min_rows: int = None, max_colwidth: int = None, encoding: str = None) -> str:
+def dataframe_to_string(dataframe: str, buf: Any | None = None, columns: Any | None = None, col_space: Any | None = None, header: Any = True, index: bool = True, na_rep: str = 'NaN', formatters: Any | None = None, float_format: Any | None = None, sparsify: bool = None, index_names: bool = True, justify: str = None, max_rows: int = None, max_cols: int = None, show_dimensions: bool = False, decimal: str = '.', line_width: int = None, min_rows: int = None, max_colwidth: int = None, encoding: str = None) -> str:
     """Render a DataFrame to a console-friendly tabular output.
     
     Parameters
@@ -20797,43 +20777,43 @@ def dataframe_to_string(dataframe: str, buf: str = None, columns: str = None, co
     2     3     6
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if buf is not None:
-        _args.append(_get_object(buf))
+        _kwargs['buf'] = buf
     if columns is not None:
-        _args.append(_get_object(columns))
+        _kwargs['columns'] = columns
     if col_space is not None:
-        _args.append(col_space)
-    _args.append(header)
-    _args.append(index)
-    _args.append(na_rep)
+        _kwargs['col_space'] = col_space
+    _kwargs['header'] = header
+    _kwargs['index'] = index
+    _kwargs['na_rep'] = na_rep
     if formatters is not None:
-        _args.append(formatters)
+        _kwargs['formatters'] = formatters
     if float_format is not None:
-        _args.append(float_format)
+        _kwargs['float_format'] = float_format
     if sparsify is not None:
-        _args.append(sparsify)
-    _args.append(index_names)
+        _kwargs['sparsify'] = sparsify
+    _kwargs['index_names'] = index_names
     if justify is not None:
-        _args.append(justify)
+        _kwargs['justify'] = justify
     if max_rows is not None:
-        _args.append(max_rows)
+        _kwargs['max_rows'] = max_rows
     if max_cols is not None:
-        _args.append(max_cols)
-    _args.append(show_dimensions)
-    _args.append(decimal)
+        _kwargs['max_cols'] = max_cols
+    _kwargs['show_dimensions'] = show_dimensions
+    _kwargs['decimal'] = decimal
     if line_width is not None:
-        _args.append(line_width)
+        _kwargs['line_width'] = line_width
     if min_rows is not None:
-        _args.append(min_rows)
+        _kwargs['min_rows'] = min_rows
     if max_colwidth is not None:
-        _args.append(max_colwidth)
+        _kwargs['max_colwidth'] = max_colwidth
     if encoding is not None:
-        _args.append(encoding)
-    return _instance.to_string(*_args)
+        _kwargs['encoding'] = encoding
+    return _instance.to_string(**_kwargs)
 
 @mcp.tool(name="dataframe_to_timestamp")
-def dataframe_to_timestamp(dataframe: str, freq: str = None, how: str = 'start', axis: str = 0, copy: bool = None) -> str:
+def dataframe_to_timestamp(dataframe: str, freq: Any | None = None, how: Any = 'start', axis: Any = 0, copy: bool = None) -> str:
     """Cast to DatetimeIndex of timestamps, at *beginning* of period.
     
     Parameters
@@ -20897,14 +20877,14 @@ def dataframe_to_timestamp(dataframe: str, freq: str = None, how: str = 'start',
     DatetimeIndex(['2023-01-31', '2024-01-31'], dtype='datetime64[ns]', freq=None)
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if freq is not None:
-        _args.append(_get_object(freq))
-    _args.append(_get_object(how))
-    _args.append(_get_object(axis))
+        _kwargs['freq'] = freq
+    _kwargs['how'] = how
+    _kwargs['axis'] = axis
     if copy is not None:
-        _args.append(copy)
-    result = _instance.to_timestamp(*_args)
+        _kwargs['copy'] = copy
+    result = _instance.to_timestamp(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_to_xarray")
@@ -20987,7 +20967,7 @@ def dataframe_to_xarray(dataframe: str) -> Any:
     return _instance.to_xarray()
 
 @mcp.tool(name="dataframe_to_xml")
-def dataframe_to_xml(dataframe: str, path_or_buffer: str = None, index: bool = True, root_name: str = 'data', row_name: str = 'row', na_rep: str = None, attr_cols: list = None, elem_cols: list = None, namespaces: Any | None | None = None, prefix: str = None, encoding: str = 'utf-8', xml_declaration: bool = True, pretty_print: bool = True, parser: str = 'lxml', stylesheet: str = None, compression: str = 'infer', storage_options: str = None) -> str:
+def dataframe_to_xml(dataframe: str, path_or_buffer: Any | None = None, index: bool = True, root_name: str = 'data', row_name: str = 'row', na_rep: str = None, attr_cols: list = None, elem_cols: list = None, namespaces: Any | None | None = None, prefix: str = None, encoding: str = 'utf-8', xml_declaration: bool = True, pretty_print: bool = True, parser: Any | None = 'lxml', stylesheet: Any | None = None, compression: Any = 'infer', storage_options: Any | None = None) -> str:
     """Render a DataFrame to an XML document.
     
     .. versionadded:: 1.3.0
@@ -21150,35 +21130,35 @@ def dataframe_to_xml(dataframe: str, path_or_buffer: str = None, index: bool = T
     </doc:data>
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if path_or_buffer is not None:
-        _args.append(_get_object(path_or_buffer))
-    _args.append(index)
-    _args.append(root_name)
-    _args.append(row_name)
+        _kwargs['path_or_buffer'] = path_or_buffer
+    _kwargs['index'] = index
+    _kwargs['root_name'] = root_name
+    _kwargs['row_name'] = row_name
     if na_rep is not None:
-        _args.append(na_rep)
+        _kwargs['na_rep'] = na_rep
     if attr_cols is not None:
-        _args.append(attr_cols)
+        _kwargs['attr_cols'] = attr_cols
     if elem_cols is not None:
-        _args.append(elem_cols)
+        _kwargs['elem_cols'] = elem_cols
     if namespaces is not None:
-        _args.append(namespaces)
+        _kwargs['namespaces'] = namespaces
     if prefix is not None:
-        _args.append(prefix)
-    _args.append(encoding)
-    _args.append(xml_declaration)
-    _args.append(pretty_print)
-    _args.append(_get_object(parser))
+        _kwargs['prefix'] = prefix
+    _kwargs['encoding'] = encoding
+    _kwargs['xml_declaration'] = xml_declaration
+    _kwargs['pretty_print'] = pretty_print
+    _kwargs['parser'] = parser
     if stylesheet is not None:
-        _args.append(_get_object(stylesheet))
-    _args.append(_get_object(compression))
+        _kwargs['stylesheet'] = stylesheet
+    _kwargs['compression'] = compression
     if storage_options is not None:
-        _args.append(_get_object(storage_options))
-    return _instance.to_xml(*_args)
+        _kwargs['storage_options'] = storage_options
+    return _instance.to_xml(**_kwargs)
 
 @mcp.tool(name="dataframe_transform")
-def dataframe_transform(dataframe: str, func: str, axis: str = 0, *args: Any, **kwargs: Any) -> str:
+def dataframe_transform(dataframe: str, func: Any, axis: Any = 0, *args: Any, **kwargs: Any) -> str:
     """Call ``func`` on self producing a DataFrame with the same axis shape as self.
     
     Parameters
@@ -21305,7 +21285,7 @@ def dataframe_transform(dataframe: str, func: str, axis: str = 0, *args: Any, **
     6  2    n    4
     """
     _instance = _get_object(dataframe)
-    result = _instance.transform(func=_get_object(func), axis=_get_object(axis), *args, **kwargs)
+    result = _instance.transform(func=func, axis=axis, *args, **kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_transpose")
@@ -21422,7 +21402,7 @@ def dataframe_transpose(dataframe: str, copy: bool = False, *args: Any) -> str:
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_truediv")
-def dataframe_truediv(dataframe: str, other: Any, axis: str = 'columns', level: Any = None, fill_value: Any = None) -> str:
+def dataframe_truediv(dataframe: str, other: Any, axis: Any = 'columns', level: Any = None, fill_value: Any = None) -> str:
     """Get Floating division of dataframe and other, element-wise (binary operator `truediv`).
     
     Equivalent to ``dataframe / other``, but with support to substitute a fill_value
@@ -21590,18 +21570,18 @@ def dataframe_truediv(dataframe: str, other: Any, axis: str = 'columns', level: 
       hexagon       0.0      0.0
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(other)
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['other'] = other
+    _kwargs['axis'] = axis
     if level is not None:
-        _args.append(level)
+        _kwargs['level'] = level
     if fill_value is not None:
-        _args.append(fill_value)
-    result = _instance.truediv(*_args)
+        _kwargs['fill_value'] = fill_value
+    result = _instance.truediv(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="dataframe_truncate")
-def dataframe_truncate(dataframe: str, before: Any = None, after: Any = None, axis: str = None, copy: Any | None = None) -> str:
+def dataframe_truncate(dataframe: str, before: Any = None, after: Any = None, axis: Any | None = None, copy: Any | None = None) -> Any:
     """Truncate a Series or DataFrame before and after some index value.
     
     This is a useful shorthand for boolean indexing based on index
@@ -21732,20 +21712,19 @@ def dataframe_truncate(dataframe: str, before: Any = None, after: Any = None, ax
     2016-01-10 23:59:59  1
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if before is not None:
-        _args.append(before)
+        _kwargs['before'] = before
     if after is not None:
-        _args.append(after)
+        _kwargs['after'] = after
     if axis is not None:
-        _args.append(_get_object(axis))
+        _kwargs['axis'] = axis
     if copy is not None:
-        _args.append(copy)
-    result = _instance.truncate(*_args)
-    return _store_object(result, "Self")
+        _kwargs['copy'] = copy
+    return _instance.truncate(**_kwargs)
 
 @mcp.tool(name="dataframe_tz_convert")
-def dataframe_tz_convert(dataframe: str, tz: Any, axis: str = 0, level: Any = None, copy: Any | None = None) -> str:
+def dataframe_tz_convert(dataframe: str, tz: Any, axis: Any = 0, level: Any = None, copy: Any | None = None) -> Any:
     """Convert tz-aware axis to target time zone.
     
     Parameters
@@ -21804,18 +21783,17 @@ def dataframe_tz_convert(dataframe: str, tz: Any, axis: str = 0, level: Any = No
     dtype: int64
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(tz)
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['tz'] = tz
+    _kwargs['axis'] = axis
     if level is not None:
-        _args.append(level)
+        _kwargs['level'] = level
     if copy is not None:
-        _args.append(copy)
-    result = _instance.tz_convert(*_args)
-    return _store_object(result, "Self")
+        _kwargs['copy'] = copy
+    return _instance.tz_convert(**_kwargs)
 
 @mcp.tool(name="dataframe_tz_localize")
-def dataframe_tz_localize(dataframe: str, tz: Any, axis: str = 0, level: Any = None, copy: Any | None = None, ambiguous: str = 'raise', nonexistent: str = 'raise') -> str:
+def dataframe_tz_localize(dataframe: str, tz: Any, axis: Any = 0, level: Any = None, copy: Any | None = None, ambiguous: Any = 'raise', nonexistent: Any = 'raise') -> Any:
     """Localize tz-naive index of a Series or DataFrame to target time zone.
     
     This operation localizes the Index. To localize the values in a
@@ -21959,20 +21937,19 @@ def dataframe_tz_localize(dataframe: str, tz: Any, axis: str = 0, level: Any = N
     dtype: int64
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(tz)
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['tz'] = tz
+    _kwargs['axis'] = axis
     if level is not None:
-        _args.append(level)
+        _kwargs['level'] = level
     if copy is not None:
-        _args.append(copy)
-    _args.append(_get_object(ambiguous))
-    _args.append(_get_object(nonexistent))
-    result = _instance.tz_localize(*_args)
-    return _store_object(result, "Self")
+        _kwargs['copy'] = copy
+    _kwargs['ambiguous'] = ambiguous
+    _kwargs['nonexistent'] = nonexistent
+    return _instance.tz_localize(**_kwargs)
 
 @mcp.tool(name="dataframe_unstack")
-def dataframe_unstack(dataframe: str, level: str = -1, fill_value: Any = None, sort: bool = True) -> Any:
+def dataframe_unstack(dataframe: str, level: Any = -1, fill_value: Any = None, sort: bool = True) -> Any:
     """Pivot a level of the (necessarily hierarchical) index labels.
     
     Returns a DataFrame having a new level of column labels whose inner-most level
@@ -22035,15 +22012,15 @@ def dataframe_unstack(dataframe: str, level: str = -1, fill_value: Any = None, s
     dtype: float64
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(_get_object(level))
+    _kwargs = {}
+    _kwargs['level'] = level
     if fill_value is not None:
-        _args.append(fill_value)
-    _args.append(sort)
-    return _instance.unstack(*_args)
+        _kwargs['fill_value'] = fill_value
+    _kwargs['sort'] = sort
+    return _instance.unstack(**_kwargs)
 
 @mcp.tool(name="dataframe_update")
-def dataframe_update(dataframe: str, other: Any, join: str = 'left', overwrite: bool = True, filter_func: Any = None, errors: str = 'ignore') -> None:
+def dataframe_update(dataframe: str, other: Any, join: Any = 'left', overwrite: bool = True, filter_func: Any = None, errors: Any = 'ignore') -> None:
     """Modify in place using non-NA values from another DataFrame.
     
     Aligns on indices. There is no return value.
@@ -22153,17 +22130,17 @@ def dataframe_update(dataframe: str, other: Any, join: str = 'left', overwrite: 
     2  3    6.0
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(other)
-    _args.append(_get_object(join))
-    _args.append(overwrite)
+    _kwargs = {}
+    _kwargs['other'] = other
+    _kwargs['join'] = join
+    _kwargs['overwrite'] = overwrite
     if filter_func is not None:
-        _args.append(filter_func)
-    _args.append(_get_object(errors))
-    return _instance.update(*_args)
+        _kwargs['filter_func'] = filter_func
+    _kwargs['errors'] = errors
+    return _instance.update(**_kwargs)
 
 @mcp.tool(name="dataframe_value_counts")
-def dataframe_value_counts(dataframe: str, subset: str = None, normalize: bool = False, sort: bool = True, ascending: bool = False, dropna: bool = True) -> str:
+def dataframe_value_counts(dataframe: str, subset: Any | None = None, normalize: bool = False, sort: bool = True, ascending: bool = False, dropna: bool = True) -> Any:
     """Return a Series containing the frequency of each distinct row in the Dataframe.
     
     Parameters
@@ -22270,18 +22247,17 @@ def dataframe_value_counts(dataframe: str, subset: str = None, normalize: bool =
     Name: count, dtype: int64
     """
     _instance = _get_object(dataframe)
-    _args = []
+    _kwargs = {}
     if subset is not None:
-        _args.append(_get_object(subset))
-    _args.append(normalize)
-    _args.append(sort)
-    _args.append(ascending)
-    _args.append(dropna)
-    result = _instance.value_counts(*_args)
-    return _store_object(result, "Series")
+        _kwargs['subset'] = subset
+    _kwargs['normalize'] = normalize
+    _kwargs['sort'] = sort
+    _kwargs['ascending'] = ascending
+    _kwargs['dropna'] = dropna
+    return _instance.value_counts(**_kwargs)
 
 @mcp.tool(name="dataframe_var")
-def dataframe_var(dataframe: str, axis: str = 0, skipna: bool = True, ddof: int = 1, numeric_only: bool = False, **kwargs: Any) -> Any:
+def dataframe_var(dataframe: str, axis: Any | None = 0, skipna: bool = True, ddof: int = 1, numeric_only: bool = False, **kwargs: Any) -> Any:
     """Return unbiased variance over requested axis.
     
     Normalized by N-1 by default. This can be changed using the ddof argument.
@@ -22337,10 +22313,10 @@ def dataframe_var(dataframe: str, axis: str = 0, skipna: bool = True, ddof: int 
     dtype: float64
     """
     _instance = _get_object(dataframe)
-    return _instance.var(axis=_get_object(axis), skipna=skipna, ddof=ddof, numeric_only=numeric_only, **kwargs)
+    return _instance.var(axis=axis, skipna=skipna, ddof=ddof, numeric_only=numeric_only, **kwargs)
 
 @mcp.tool(name="dataframe_where")
-def dataframe_where(dataframe: str, cond: Any, other: Any = nan, inplace: Any = False, axis: str = None, level: str = None) -> str:
+def dataframe_where(dataframe: str, cond: Any, other: Any = None, inplace: Any = False, axis: Any | None = None, level: Any | None = None) -> Any | None:
     """Replace values where the condition is False.
     
     Parameters
@@ -22478,19 +22454,19 @@ def dataframe_where(dataframe: str, cond: Any, other: Any = nan, inplace: Any = 
     4  True  True
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(cond)
-    _args.append(other)
-    _args.append(inplace)
+    _kwargs = {}
+    _kwargs['cond'] = cond
+    if other is not None:
+        _kwargs['other'] = other
+    _kwargs['inplace'] = inplace
     if axis is not None:
-        _args.append(_get_object(axis))
+        _kwargs['axis'] = axis
     if level is not None:
-        _args.append(_get_object(level))
-    result = _instance.where(*_args)
-    return _store_object(result, "Self")
+        _kwargs['level'] = level
+    return _instance.where(**_kwargs)
 
 @mcp.tool(name="dataframe_xs")
-def dataframe_xs(dataframe: str, key: str, axis: str = 0, level: str = None, drop_level: Any = True) -> str:
+def dataframe_xs(dataframe: str, key: Any, axis: Any = 0, level: Any | None = None, drop_level: Any = True) -> Any:
     """Return cross-section from the Series/DataFrame.
     
     This method takes a `key` argument to select data at a particular
@@ -22589,63 +22565,62 @@ def dataframe_xs(dataframe: str, key: str, axis: str = 0, level: str = None, dro
     Name: num_wings, dtype: int64
     """
     _instance = _get_object(dataframe)
-    _args = []
-    _args.append(_get_object(key))
-    _args.append(_get_object(axis))
+    _kwargs = {}
+    _kwargs['key'] = key
+    _kwargs['axis'] = axis
     if level is not None:
-        _args.append(_get_object(level))
-    _args.append(drop_level)
-    result = _instance.xs(*_args)
-    return _store_object(result, "Self")
+        _kwargs['level'] = level
+    _kwargs['drop_level'] = drop_level
+    return _instance.xs(**_kwargs)
 
 @mcp.tool(name="series_str_contains")
 def series_str_contains(str: str, pat: Any, case: bool = True, flags: int = 0, na: Any = None, regex: bool = True) -> Any:
     """Test if pattern is contained in each string."""
     _instance = _get_object(str)
-    _args = []
-    _args.append(pat)
-    _args.append(case)
-    _args.append(flags)
+    _kwargs = {}
+    _kwargs['pat'] = pat
+    _kwargs['case'] = case
+    _kwargs['flags'] = flags
     if na is not None:
-        _args.append(na)
-    _args.append(regex)
-    return _instance.contains(*_args)
+        _kwargs['na'] = na
+    _kwargs['regex'] = regex
+    return _instance.contains(**_kwargs)
 
 @mcp.tool(name="series_str_replace")
 def series_str_replace(str: str, pat: Any, repl: Any, n: int = -1, case: bool = None, flags: int = 0, regex: bool = False) -> Any:
     """Replace occurrences of pattern in strings."""
     _instance = _get_object(str)
-    _args = []
-    _args.append(pat)
-    _args.append(repl)
-    _args.append(n)
+    _kwargs = {}
+    _kwargs['pat'] = pat
+    _kwargs['repl'] = repl
+    _kwargs['n'] = n
     if case is not None:
-        _args.append(case)
-    _args.append(flags)
-    _args.append(regex)
-    return _instance.replace(*_args)
+        _kwargs['case'] = case
+    _kwargs['flags'] = flags
+    _kwargs['regex'] = regex
+    return _instance.replace(**_kwargs)
 
 @mcp.tool(name="series_str_split")
 def series_str_split(str: str, pat: Any | None = None, n: Any = -1, expand: bool = False, regex: bool = None) -> Any:
     """Split strings by delimiter."""
     _instance = _get_object(str)
-    _args = []
+    _kwargs = {}
     if pat is not None:
-        _args.append(pat)
-    _args.append(n)
-    _args.append(expand)
+        _kwargs['pat'] = pat
+    _kwargs['n'] = n
+    _kwargs['expand'] = expand
     if regex is not None:
-        _args.append(regex)
-    return _instance.split(*_args)
+        _kwargs['regex'] = regex
+    return _instance.split(**_kwargs)
 
 @mcp.tool(name="series_str_strip")
 def series_str_strip(str: str, to_strip: Any = None) -> Any:
     """Remove leading and trailing whitespace."""
     _instance = _get_object(str)
-    _args = []
+    _kwargs = {}
     if to_strip is not None:
-        _args.append(to_strip)
-    return _instance.strip(*_args)
+        _kwargs['to_strip'] = to_strip
+    return _instance.strip(**_kwargs)
 
 @mcp.tool(name="series_str_lower")
 def series_str_lower(str: str) -> Any:
@@ -22666,14 +22641,15 @@ def series_str_len(str: str) -> Any:
     return _instance.len()
 
 @mcp.tool(name="concat")
-def concat(objs: str, axis: str = 0, join: str = 'outer', ignore_index: bool = False, keys: str = None, levels: Any = None, names: list = None, verify_integrity: bool = False, sort: bool = False, copy: bool = None) -> str:
+def concat(objs: Any, axis: Any = 0, join: str = 'outer', ignore_index: bool = False, keys: Any | None = None, levels: Any = None, names: list = None, verify_integrity: bool = False, sort: bool = False, copy: bool = None) -> str:
     """Concatenate pandas objects along an axis."""
     _kwargs = {}
-    _kwargs['objs'] = _get_object(objs)
-    _kwargs['axis'] = _get_object(axis)
+    _kwargs['objs'] = objs
+    _kwargs['axis'] = axis
     _kwargs['join'] = join
     _kwargs['ignore_index'] = ignore_index
-    _kwargs['keys'] = _get_object(keys)
+    if keys is not None:
+        _kwargs['keys'] = keys
     if levels is not None:
         _kwargs['levels'] = levels
     if names is not None:
@@ -22683,22 +22659,25 @@ def concat(objs: str, axis: str = 0, join: str = 'outer', ignore_index: bool = F
     if copy is not None:
         _kwargs['copy'] = copy
     result = pandas.concat(**_kwargs)
-    return _store_object(result, "DataFrame | Series")
+    return _store_object(result, "DataFrame")
 
 @mcp.tool(name="merge")
-def merge(left: str, right: str, how: str = 'inner', on: str = None, left_on: str = None, right_on: str = None, left_index: bool = False, right_index: bool = False, sort: bool = False, suffixes: str = ('_x', '_y'), copy: bool = None, indicator: Any = False, validate: str = None) -> str:
+def merge(left: str, right: str, how: Any = 'inner', on: Any | None = None, left_on: Any | None = None, right_on: Any | None = None, left_index: bool = False, right_index: bool = False, sort: bool = False, suffixes: Any = ('_x', '_y'), copy: bool = None, indicator: Any = False, validate: str = None) -> str:
     """Merge DataFrame objects with database-style join."""
     _kwargs = {}
     _kwargs['left'] = _get_object(left)
     _kwargs['right'] = _get_object(right)
-    _kwargs['how'] = _get_object(how)
-    _kwargs['on'] = _get_object(on)
-    _kwargs['left_on'] = _get_object(left_on)
-    _kwargs['right_on'] = _get_object(right_on)
+    _kwargs['how'] = how
+    if on is not None:
+        _kwargs['on'] = on
+    if left_on is not None:
+        _kwargs['left_on'] = left_on
+    if right_on is not None:
+        _kwargs['right_on'] = right_on
     _kwargs['left_index'] = left_index
     _kwargs['right_index'] = right_index
     _kwargs['sort'] = sort
-    _kwargs['suffixes'] = _get_object(suffixes)
+    _kwargs['suffixes'] = suffixes
     if copy is not None:
         _kwargs['copy'] = copy
     _kwargs['indicator'] = indicator
@@ -22708,7 +22687,7 @@ def merge(left: str, right: str, how: str = 'inner', on: str = None, left_on: st
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="date_range")
-def date_range(start: Any = None, end: Any = None, periods: Any = None, freq: Any = None, tz: Any = None, normalize: bool = False, name: str = None, inclusive: str = 'both', unit: str = None, **kwargs: Any) -> str:
+def date_range(start: Any = None, end: Any = None, periods: Any = None, freq: Any = None, tz: Any = None, normalize: bool = False, name: Any | None = None, inclusive: Any = 'both', unit: str = None, **kwargs: Any) -> Any:
     """Generate a sequence of dates."""
     _kwargs = {}
     if start is not None:
@@ -22722,19 +22701,19 @@ def date_range(start: Any = None, end: Any = None, periods: Any = None, freq: An
     if tz is not None:
         _kwargs['tz'] = tz
     _kwargs['normalize'] = normalize
-    _kwargs['name'] = _get_object(name)
-    _kwargs['inclusive'] = _get_object(inclusive)
+    if name is not None:
+        _kwargs['name'] = name
+    _kwargs['inclusive'] = inclusive
     if unit is not None:
         _kwargs['unit'] = unit
-    result = pandas.date_range(**_kwargs)
-    return _store_object(result, "DatetimeIndex")
+    return pandas.date_range(**_kwargs)
 
 @mcp.tool(name="to_datetime")
-def to_datetime(arg: str, errors: str = 'raise', dayfirst: bool = False, yearfirst: bool = False, utc: bool = False, format: str = None, exact: Any = None, unit: str = None, infer_datetime_format: Any = None, origin: str = 'unix', cache: bool = True) -> str:
+def to_datetime(arg: Any, errors: Any = 'raise', dayfirst: bool = False, yearfirst: bool = False, utc: bool = False, format: str = None, exact: Any = None, unit: str = None, infer_datetime_format: Any = None, origin: str = 'unix', cache: bool = True) -> Any | None:
     """Convert argument to datetime."""
     _kwargs = {}
-    _kwargs['arg'] = _get_object(arg)
-    _kwargs['errors'] = _get_object(errors)
+    _kwargs['arg'] = arg
+    _kwargs['errors'] = errors
     _kwargs['dayfirst'] = dayfirst
     _kwargs['yearfirst'] = yearfirst
     _kwargs['utc'] = utc
@@ -22748,17 +22727,18 @@ def to_datetime(arg: str, errors: str = 'raise', dayfirst: bool = False, yearfir
         _kwargs['infer_datetime_format'] = infer_datetime_format
     _kwargs['origin'] = origin
     _kwargs['cache'] = cache
-    result = pandas.to_datetime(**_kwargs)
-    return _store_object(result, "DatetimeIndex | Series | DatetimeScalar | NaTType")
+    return pandas.to_datetime(**_kwargs)
 
 @mcp.tool(name="to_numeric")
-def to_numeric(arg: Any, errors: str = 'raise', downcast: str = None, dtype_backend: str = None) -> Any:
+def to_numeric(arg: Any, errors: Any = 'raise', downcast: Any | None = None, dtype_backend: Any = None) -> Any:
     """Convert argument to numeric type."""
     _kwargs = {}
     _kwargs['arg'] = arg
-    _kwargs['errors'] = _get_object(errors)
-    _kwargs['downcast'] = _get_object(downcast)
-    _kwargs['dtype_backend'] = _get_object(dtype_backend)
+    _kwargs['errors'] = errors
+    if downcast is not None:
+        _kwargs['downcast'] = downcast
+    if dtype_backend is not None:
+        _kwargs['dtype_backend'] = dtype_backend
     return pandas.to_numeric(**_kwargs)
 
 @mcp.tool(name="isna")
@@ -22801,7 +22781,7 @@ def qcut(x: Any, q: Any, labels: Any = None, retbins: bool = False, precision: i
     return pandas.qcut(**_kwargs)
 
 @mcp.tool(name="get_dummies")
-def get_dummies(data: Any, prefix: Any = None, prefix_sep: Any = '_', dummy_na: bool = False, columns: Any = None, sparse: bool = False, drop_first: bool = False, dtype: str = None) -> str:
+def get_dummies(data: Any, prefix: Any = None, prefix_sep: Any = '_', dummy_na: bool = False, columns: Any = None, sparse: bool = False, drop_first: bool = False, dtype: Any | None = None) -> str:
     """Convert categorical variable into dummy/indicator variables."""
     _kwargs = {}
     _kwargs['data'] = data
@@ -22813,12 +22793,13 @@ def get_dummies(data: Any, prefix: Any = None, prefix_sep: Any = '_', dummy_na: 
         _kwargs['columns'] = columns
     _kwargs['sparse'] = sparse
     _kwargs['drop_first'] = drop_first
-    _kwargs['dtype'] = _get_object(dtype)
+    if dtype is not None:
+        _kwargs['dtype'] = dtype
     result = pandas.get_dummies(**_kwargs)
     return _store_object(result, "DataFrame")
 
 @mcp.tool(name="from_dummies")
-def from_dummies(data: str, sep: str = None, default_category: str = None) -> str:
+def from_dummies(data: str, sep: Any = None, default_category: Any = None) -> str:
     """Create a categorical ``DataFrame`` from a ``DataFrame`` of dummy variables.
     
     Inverts the operation performed by :func:`~pandas.get_dummies`.
@@ -22925,8 +22906,10 @@ def from_dummies(data: str, sep: str = None, default_category: str = None) -> st
     """
     _kwargs = {}
     _kwargs['data'] = _get_object(data)
-    _kwargs['sep'] = _get_object(sep)
-    _kwargs['default_category'] = _get_object(default_category)
+    if sep is not None:
+        _kwargs['sep'] = sep
+    if default_category is not None:
+        _kwargs['default_category'] = default_category
     result = pandas.from_dummies(**_kwargs)
     return _store_object(result, "DataFrame")
 
