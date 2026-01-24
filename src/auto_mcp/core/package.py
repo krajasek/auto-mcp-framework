@@ -224,6 +224,13 @@ class PackageAnalyzer:
 
         # Analyze each module for methods
         for module_info in metadata.modules.values():
+            # Only include methods from modules that actually match the pattern
+            # (not just modules traversed to reach matching children)
+            if not self._module_matches_for_methods(
+                module_info.name, include_patterns, exclude_patterns
+            ):
+                continue
+
             methods = self._module_analyzer.analyze_module(module_info.module)
             # Tag methods with additional package info
             for method in methods:
@@ -450,7 +457,63 @@ class PackageAnalyzer:
 
         # Check include patterns
         if include_patterns:
-            return any(fnmatch.fnmatch(module_name, pattern) for pattern in include_patterns)
+            for pattern in include_patterns:
+                # Direct match
+                if fnmatch.fnmatch(module_name, pattern):
+                    return True
+                # Check if this module is a prefix/ancestor of the pattern
+                # e.g., module "requests" is a prefix of pattern "requests.api.*"
+                # This allows traversal through parent modules to find matches
+                pattern_prefix = pattern.rstrip("*").rstrip(".")
+                if pattern_prefix.startswith(module_name + ".") or pattern_prefix == module_name:
+                    return True
+            return False
+
+        return True  # No patterns specified, include by default
+
+    def _module_matches_for_methods(
+        self,
+        module_name: str,
+        include_patterns: list[str] | None,
+        exclude_patterns: list[str] | None,
+    ) -> bool:
+        """Check if a module's methods should be included (stricter than traversal).
+
+        Unlike _matches_patterns which allows traversal through parent modules,
+        this method returns True only if the module directly matches a pattern.
+
+        Special case: patterns ending in '.*' also match their parent module.
+        e.g., 'requests.api.*' will match both 'requests.api' and 'requests.api.foo'
+
+        Args:
+            module_name: The module name to check
+            include_patterns: Patterns that must match (if specified)
+            exclude_patterns: Patterns that must not match
+
+        Returns:
+            True if the module's methods should be included
+        """
+        import fnmatch
+
+        # Check exclude patterns first
+        if exclude_patterns:
+            for pattern in exclude_patterns:
+                if fnmatch.fnmatch(module_name, pattern):
+                    return False
+
+        # Check include patterns
+        if include_patterns:
+            for pattern in include_patterns:
+                # Direct match
+                if fnmatch.fnmatch(module_name, pattern):
+                    return True
+                # Special case: pattern ending in '.*' also matches parent module
+                # e.g., 'requests.api.*' also matches 'requests.api'
+                if pattern.endswith(".*"):
+                    parent_pattern = pattern[:-2]  # Remove '.*'
+                    if module_name == parent_pattern:
+                        return True
+            return False
 
         return True  # No patterns specified, include by default
 

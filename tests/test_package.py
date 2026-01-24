@@ -342,6 +342,90 @@ class TestPackageAnalyzerWithPatterns:
         # json.decoder should not be in modules
         assert "json.decoder" not in metadata.modules
 
+    def test_matches_patterns_allows_parent_traversal(self) -> None:
+        """Test that include patterns allow traversing through parent modules.
+
+        When using '--include pkg.sub.*', the parent 'pkg' should be traversed
+        so that 'pkg.sub' can be discovered.
+        """
+        analyzer = PackageAnalyzer()
+
+        # Pattern 'json.decoder.*' should allow traversing 'json'
+        assert analyzer._matches_patterns(
+            "json",
+            include_patterns=["json.decoder.*"],
+            exclude_patterns=None,
+        ) is True
+
+        # And also allow 'json.decoder' itself
+        assert analyzer._matches_patterns(
+            "json.decoder",
+            include_patterns=["json.decoder.*"],
+            exclude_patterns=None,
+        ) is True
+
+        # But not unrelated modules
+        assert analyzer._matches_patterns(
+            "xml",
+            include_patterns=["json.decoder.*"],
+            exclude_patterns=None,
+        ) is False
+
+    def test_module_matches_for_methods_star_includes_parent(self) -> None:
+        """Test that '.*' patterns also match their parent module.
+
+        When using '--include pkg.sub.*', methods from 'pkg.sub' itself
+        should be included (not just submodules like 'pkg.sub.foo').
+        """
+        analyzer = PackageAnalyzer()
+
+        # Pattern 'json.decoder.*' should include methods from 'json.decoder'
+        assert analyzer._module_matches_for_methods(
+            "json.decoder",
+            include_patterns=["json.decoder.*"],
+            exclude_patterns=None,
+        ) is True
+
+        # And also 'json.decoder.something'
+        assert analyzer._module_matches_for_methods(
+            "json.decoder.something",
+            include_patterns=["json.decoder.*"],
+            exclude_patterns=None,
+        ) is True
+
+        # But not the parent 'json' (only traversed, not included)
+        assert analyzer._module_matches_for_methods(
+            "json",
+            include_patterns=["json.decoder.*"],
+            exclude_patterns=None,
+        ) is False
+
+    def test_module_matches_for_methods_no_patterns(self) -> None:
+        """Test that no patterns means all modules are included."""
+        analyzer = PackageAnalyzer()
+
+        assert analyzer._module_matches_for_methods(
+            "any.module",
+            include_patterns=None,
+            exclude_patterns=None,
+        ) is True
+
+    def test_module_matches_for_methods_exclude(self) -> None:
+        """Test that exclude patterns are respected."""
+        analyzer = PackageAnalyzer()
+
+        assert analyzer._module_matches_for_methods(
+            "json.decoder",
+            include_patterns=None,
+            exclude_patterns=["*.decoder"],
+        ) is False
+
+        assert analyzer._module_matches_for_methods(
+            "json.encoder",
+            include_patterns=None,
+            exclude_patterns=["*.decoder"],
+        ) is True
+
 
 class TestPackageAnalyzerPrivateModules:
     """Tests for private module handling."""
