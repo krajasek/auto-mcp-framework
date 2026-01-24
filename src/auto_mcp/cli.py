@@ -3098,11 +3098,12 @@ def wrapper_check(
         table.add_column("Parsed Params")
 
         for func in functions:
+            param_count = len(func.signature.parameters) if func.signature else 0
             table.add_row(
                 func.name,
                 "Yes" if func.is_c_extension else "No",
                 "Yes" if func.docstring else "No",
-                str(len(func.parsed_params)) if func.parsed_params else "0",
+                str(param_count),
             )
 
         console.print(table)
