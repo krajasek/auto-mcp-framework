@@ -134,23 +134,36 @@ def cli(ctx: click.Context) -> None:
 
 
 @cli.command()
-@click.argument("modules", nargs=-1, required=True, type=click.Path(exists=True))
+@click.argument("source", required=True)
 @click.option(
     "-o",
     "--output",
     type=click.Path(),
-    help="Output path for generated file or directory",
+    required=True,
+    help="Output path for generated server file",
 )
 @click.option(
-    "--package",
-    type=str,
-    help="Generate as a package with this name (instead of standalone file)",
+    "--manifest",
+    type=click.Path(exists=True),
+    help="YAML manifest for selective tool exposure. If not provided, exposes entire module/package.",
 )
 @click.option(
     "--name",
     type=str,
-    default="auto-mcp-server",
-    help="Name for the generated server",
+    default=None,
+    help="Name for the generated server (defaults to 'auto-mcp-server' or package name)",
+)
+@click.option(
+    "--version",
+    "pkg_version",
+    type=str,
+    default=None,
+    help="Package version to use with uvx isolation (e.g., '2.28.0')",
+)
+@click.option(
+    "--no-isolated",
+    is_flag=True,
+    help="Disable uvx isolation (fail if package not installed locally)",
 )
 @click.option(
     "--llm-provider",
@@ -209,12 +222,140 @@ def cli(ctx: click.Context) -> None:
     default=100,
     help="Maximum number of concurrent sessions (default: 100)",
 )
+@click.option(
+    "--max-depth",
+    type=int,
+    default=None,
+    help="Maximum recursion depth for package submodule discovery",
+)
+@click.option(
+    "--public-api-only",
+    is_flag=True,
+    help="Only expose functions in __all__ (public API) - for packages",
+)
+@click.option(
+    "--include-reexports",
+    is_flag=True,
+    help="Include functions re-exported in __all__ from submodules",
+)
 @click.pass_context
 def generate(
     ctx: click.Context,
-    modules: tuple[str, ...],
-    output: str | None,
-    package: str | None,
+    source: str,
+    output: str,
+    manifest: str | None,
+    name: str | None,
+    pkg_version: str | None,
+    no_isolated: bool,
+    llm_provider: str | None,
+    llm_model: str | None,
+    no_llm: bool,
+    no_cache: bool,
+    include_private: bool,
+    no_resources: bool,
+    no_prompts: bool,
+    context: str | None,
+    enable_sessions: bool,
+    session_ttl: int,
+    max_sessions: int,
+    max_depth: int | None,
+    public_api_only: bool,
+    include_reexports: bool,
+) -> None:
+    """Generate an MCP server from a Python file or installed package.
+
+    SOURCE can be:
+    \b
+    - A Python file: mymodule.py, src/lib.py
+    - A package name: pandas, requests, sqlite3
+
+    Examples:
+
+    \b
+        # From a Python file
+        auto-mcp-tool generate mymodule.py -o server.py
+
+    \b
+        # From an installed package
+        auto-mcp-tool generate requests -o requests_server.py
+
+    \b
+        # With manifest for selective tool exposure
+        auto-mcp-tool generate pandas --manifest pandas_tools.yaml -o server.py
+
+    \b
+        # Specific package version (uses uvx isolation)
+        auto-mcp-tool generate requests --version 2.28.0 -o server.py
+
+    \b
+        # Generate with custom server name
+        auto-mcp-tool generate mymodule.py -o server.py --name "My Server"
+
+    \b
+        # Generate without LLM (use docstrings only)
+        auto-mcp-tool generate json -o json_server.py --no-llm
+    """
+    settings: Settings = ctx.obj["settings"]
+    output_path = Path(output).resolve()
+
+    # Detect source type: file or package
+    source_path = Path(source)
+    is_file = source.endswith(".py") or source_path.exists()
+
+    if is_file:
+        # File-based generation
+        _generate_from_file(
+            ctx=ctx,
+            source_path=source_path,
+            output_path=output_path,
+            manifest_path=Path(manifest) if manifest else None,
+            name=name or "auto-mcp-server",
+            llm_provider=llm_provider,
+            llm_model=llm_model,
+            no_llm=no_llm,
+            no_cache=no_cache,
+            include_private=include_private,
+            no_resources=no_resources,
+            no_prompts=no_prompts,
+            context=context,
+            enable_sessions=enable_sessions,
+            session_ttl=session_ttl,
+            max_sessions=max_sessions,
+            settings=settings,
+        )
+    else:
+        # Package-based generation
+        _generate_from_package(
+            ctx=ctx,
+            package_name=source,
+            output_path=output_path,
+            manifest_path=Path(manifest) if manifest else None,
+            name=name,
+            pkg_version=pkg_version,
+            no_isolated=no_isolated,
+            llm_provider=llm_provider,
+            llm_model=llm_model,
+            no_llm=no_llm,
+            no_cache=no_cache,
+            include_private=include_private,
+            no_resources=no_resources,
+            no_prompts=no_prompts,
+            context=context,
+            enable_sessions=enable_sessions,
+            session_ttl=session_ttl,
+            max_sessions=max_sessions,
+            max_depth=max_depth,
+            public_api_only=public_api_only,
+            include_reexports=include_reexports,
+            settings=settings,
+        )
+
+
+def _generate_from_file(
+    ctx: click.Context,
+    source_path: Path,
+    output_path: Path,
+    manifest_path: Path | None,
     name: str,
     llm_provider: str | None,
     llm_model: str | None,
@@ -227,99 +368,289 @@ def generate(
     enable_sessions: bool,
     session_ttl: int,
     max_sessions: int,
+    settings: Settings,
 ) -> None:
-    """Generate an MCP server from Python modules.
+    """Generate MCP server from a Python file."""
+    # Load module
+    with console.status("[bold blue]Loading module..."):
+        module = load_module_from_path(source_path.resolve())
+    console.print(f"[green]✓[/green] Loaded module: {module.__name__}")
 
-    MODULES: One or more Python files to analyze and expose as MCP tools.
+    if manifest_path:
+        # Manifest-based generation
+        from auto_mcp.manifest import Manifest, ManifestGenerator
 
-    Examples:
+        with console.status("[bold blue]Loading manifest..."):
+            manifest = Manifest.from_yaml(manifest_path)
+        console.print(f"[green]✓[/green] Loaded manifest with {len(manifest.tools)} tool patterns")
 
-        # Generate standalone server file
-        auto-mcp-tool generate mymodule.py -o server.py
+        with console.status("[bold blue]Generating MCP server from manifest..."):
+            generator = ManifestGenerator()
+            generator.generate(module, manifest, output_path, module.__name__)
 
-        # Generate with custom server name
-        auto-mcp-tool generate mymodule.py -o server.py --name "My MCP Server"
-
-        # Generate as a package
-        auto-mcp-tool generate mymodule.py --package my-server -o ./dist
-
-        # Generate without LLM (use docstrings only)
-        auto-mcp-tool generate mymodule.py -o server.py --no-llm
-
-        # Generate with session lifecycle support
-        auto-mcp-tool generate mymodule.py -o server.py --enable-sessions
-
-        # Generate with custom session settings
-        auto-mcp-tool generate mymodule.py -o server.py --enable-sessions --session-ttl 7200
-    """
-    settings: Settings = ctx.obj["settings"]
-
-    # Load modules
-    with console.status("[bold blue]Loading modules..."):
-        loaded_modules = load_modules(modules)
-    console.print(f"[green]✓[/green] Loaded {len(loaded_modules)} module(s)")
-
-    # Create LLM provider if enabled
-    llm = None
-    if not no_llm:
-        with console.status("[bold blue]Initializing LLM provider..."):
-            llm = get_llm_provider(llm_provider, llm_model, settings)
-        if llm:
-            console.print(f"[green]✓[/green] Using LLM: {llm.model_name}")
-        else:
-            console.print("[yellow]![/yellow] LLM disabled, using docstrings only")
-
-    # Create cache
-    cache = PromptCache() if not no_cache else PromptCache(cache_dir=None)
-
-    # Create generator config
-    config = GeneratorConfig(
-        server_name=name,
-        include_private=include_private,
-        generate_resources=not no_resources,
-        generate_prompts=not no_prompts,
-        use_cache=not no_cache,
-        use_llm=not no_llm and llm is not None,
-        enable_sessions=enable_sessions,
-        session_ttl=session_ttl,
-        max_sessions=max_sessions,
-    )
-
-    # Create generator
-    generator = MCPGenerator(llm=llm, cache=cache, config=config)
-
-    if enable_sessions:
-        console.print("[green]✓[/green] Session lifecycle enabled")
-
-    # Generate output
-    if package:
-        # Generate package
-        output_dir = Path(output) if output else Path.cwd()
-        with console.status(f"[bold blue]Generating package '{package}'..."):
-            result = generator.generate_package(
-                loaded_modules,
-                output_dir,
-                package,
-                context=context,
-            )
-        console.print(f"[green]✓[/green] Generated package at: {result}")
-        console.print(f"\n[dim]To install: pip install {result}[/dim]")
+        console.print(f"[green]✓[/green] Generated server at: {output_path}")
+        console.print(f"\n[dim]To run: python {output_path}[/dim]")
     else:
+        # Full module generation (existing behavior)
+        # Create LLM provider if enabled
+        llm = None
+        if not no_llm:
+            with console.status("[bold blue]Initializing LLM provider..."):
+                llm = get_llm_provider(llm_provider, llm_model, settings)
+            if llm:
+                console.print(f"[green]✓[/green] Using LLM: {llm.model_name}")
+            else:
+                console.print("[yellow]![/yellow] LLM disabled, using docstrings only")
+
+        # Create cache
+        cache = PromptCache() if not no_cache else PromptCache(cache_dir=None)
+
+        # Create generator config
+        config = GeneratorConfig(
+            server_name=name,
+            include_private=include_private,
+            generate_resources=not no_resources,
+            generate_prompts=not no_prompts,
+            use_cache=not no_cache,
+            use_llm=not no_llm and llm is not None,
+            enable_sessions=enable_sessions,
+            session_ttl=session_ttl,
+            max_sessions=max_sessions,
+        )
+
+        # Create generator
+        generator = MCPGenerator(llm=llm, cache=cache, config=config)
+
+        if enable_sessions:
+            console.print("[green]✓[/green] Session lifecycle enabled")
+
         # Generate standalone file
-        output_path = Path(output) if output else Path("server.py")
         with console.status("[bold blue]Generating standalone server..."):
             result = generator.generate_standalone(
-                loaded_modules,
+                [module],
                 output_path,
                 context=context,
             )
         console.print(f"[green]✓[/green] Generated server at: {result}")
         console.print(f"\n[dim]To run: python {result}[/dim]")
 
-    # Save cache if enabled
-    if not no_cache:
-        for module in loaded_modules:
+        # Save cache if enabled
+        if not no_cache:
             cache.save(module.__name__)
+
+
+def _generate_from_package(
+    ctx: click.Context,
+    package_name: str,
+    output_path: Path,
+    manifest_path: Path | None,
+    name: str | None,
+    pkg_version: str | None,
+    no_isolated: bool,
+    llm_provider: str | None,
+    llm_model: str | None,
+    no_llm: bool,
+    no_cache: bool,
+    include_private: bool,
+    no_resources: bool,
+    no_prompts: bool,
+    context: str | None,
+    enable_sessions: bool,
+    session_ttl: int,
+    max_sessions: int,
+    max_depth: int | None,
+    public_api_only: bool,
+    include_reexports: bool,
+    settings: Settings,
+) -> None:
+    """Generate MCP server from an installed package."""
+    from auto_mcp.isolation import IsolationManager, check_uvx_available
+    from auto_mcp.isolation.manager import IsolationConfig, IsolationError, PackageNotFoundError
+
+    # Create isolation manager
+    isolation = IsolationManager(
+        package_name=package_name,
+        version=pkg_version,
+        force_local=no_isolated,
+    )
+
+    # Determine if we need isolation
+    use_isolation = isolation.should_use_isolation()
+
+    # If version specified, always use isolation
+    if pkg_version:
+        use_isolation = True
+
+    server_name = name or f"{isolation.package_name}-mcp-server"
+
+    if manifest_path:
+        # Manifest-based generation
+        if use_isolation and not no_isolated:
+            # Need to run in isolation
+            if not check_uvx_available():
+                raise click.ClickException(
+                    f"Package '{package_name}' is not installed locally and uvx is not available.\n"
+                    "Either install the package or install uv: https://docs.astral.sh/uv/"
+                )
+
+            console.print(f"[dim]Package not installed locally, using uvx isolation...[/dim]")
+
+            # For manifest mode with isolation, we need a different approach
+            # Run manifest generation in the isolated environment
+            import subprocess
+
+            from auto_mcp.isolation.manager import get_auto_mcp_source_dir
+
+            source_dir = get_auto_mcp_source_dir()
+            auto_mcp_source = str(source_dir) if source_dir else "auto-mcp-tool"
+
+            # Build package spec
+            pkg_spec = f"{isolation.package_name}=={pkg_version}" if pkg_version else isolation.package_name
+
+            uvx_cmd = [
+                "uvx",
+                "--from", auto_mcp_source,
+                "--with", pkg_spec,
+                "auto-mcp-tool",
+                "internal-worker", "manifest-generate",
+                "--package", isolation.package_name,
+                "--manifest", str(manifest_path),
+                "--output", str(output_path),
+                "--server-name", server_name,
+            ]
+
+            with console.status(f"[bold blue]Generating from '{pkg_spec}' via uvx with manifest..."):
+                try:
+                    result = subprocess.run(
+                        uvx_cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=300,
+                    )
+                except subprocess.TimeoutExpired:
+                    raise click.ClickException("Generation timed out.") from None
+
+            if result.returncode != 0:
+                error_msg = result.stderr or result.stdout or "Unknown error"
+                raise click.ClickException(f"Failed to generate: {error_msg}")
+
+            console.print(f"[green]✓[/green] Generated server at: {output_path}")
+            console.print(f"\n[dim]To run: python {output_path}[/dim]")
+        else:
+            # Local manifest generation
+            from auto_mcp.manifest import Manifest, ManifestGenerator
+
+            try:
+                module = importlib.import_module(package_name)
+            except ImportError as e:
+                raise click.ClickException(f"Cannot import package '{package_name}': {e}") from None
+
+            with console.status("[bold blue]Loading manifest..."):
+                manifest = Manifest.from_yaml(manifest_path)
+            console.print(f"[green]✓[/green] Loaded manifest with {len(manifest.tools)} tool patterns")
+
+            with console.status("[bold blue]Generating MCP server from manifest..."):
+                generator = ManifestGenerator()
+                generator.generate(module, manifest, output_path, package_name)
+
+            console.print(f"[green]✓[/green] Generated server at: {output_path}")
+            console.print(f"\n[dim]To run: python {output_path}[/dim]")
+    else:
+        # Full package generation (existing behavior)
+        if use_isolation:
+            # Check if uvx is available
+            if not check_uvx_available():
+                raise click.ClickException(
+                    f"Package '{package_name}' is not installed locally and uvx is not available.\n"
+                    "Either install the package or install uv: https://docs.astral.sh/uv/"
+                )
+
+            # Warn about LLM being disabled in isolation
+            if not no_llm:
+                console.print("[yellow]![/yellow] LLM disabled in isolation mode (using docstrings only)")
+
+            console.print(f"[dim]Package not installed locally, using uvx isolation...[/dim]")
+
+            iso_config = IsolationConfig(
+                package_name=isolation.package_name,
+                version=isolation.version,
+                max_depth=max_depth,
+                include_private=include_private,
+                include_reexports=include_reexports,
+                public_api_only=public_api_only,
+                server_name=server_name,
+                enable_sessions=enable_sessions,
+                session_ttl=session_ttl,
+                max_sessions=max_sessions,
+            )
+
+            if enable_sessions:
+                console.print("[green]✓[/green] Session lifecycle enabled")
+
+            with console.status(f"[bold blue]Generating from '{isolation.get_package_spec()}' via uvx..."):
+                try:
+                    result = isolation.run_generate(iso_config, output_path)
+                except PackageNotFoundError as e:
+                    raise click.ClickException(str(e)) from None
+                except IsolationError as e:
+                    raise click.ClickException(str(e)) from None
+
+            console.print(f"[green]✓[/green] Generated server at: {result}")
+            console.print(f"\n[dim]To run: python {result}[/dim]")
+        else:
+            # Local execution (original flow)
+            # Create LLM provider if enabled
+            llm = None
+            if not no_llm:
+                with console.status("[bold blue]Initializing LLM provider..."):
+                    llm = get_llm_provider(llm_provider, llm_model, settings)
+                if llm:
+                    console.print(f"[green]✓[/green] Using LLM: {llm.model_name}")
+                else:
+                    console.print("[yellow]![/yellow] LLM disabled, using docstrings only")
+
+            # Create cache
+            cache = PromptCache() if not no_cache else PromptCache(cache_dir=None)
+
+            # Create generator config
+            config = GeneratorConfig(
+                server_name=server_name,
+                include_private=include_private,
+                use_cache=not no_cache,
+                use_llm=not no_llm and llm is not None,
+                max_depth=max_depth,
+                public_api_only=public_api_only,
+                include_reexports=include_reexports,
+                enable_sessions=enable_sessions,
+                session_ttl=session_ttl,
+                max_sessions=max_sessions,
+            )
+
+            # Create generator
+            mcp_generator = MCPGenerator(llm=llm, cache=cache, config=config)
+
+            if enable_sessions:
+                console.print("[green]✓[/green] Session lifecycle enabled")
+
+            # Generate
+            with console.status(f"[bold blue]Analyzing and generating from '{package_name}'..."):
+                try:
+                    result = mcp_generator.generate_standalone_from_package(
+                        package_name,
+                        output_path,
+                        context=context,
+                    )
+                except ImportError as e:
+                    raise click.ClickException(f"Cannot import package '{package_name}': {e}") from None
+                except ValueError as e:
+                    raise click.ClickException(str(e)) from None
+
+            console.print(f"[green]✓[/green] Generated server at: {result}")
+            console.print(f"\n[dim]To run: python {result}[/dim]")
+
+            # Save cache if enabled
+            if not no_cache:
+                cache.save(package_name)
 
 
 @cli.command()
@@ -1745,7 +2076,10 @@ def package_generate(
     no_isolated: bool,
     pkg_version: str | None,
 ) -> None:
-    """Generate an MCP server from an installed package.
+    """[DEPRECATED] Generate an MCP server from an installed package.
+
+    NOTE: This command is deprecated. Use 'auto-mcp-tool generate' instead,
+    which now accepts both Python files and package names.
 
     PACKAGE_NAME: Name of the installed package (e.g., 'requests', 'json')
 
@@ -1755,21 +2089,18 @@ def package_generate(
 
     Examples:
 
-        # Generate server from requests
+        # New unified command (recommended):
+        auto-mcp-tool generate requests -o requests_server.py
+
+        # Old command (deprecated):
         auto-mcp-tool package generate requests -o requests_server.py
-
-        # Generate with custom name
-        auto-mcp-tool package generate requests -o server.py --name "HTTP Server"
-
-        # Generate with filtering
-        auto-mcp-tool package generate requests -o server.py --public-api-only
-
-        # Generate without LLM
-        auto-mcp-tool package generate json -o json_server.py --no-llm
-
-        # Generate from a specific version (uses uvx)
-        auto-mcp-tool package generate requests==2.28.0 -o server.py
     """
+    # Deprecation warning
+    console.print(
+        "[yellow]Warning:[/yellow] 'package generate' is deprecated. "
+        "Use 'auto-mcp-tool generate <package> -o <output>' instead."
+    )
+
     from auto_mcp.isolation import IsolationManager, check_uvx_available
     from auto_mcp.isolation.manager import IsolationConfig, IsolationError, PackageNotFoundError
 
@@ -2170,6 +2501,25 @@ def wrapper() -> None:
     help="Output path for generated wrapper file",
 )
 @click.option(
+    "--with",
+    "with_package",
+    type=str,
+    default=None,
+    help="Package name to install (if different from module name, e.g., --with Pillow for PIL module)",
+)
+@click.option(
+    "--version",
+    "pkg_version",
+    type=str,
+    default=None,
+    help="Package version to use with uvx (e.g., '2.28.0')",
+)
+@click.option(
+    "--no-isolated",
+    is_flag=True,
+    help="Disable automatic uvx isolation (fail if module not installed locally)",
+)
+@click.option(
     "--include-private",
     is_flag=True,
     help="Include private methods (starting with _)",
@@ -2184,6 +2534,9 @@ def wrapper_generate(
     ctx: click.Context,
     module_name: str,
     output: str,
+    with_package: str | None,
+    pkg_version: str | None,
+    no_isolated: bool,
     include_private: bool,
     include_dunder: bool,
 ) -> None:
@@ -2194,10 +2547,22 @@ def wrapper_generate(
     This creates a pure Python file that wraps the C extension functions,
     making them introspectable for MCP server generation.
 
+    If the module is not installed locally, it will automatically be generated
+    in an isolated uvx environment.
+
     Examples:
 
-        # Generate wrapper for sqlite3
+        # Generate wrapper for sqlite3 (stdlib)
         auto-mcp-tool wrapper generate sqlite3 -o sqlite3_wrapper.py
+
+        # Generate wrapper for third-party package (auto-installs via uvx)
+        auto-mcp-tool wrapper generate requests -o requests_wrapper.py
+
+        # Package name differs from module name
+        auto-mcp-tool wrapper generate PIL --with Pillow -o pil_wrapper.py
+
+        # Specific version
+        auto-mcp-tool wrapper generate requests --version 2.28.0 -o wrapper.py
 
         # Then generate MCP server from the wrapper
         auto-mcp-tool generate sqlite3_wrapper.py -o sqlite_server.py
@@ -2205,15 +2570,126 @@ def wrapper_generate(
         # Include private methods
         auto-mcp-tool wrapper generate sqlite3 -o wrapper.py --include-private
     """
+    import subprocess
+
+    from auto_mcp.isolation import check_uvx_available
+    from auto_mcp.isolation.manager import is_package_installed
     from auto_mcp.wrapper import WrapperGenerator
 
-    output_path = Path(output)
+    output_path = Path(output).resolve()
 
-    # Try to import the module
+    # Determine package name (module name unless --with overrides)
+    package_name = with_package or module_name
+
+    # Build version spec
+    package_spec = package_name
+    if pkg_version:
+        package_spec = f"{package_name}=={pkg_version}"
+
+    # Check if module is available locally
+    module_available = False
     try:
         module = importlib.import_module(module_name)
-    except ImportError as e:
-        raise click.ClickException(f"Cannot import module '{module_name}': {e}") from None
+        module_available = True
+    except ImportError:
+        pass
+
+    # Determine if we need isolation
+    use_isolation = not module_available and not no_isolated
+
+    # If version specified, always use isolation to get that specific version
+    if pkg_version:
+        use_isolation = True
+
+    if use_isolation:
+        # Check if uvx is available
+        if not check_uvx_available():
+            raise click.ClickException(
+                f"Module '{module_name}' is not installed locally and uvx is not available.\n"
+                "Either install the module or install uv: https://docs.astral.sh/uv/\n\n"
+                f"Or try: pip install {package_name}"
+            ) from None
+
+        console.print(f"[dim]Module not installed locally, using uvx isolation...[/dim]")
+
+        # Build uvx command
+        # Use --from to get auto-mcp-tool, --with to add the target package
+        from auto_mcp.isolation.manager import get_auto_mcp_source_dir
+
+        source_dir = get_auto_mcp_source_dir()
+        auto_mcp_source = str(source_dir) if source_dir else "auto-mcp-tool"
+
+        uvx_cmd = [
+            "uvx",
+            "--from", auto_mcp_source,
+            "--with", package_spec,
+            "auto-mcp-tool",
+            "internal-worker", "wrapper",
+            "--module", module_name,
+            "--output", str(output_path),
+        ]
+        if include_private:
+            uvx_cmd.append("--include-private")
+        if include_dunder:
+            uvx_cmd.append("--include-dunder")
+
+        with console.status(f"[bold blue]Generating wrapper via uvx..."):
+            try:
+                result = subprocess.run(
+                    uvx_cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=300,
+                )
+            except subprocess.TimeoutExpired:
+                raise click.ClickException(
+                    "Wrapper generation timed out. The package may be too large."
+                ) from None
+            except FileNotFoundError:
+                raise click.ClickException(
+                    "uvx not found. Please install uv: https://docs.astral.sh/uv/"
+                ) from None
+
+        if result.returncode != 0:
+            error_msg = result.stderr or result.stdout or "Unknown error"
+            # Check for common errors
+            if "not found" in error_msg.lower() or "No matching" in error_msg:
+                raise click.ClickException(
+                    f"Package '{package_spec}' not found on PyPI.\n"
+                    f"If the package name differs from the module name, use --with:\n"
+                    f"  auto-mcp-tool wrapper generate {module_name} --with <package-name> -o {output}"
+                )
+            raise click.ClickException(f"Failed to generate wrapper: {error_msg}")
+
+        # Parse JSON output from worker
+        try:
+            import json
+            output_data = json.loads(result.stdout)
+            if not output_data.get("success"):
+                raise click.ClickException(output_data.get("error", "Unknown error"))
+            generated_count = output_data.get("function_count", 0)
+        except json.JSONDecodeError:
+            # Fallback if not JSON (shouldn't happen with worker)
+            generated_count = 0
+
+        console.print(f"[green]✓[/green] Generated wrapper at: {output_path}")
+        if generated_count:
+            console.print(f"[dim]Generated {generated_count} wrapper functions[/dim]")
+        console.print("\n[bold]Next steps:[/bold]")
+        console.print(f"  1. Review and customize the wrapper: {output_path}")
+        console.print(
+            f"  2. Generate MCP server: auto-mcp-tool generate {output_path} -o server.py"
+        )
+        return
+
+    # Local execution - module already imported above or --no-isolated specified
+    if not module_available:
+        raise click.ClickException(
+            f"Cannot import module '{module_name}'.\n\n"
+            f"If this is a third-party package, either:\n"
+            f"  1. Remove --no-isolated to use automatic uvx isolation\n"
+            f"  2. Install the package: pip install {package_name}"
+        ) from None
 
     # Create generator
     generator = WrapperGenerator(
@@ -2400,6 +2876,100 @@ def internal_worker_serve(config_json: str) -> None:
     from auto_mcp.isolation.worker import worker_serve
 
     worker_serve(config_json)
+
+
+@internal_worker.command(name="manifest-generate")
+@click.option("--package", "package_name", required=True, help="Package name to generate from")
+@click.option("--manifest", "manifest_path", required=True, help="Path to YAML manifest")
+@click.option("--output", "output_path", required=True, help="Output file path")
+@click.option("--server-name", default="auto-mcp-server", help="Server name")
+def internal_worker_manifest_generate(
+    package_name: str,
+    manifest_path: str,
+    output_path: str,
+    server_name: str,
+) -> None:
+    """Internal: Generate MCP server from manifest as worker."""
+    import json
+
+    try:
+        module = importlib.import_module(package_name)
+
+        from auto_mcp.manifest import Manifest, ManifestGenerator
+
+        manifest = Manifest.from_yaml(Path(manifest_path))
+        # Override server name if provided
+        if server_name:
+            manifest = Manifest(
+                package=manifest.package,
+                module=manifest.module,
+                version=manifest.version,
+                server_name=server_name,
+                auto_include_dependencies=manifest.auto_include_dependencies,
+                tools=manifest.tools,
+            )
+
+        generator = ManifestGenerator()
+        generator.generate(module, manifest, Path(output_path), package_name)
+
+        # Output JSON result
+        result = {
+            "success": True,
+            "output_path": output_path,
+        }
+        print(json.dumps(result))
+
+    except Exception as e:
+        result = {
+            "success": False,
+            "error": str(e),
+        }
+        print(json.dumps(result))
+        raise SystemExit(1) from None
+
+
+@internal_worker.command(name="wrapper")
+@click.option("--module", "module_name", required=True, help="Module name to wrap")
+@click.option("--output", "output_path", required=True, help="Output file path")
+@click.option("--include-private", is_flag=True, help="Include private methods")
+@click.option("--include-dunder", is_flag=True, help="Include dunder methods")
+def internal_worker_wrapper(
+    module_name: str,
+    output_path: str,
+    include_private: bool,
+    include_dunder: bool,
+) -> None:
+    """Internal: Generate wrapper as worker."""
+    import json
+
+    try:
+        module = importlib.import_module(module_name)
+
+        from auto_mcp.wrapper import WrapperGenerator
+
+        generator = WrapperGenerator(
+            include_private=include_private,
+            include_dunder=include_dunder,
+        )
+
+        code = generator.generate_wrapper(module, Path(output_path))
+        function_count = code.count("\ndef ")
+
+        # Output JSON result
+        result = {
+            "success": True,
+            "output_path": output_path,
+            "function_count": function_count,
+        }
+        print(json.dumps(result))
+
+    except Exception as e:
+        result = {
+            "success": False,
+            "error": str(e),
+        }
+        print(json.dumps(result))
+        raise SystemExit(1) from None
 
 
 def main() -> None:

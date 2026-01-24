@@ -59,8 +59,8 @@ wheels = [
 ]
 
 [[package]]
-name = "auto-mcp"
-version = "0.1.0"
+name = "auto-mcp-tool"
+version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
