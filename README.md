@@ -110,14 +110,14 @@ server.run()
 # Check what would be exposed from the requests package
 auto-mcp-tool package check requests
 
-# Generate a server from the json stdlib package
-auto-mcp-tool package generate json -o json_server.py --no-llm
+# Generate a server from an installed package (json stdlib)
+auto-mcp-tool generate json -o json_server.py --no-llm
 
 # Serve directly
 auto-mcp-tool package serve json --no-llm
 
 # For packages like pandas/numpy that re-export from submodules:
-auto-mcp-tool package generate pandas -o pandas_server.py --no-llm --include-reexports
+auto-mcp-tool generate pandas -o pandas_server.py --no-llm --include-reexports
 ```
 
 ---
@@ -232,18 +232,20 @@ auto-mcp-tool package check requests --include 'requests.api.*' --exclude 'reque
 
 #### Generate from a Package
 
+Use the main `generate` command - it works with both files and installed packages:
+
 ```bash
-# Generate server file
-auto-mcp-tool package generate json -o json_server.py --no-llm
+# Generate server file from an installed package
+auto-mcp-tool generate json -o json_server.py --no-llm
 
 # With LLM descriptions
-auto-mcp-tool package generate requests -o requests_server.py --llm-provider ollama
+auto-mcp-tool generate requests -o requests_server.py --llm-provider ollama
 
 # Only public API
-auto-mcp-tool package generate pandas -o pandas_server.py --public-api-only
+auto-mcp-tool generate pandas -o pandas_server.py --public-api-only
 
 # With filtering
-auto-mcp-tool package generate boto3 -o s3_tools.py \
+auto-mcp-tool generate boto3 -o s3_tools.py \
     --include 'boto3.s3.*' \
     --max-depth 2 \
     --no-llm
@@ -329,7 +331,7 @@ auto-mcp-tool package check pandas --max-depth 0
 auto-mcp-tool package check pandas --max-depth 0 --include-reexports
 
 # Generate pandas server with all re-exported functions
-auto-mcp-tool package generate pandas -o pandas_server.py --no-llm --include-reexports
+auto-mcp-tool generate pandas -o pandas_server.py --no-llm --include-reexports
 ```
 
 **Common packages that need `--include-reexports`:**
@@ -1305,28 +1307,7 @@ auto-mcp-tool package check pandas --include-reexports  # For packages with re-e
 | `--include-reexports` | Include functions re-exported from submodules |
 | `-v, --verbose` | Show module tree and details |
 
-#### `auto-mcp-tool package generate`
-
-Generate an MCP server from a package.
-
-```bash
-auto-mcp-tool package generate json -o server.py --no-llm
-auto-mcp-tool package generate requests -o server.py --public-api-only
-auto-mcp-tool package generate pandas -o pandas_server.py --no-llm --include-reexports
-```
-
-**Options:**
-| Option | Description |
-|--------|-------------|
-| `-o, --output` | Output file path (required) |
-| `--name` | Server name |
-| `--max-depth` | Maximum recursion depth |
-| `--public-api-only` | Only expose `__all__` exports |
-| `--include PATTERN` | Glob pattern for modules to include |
-| `--exclude PATTERN` | Glob pattern for modules to exclude |
-| `--include-reexports` | Include functions re-exported from submodules |
-| `--llm-provider` | LLM provider |
-| `--no-llm` | Disable LLM descriptions |
+> **Note**: To generate a server from a package, use `auto-mcp-tool generate <package>` - the main generate command works with both files and installed packages.
 
 #### `auto-mcp-tool package serve`
 
