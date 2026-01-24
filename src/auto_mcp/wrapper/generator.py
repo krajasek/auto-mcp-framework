@@ -71,13 +71,18 @@ class WrapperGenerator:
         self.type_mapper = type_mapper or TypeMapper()
 
     def is_c_extension_module(self, module: ModuleType) -> bool:
-        """Check if a module is a C extension module.
+        """Check if a module is a C extension module or wraps C extensions.
+
+        This includes:
+        - Pure C extension modules (.so/.pyd files)
+        - Built-in modules (builtins, sys)
+        - Python modules that wrap C extensions (like sqlite3 wrapping _sqlite3)
 
         Args:
             module: The module to check
 
         Returns:
-            True if the module is a C extension
+            True if the module is or wraps a C extension
         """
         # Check if module has a file attribute and it's a .so/.pyd
         module_file = getattr(module, "__file__", None)
@@ -95,18 +100,44 @@ class WrapperGenerator:
             if "ExtensionFileLoader" in loader_name:
                 return True
 
-        # Check if most functions are builtins
-        builtin_count = 0
-        total_count = 0
+        # Check if module has C extension callables
+        # Count functions and class methods that are C extensions
+        builtin_func_count = 0
+        total_func_count = 0
+        class_with_c_methods = False
+
         for name, obj in inspect.getmembers(module):
             if name.startswith("_"):
                 continue
-            if callable(obj):
-                total_count += 1
-                if self._is_c_extension_callable(obj):
-                    builtin_count += 1
 
-        return total_count > 0 and builtin_count / total_count > 0.5
+            # Check top-level functions
+            if callable(obj) and not inspect.isclass(obj):
+                total_func_count += 1
+                if self._is_c_extension_callable(obj):
+                    builtin_func_count += 1
+
+            # Check classes for C extension methods
+            if inspect.isclass(obj):
+                for method_name in dir(obj):
+                    if method_name.startswith("_"):
+                        continue
+                    try:
+                        method = getattr(obj, method_name)
+                        if callable(method) and self._is_c_extension_callable(method):
+                            class_with_c_methods = True
+                            break
+                    except (AttributeError, TypeError):
+                        continue
+                if class_with_c_methods:
+                    break
+
+        # Consider it a C extension module if:
+        # 1. More than 30% of functions are C extensions, OR
+        # 2. Any class has C extension methods
+        has_significant_c_funcs = (
+            total_func_count > 0 and builtin_func_count / total_func_count > 0.3
+        )
+        return has_significant_c_funcs or class_with_c_methods
 
     def _is_c_extension_callable(self, obj: Any) -> bool:
         """Check if a callable is from a C extension."""

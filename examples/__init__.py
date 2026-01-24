@@ -1,8 +1,18 @@
 """Example modules for auto-mcp.
 
-These examples demonstrate various use cases for auto-mcp:
+Two approaches are demonstrated:
 
-- simple_math: Basic mathematical functions
-- async_api: Async functions simulating API calls
-- class_service: Class-based service with decorated methods
+1. Direct Serve (simple modules):
+   - simple_math: Basic math functions
+   - async_api: Async weather API
+   - class_service: Todo service with decorators
+
+2. Manifest-Based (large packages):
+   - sqlite_database: SQLite operations via manifest
+   - pandas_analytics: Pandas data analysis via manifest
+
+Each manifest-based example includes:
+- manifest.yaml: Defines which functions to expose
+- server.py: Pre-generated MCP server
+- run_server.py: Helper script to run the server
 """

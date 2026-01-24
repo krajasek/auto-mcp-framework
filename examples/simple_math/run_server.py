@@ -7,8 +7,8 @@ an MCP server from the math_utils module.
 Usage:
     python run_server.py
 
-Or with auto-mcp CLI:
-    auto-mcp serve examples/simple_math/math_utils.py
+Or with auto-mcp CLI (recommended):
+    auto-mcp-tool serve examples/simple_math/math_utils.py --name math-server
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from pathlib import Path
 src_path = Path(__file__).parent.parent.parent / "src"
 sys.path.insert(0, str(src_path))
 
-from auto_mcp import AutoMCP  # noqa: E402
+from auto_mcp import AutoMCP, quick_server  # noqa: E402
 
 # Import the module to expose
 from examples.simple_math import math_utils  # noqa: E402
@@ -28,19 +28,20 @@ from examples.simple_math import math_utils  # noqa: E402
 
 def main() -> None:
     """Run the MCP server."""
-    # Option 1: Quick and simple
+    # Option 1: Quick one-liner (simplest)
     # server = quick_server(math_utils, name="math-server")
+    # server.run()
 
-    # Option 2: With more control
+    # Option 2: With more control using AutoMCP
     auto = AutoMCP(
         use_llm=False,  # Set to True and configure LLM for better descriptions
-        server_name="math-server",
     )
 
-    server = auto.create_server([math_utils])
+    server = auto.create_server([math_utils], name="math-server")
 
     print("Starting math-server MCP server...")
     print("Available tools: add, subtract, multiply, divide, power, factorial, is_prime, gcd")
+    print("\nUse Ctrl+C to stop the server.")
     server.run()
 
 

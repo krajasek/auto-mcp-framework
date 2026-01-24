@@ -135,6 +135,17 @@ class ManifestGenerator:
             default_value = param.default if has_default else None
             default_repr = repr(default_value) if has_default else "None"
 
+            # Handle sentinel values that aren't valid Python (e.g., pandas' <no_default>)
+            # These should be treated as having no default or use None
+            if has_default and ("<" in default_repr or ">" in default_repr):
+                # Check if it's a sentinel type by checking the class name
+                type_name = type(default_value).__name__
+                if "NoDefault" in type_name or "Sentinel" in type_name or default_repr.startswith("<"):
+                    # Treat as optional with None default
+                    has_default = True
+                    default_value = None
+                    default_repr = "None"
+
             # Map the type
             type_mapping = self.type_mapper.map_type_string(type_str)
 

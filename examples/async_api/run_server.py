@@ -6,8 +6,8 @@ This script demonstrates how auto-mcp handles async functions.
 Usage:
     python run_server.py
 
-Or with auto-mcp CLI:
-    auto-mcp serve examples/async_api/weather_api.py
+Or with auto-mcp CLI (recommended):
+    auto-mcp-tool serve examples/async_api/weather_api.py --name weather-server
 """
 
 from __future__ import annotations
@@ -28,19 +28,15 @@ from examples.async_api import weather_api  # noqa: E402
 def main() -> None:
     """Run the MCP server."""
     auto = AutoMCP(
-        use_llm=False,
-        server_name="weather-api-server",
+        use_llm=False,  # Set to True and configure LLM for better descriptions
     )
 
-    server = auto.create_server([weather_api])
+    server = auto.create_server([weather_api], name="weather-server")
 
-    print("Starting weather-api-server MCP server...")
-    print("Available tools:")
-    print("  - get_current_weather: Get current weather for a city")
-    print("  - get_forecast: Get multi-day forecast")
-    print("  - get_temperature: Get just the temperature")
-    print("  - compare_weather: Compare weather between two cities")
-    print("  - search_cities: Search for cities by name")
+    print("Starting weather-server MCP server...")
+    print("Available tools: get_current_weather, get_forecast, get_temperature, compare_weather, search_cities")
+    print("\nNote: This uses simulated weather data for demonstration.")
+    print("Use Ctrl+C to stop the server.")
     server.run()
 
 

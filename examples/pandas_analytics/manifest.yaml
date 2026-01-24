@@ -1,0 +1,448 @@
+# Pandas MCP Server Manifest
+# This manifest exposes the most commonly used pandas functionality
+# for data analysis and manipulation through MCP tools.
+
+server_name: pandas-mcp-server
+
+# Auto-include functions that produce types needed by listed tools
+# (e.g., if DataFrame.to_csv is listed, include read_csv which returns DataFrame)
+auto_include_dependencies: true
+
+tools:
+  # =============================================================================
+  # DATA READING FUNCTIONS
+  # These are the primary entry points for loading data into pandas
+  # =============================================================================
+
+  # CSV files
+  - function: read_csv
+    description: "Read a CSV file into a DataFrame. Supports URLs, file paths, and various parsing options."
+
+  # Excel files
+  - function: read_excel
+    description: "Read an Excel file (.xlsx, .xls) into a DataFrame."
+
+  # JSON files
+  - function: read_json
+    description: "Read a JSON file or string into a DataFrame or Series."
+
+  # Parquet files (columnar format, efficient for large datasets)
+  - function: read_parquet
+    description: "Read a Parquet file into a DataFrame. Efficient for large datasets."
+
+  # SQL databases
+  - function: read_sql
+    description: "Read SQL query or table into a DataFrame."
+
+  # HTML tables
+  - function: read_html
+    description: "Read HTML tables from a webpage into a list of DataFrames."
+
+  # Clipboard
+  - function: read_clipboard
+    description: "Read data from system clipboard into a DataFrame."
+
+  # =============================================================================
+  # DATAFRAME CREATION
+  # =============================================================================
+
+  # DataFrame constructor (for creating from dict, list, etc.)
+  - DataFrame
+
+  # =============================================================================
+  # DATAFRAME - DATA EXPORT METHODS
+  # =============================================================================
+
+  - function: DataFrame.to_csv
+    name: dataframe_to_csv
+    description: "Write DataFrame to a CSV file or string."
+
+  - function: DataFrame.to_excel
+    name: dataframe_to_excel
+    description: "Write DataFrame to an Excel file."
+
+  - function: DataFrame.to_json
+    name: dataframe_to_json
+    description: "Convert DataFrame to JSON string or file."
+
+  - function: DataFrame.to_parquet
+    name: dataframe_to_parquet
+    description: "Write DataFrame to a Parquet file."
+
+  - function: DataFrame.to_dict
+    name: dataframe_to_dict
+    description: "Convert DataFrame to a dictionary."
+
+  - function: DataFrame.to_markdown
+    name: dataframe_to_markdown
+    description: "Convert DataFrame to Markdown table format."
+
+  # =============================================================================
+  # DATAFRAME - VIEWING & INSPECTION
+  # =============================================================================
+
+  - function: DataFrame.head
+    name: dataframe_head
+    description: "Return the first n rows of the DataFrame."
+
+  - function: DataFrame.tail
+    name: dataframe_tail
+    description: "Return the last n rows of the DataFrame."
+
+  - function: DataFrame.info
+    name: dataframe_info
+    description: "Print summary of DataFrame including dtypes and memory usage."
+
+  - function: DataFrame.describe
+    name: dataframe_describe
+    description: "Generate descriptive statistics (count, mean, std, min, max, quartiles)."
+
+  - function: DataFrame.shape
+    name: dataframe_shape
+    description: "Return tuple of (rows, columns) dimensions."
+
+  - function: DataFrame.dtypes
+    name: dataframe_dtypes
+    description: "Return the data types of each column."
+
+  - function: DataFrame.columns
+    name: dataframe_columns
+    description: "Return the column labels."
+
+  - function: DataFrame.index
+    name: dataframe_index
+    description: "Return the row labels (index)."
+
+  - function: DataFrame.values
+    name: dataframe_values
+    description: "Return the underlying numpy array."
+
+  # =============================================================================
+  # DATAFRAME - SELECTION & INDEXING
+  # =============================================================================
+
+  - function: DataFrame.loc
+    name: dataframe_loc
+    description: "Access rows and columns by label."
+
+  - function: DataFrame.iloc
+    name: dataframe_iloc
+    description: "Access rows and columns by integer position."
+
+  - function: DataFrame.at
+    name: dataframe_at
+    description: "Access a single value by label."
+
+  - function: DataFrame.iat
+    name: dataframe_iat
+    description: "Access a single value by integer position."
+
+  - function: DataFrame.query
+    name: dataframe_query
+    description: "Query DataFrame using a boolean expression string."
+
+  - function: DataFrame.filter
+    name: dataframe_filter
+    description: "Subset rows or columns based on labels."
+
+  - function: DataFrame.sample
+    name: dataframe_sample
+    description: "Return a random sample of rows."
+
+  - function: DataFrame.nlargest
+    name: dataframe_nlargest
+    description: "Return the n largest values for a column."
+
+  - function: DataFrame.nsmallest
+    name: dataframe_nsmallest
+    description: "Return the n smallest values for a column."
+
+  # =============================================================================
+  # DATAFRAME - DATA CLEANING
+  # =============================================================================
+
+  - function: DataFrame.dropna
+    name: dataframe_dropna
+    description: "Remove rows or columns with missing values."
+
+  - function: DataFrame.fillna
+    name: dataframe_fillna
+    description: "Fill missing values with specified value or method."
+
+  - function: DataFrame.isna
+    name: dataframe_isna
+    description: "Detect missing values (returns boolean DataFrame)."
+
+  - function: DataFrame.notna
+    name: dataframe_notna
+    description: "Detect non-missing values (returns boolean DataFrame)."
+
+  - function: DataFrame.drop_duplicates
+    name: dataframe_drop_duplicates
+    description: "Remove duplicate rows."
+
+  - function: DataFrame.duplicated
+    name: dataframe_duplicated
+    description: "Return boolean Series indicating duplicate rows."
+
+  - function: DataFrame.replace
+    name: dataframe_replace
+    description: "Replace values in DataFrame."
+
+  - function: DataFrame.rename
+    name: dataframe_rename
+    description: "Rename columns or index labels."
+
+  - function: DataFrame.astype
+    name: dataframe_astype
+    description: "Cast DataFrame to a specified dtype."
+
+  # =============================================================================
+  # DATAFRAME - DATA TRANSFORMATION
+  # =============================================================================
+
+  - function: DataFrame.apply
+    name: dataframe_apply
+    description: "Apply a function along an axis of the DataFrame."
+
+  - function: DataFrame.applymap
+    name: dataframe_applymap
+    description: "Apply a function element-wise to the DataFrame."
+
+  - function: DataFrame.transform
+    name: dataframe_transform
+    description: "Apply function producing same-shaped result."
+
+  - function: DataFrame.assign
+    name: dataframe_assign
+    description: "Assign new columns to a DataFrame."
+
+  - function: DataFrame.insert
+    name: dataframe_insert
+    description: "Insert a column at a specific location."
+
+  - function: DataFrame.drop
+    name: dataframe_drop
+    description: "Drop specified rows or columns."
+
+  - function: DataFrame.set_index
+    name: dataframe_set_index
+    description: "Set one or more columns as the DataFrame index."
+
+  - function: DataFrame.reset_index
+    name: dataframe_reset_index
+    description: "Reset the index to default integer index."
+
+  - function: DataFrame.sort_values
+    name: dataframe_sort_values
+    description: "Sort by values in one or more columns."
+
+  - function: DataFrame.sort_index
+    name: dataframe_sort_index
+    description: "Sort by the index labels."
+
+  # =============================================================================
+  # DATAFRAME - GROUPING & AGGREGATION
+  # =============================================================================
+
+  - function: DataFrame.groupby
+    name: dataframe_groupby
+    description: "Group DataFrame by one or more columns for aggregation."
+
+  - function: DataFrame.agg
+    name: dataframe_agg
+    description: "Aggregate using one or more operations."
+
+  - function: DataFrame.pivot
+    name: dataframe_pivot
+    description: "Reshape data by pivoting on column values."
+
+  - function: DataFrame.pivot_table
+    name: dataframe_pivot_table
+    description: "Create spreadsheet-style pivot table with aggregation."
+
+  - function: DataFrame.melt
+    name: dataframe_melt
+    description: "Unpivot DataFrame from wide to long format."
+
+  - function: DataFrame.stack
+    name: dataframe_stack
+    description: "Stack columns into rows (pivot from wide to long)."
+
+  - function: DataFrame.unstack
+    name: dataframe_unstack
+    description: "Unstack rows into columns (pivot from long to wide)."
+
+  - function: DataFrame.crosstab
+    name: dataframe_crosstab
+    description: "Compute cross-tabulation of two or more factors."
+
+  # =============================================================================
+  # DATAFRAME - MERGING & JOINING
+  # =============================================================================
+
+  - function: DataFrame.merge
+    name: dataframe_merge
+    description: "Merge DataFrame with another using database-style join."
+
+  - function: DataFrame.join
+    name: dataframe_join
+    description: "Join DataFrames on index."
+
+  - function: DataFrame.concat
+    name: dataframe_concat
+    description: "Concatenate DataFrames along an axis."
+
+  - function: DataFrame.append
+    name: dataframe_append
+    description: "Append rows to DataFrame."
+
+  # =============================================================================
+  # DATAFRAME - STATISTICS
+  # =============================================================================
+
+  - function: DataFrame.sum
+    name: dataframe_sum
+    description: "Return sum of values."
+
+  - function: DataFrame.mean
+    name: dataframe_mean
+    description: "Return mean of values."
+
+  - function: DataFrame.median
+    name: dataframe_median
+    description: "Return median of values."
+
+  - function: DataFrame.std
+    name: dataframe_std
+    description: "Return standard deviation."
+
+  - function: DataFrame.var
+    name: dataframe_var
+    description: "Return variance."
+
+  - function: DataFrame.min
+    name: dataframe_min
+    description: "Return minimum value."
+
+  - function: DataFrame.max
+    name: dataframe_max
+    description: "Return maximum value."
+
+  - function: DataFrame.count
+    name: dataframe_count
+    description: "Count non-null values."
+
+  - function: DataFrame.value_counts
+    name: dataframe_value_counts
+    description: "Return counts of unique values."
+
+  - function: DataFrame.nunique
+    name: dataframe_nunique
+    description: "Count number of unique values."
+
+  - function: DataFrame.corr
+    name: dataframe_corr
+    description: "Compute pairwise correlation of columns."
+
+  - function: DataFrame.cov
+    name: dataframe_cov
+    description: "Compute pairwise covariance of columns."
+
+  # =============================================================================
+  # DATAFRAME - STRING OPERATIONS (via .str accessor)
+  # =============================================================================
+
+  # String operations are accessed via Series.str, commonly used on text columns
+  - function: Series.str.contains
+    name: series_str_contains
+    description: "Test if pattern is contained in each string."
+
+  - function: Series.str.replace
+    name: series_str_replace
+    description: "Replace occurrences of pattern in strings."
+
+  - function: Series.str.split
+    name: series_str_split
+    description: "Split strings by delimiter."
+
+  - function: Series.str.strip
+    name: series_str_strip
+    description: "Remove leading and trailing whitespace."
+
+  - function: Series.str.lower
+    name: series_str_lower
+    description: "Convert strings to lowercase."
+
+  - function: Series.str.upper
+    name: series_str_upper
+    description: "Convert strings to uppercase."
+
+  - function: Series.str.len
+    name: series_str_len
+    description: "Return length of each string."
+
+  # =============================================================================
+  # DATAFRAME - DATE/TIME OPERATIONS (via .dt accessor)
+  # =============================================================================
+
+  - function: Series.dt.year
+    name: series_dt_year
+    description: "Extract year from datetime."
+
+  - function: Series.dt.month
+    name: series_dt_month
+    description: "Extract month from datetime."
+
+  - function: Series.dt.day
+    name: series_dt_day
+    description: "Extract day from datetime."
+
+  - function: Series.dt.hour
+    name: series_dt_hour
+    description: "Extract hour from datetime."
+
+  - function: Series.dt.dayofweek
+    name: series_dt_dayofweek
+    description: "Return day of week (Monday=0, Sunday=6)."
+
+  # =============================================================================
+  # TOP-LEVEL UTILITY FUNCTIONS
+  # =============================================================================
+
+  # Concatenation
+  - function: concat
+    description: "Concatenate pandas objects along an axis."
+
+  # Merging
+  - function: merge
+    description: "Merge DataFrame objects with database-style join."
+
+  # Date range generation
+  - function: date_range
+    description: "Generate a sequence of dates."
+
+  # Type conversion
+  - function: to_datetime
+    description: "Convert argument to datetime."
+
+  - function: to_numeric
+    description: "Convert argument to numeric type."
+
+  # Null checking
+  - function: isna
+    description: "Detect missing values."
+
+  - function: notna
+    description: "Detect non-missing values."
+
+  # Categorical data
+  - function: cut
+    description: "Bin values into discrete intervals."
+
+  - function: qcut
+    description: "Quantile-based discretization."
+
+  # Dummy variables
+  - function: get_dummies
+    description: "Convert categorical variable into dummy/indicator variables."

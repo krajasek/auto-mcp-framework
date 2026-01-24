@@ -2,13 +2,13 @@
 """Run the todo service MCP server.
 
 This script demonstrates how auto-mcp handles class-based services
-with decorated methods.
+with decorated methods (@mcp_tool, @mcp_exclude).
 
 Usage:
     python run_server.py
 
-Or with auto-mcp CLI:
-    auto-mcp serve examples/class_service/todo_service.py
+Or with auto-mcp CLI (recommended):
+    auto-mcp-tool serve examples/class_service/todo_service.py --name todo-server
 """
 
 from __future__ import annotations
@@ -29,21 +29,15 @@ from examples.class_service import todo_service  # noqa: E402
 def main() -> None:
     """Run the MCP server."""
     auto = AutoMCP(
-        use_llm=False,
-        server_name="todo-service",
+        use_llm=False,  # Set to True and configure LLM for better descriptions
     )
 
-    server = auto.create_server([todo_service])
+    server = auto.create_server([todo_service], name="todo-server")
 
-    print("Starting todo-service MCP server...")
-    print("Available tools:")
-    print("  - create_todo: Create a new todo item")
-    print("  - get_todo: Get a todo by ID")
-    print("  - list_todos: List all todos with filtering")
-    print("  - update_todo_status: Update todo status")
-    print("  - delete_todo: Delete a todo")
-    print("  - search_todos: Search todos by text")
-    print("  - get_stats: Get todo statistics")
+    print("Starting todo-server MCP server...")
+    print("Available tools: create_todo, get_todo, list_todos, update_todo_status, delete_todo, search_todos, get_stats")
+    print("\nNote: State is maintained in memory during the session.")
+    print("Use Ctrl+C to stop the server.")
     server.run()
 
 

@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Run the pandas MCP server.
+"""Run the Pandas MCP server.
 
-This script runs the pre-generated pandas MCP server.
-The server exposes 530 pandas functions as MCP tools.
+This runs the pre-generated Pandas MCP server that was created from the manifest.
 
 Usage:
     python run_server.py
 
-Or run the generated server directly:
-    python pandas_server.py
+The server was generated with:
+    auto-mcp-tool generate pandas --manifest manifest.yaml -o server.py
+
+Note: Requires pandas to be installed: pip install pandas
 """
 
 from __future__ import annotations
@@ -19,27 +20,27 @@ from pathlib import Path
 
 
 def main() -> None:
-    """Run the pandas server."""
-    server_path = Path(__file__).parent / "pandas_server.py"
+    """Run the Pandas MCP server."""
+    server_path = Path(__file__).parent / "server.py"
 
     if not server_path.exists():
-        print("Server file not found. Generating...")
-        # Generate the server
-        subprocess.run([
-            sys.executable, "-m", "auto_mcp",
-            "package", "generate", "pandas",
-            "-o", str(server_path),
-            "--no-llm",
-            "--max-depth", "0",
-            "--include-reexports",
-        ], check=True)
-        print(f"Generated server at: {server_path}")
+        print(f"Error: Server file not found at {server_path}")
+        print("\nTo generate it, run from the project root:")
+        print("  auto-mcp-tool generate pandas --manifest examples/pandas_analytics/manifest.yaml -o examples/pandas_analytics/server.py")
+        sys.exit(1)
 
-    print(f"Running pandas MCP server from: {server_path}")
-    print("Press Ctrl+C to stop the server")
+    # Check if pandas is installed
+    try:
+        import pandas  # noqa: F401
+    except ImportError:
+        print("Error: pandas is not installed.")
+        print("Install it with: pip install pandas")
+        sys.exit(1)
+
+    print("Starting Pandas MCP server...")
+    print("Use Ctrl+C to stop the server")
     print("-" * 50)
 
-    # Run the server
     subprocess.run([sys.executable, str(server_path)], check=True)
 
 

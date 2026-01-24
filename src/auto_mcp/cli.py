@@ -238,6 +238,11 @@ def cli(ctx: click.Context) -> None:
     is_flag=True,
     help="Include functions re-exported in __all__ from submodules",
 )
+@click.option(
+    "--wrapper",
+    is_flag=True,
+    help="Use wrapper generator for C extension modules (enables handle-based storage)",
+)
 @click.pass_context
 def generate(
     ctx: click.Context,
@@ -261,6 +266,7 @@ def generate(
     max_depth: int | None,
     public_api_only: bool,
     include_reexports: bool,
+    wrapper: bool,
 ) -> None:
     """Generate an MCP server from a Python file or installed package.
 
@@ -347,8 +353,283 @@ def generate(
             max_depth=max_depth,
             public_api_only=public_api_only,
             include_reexports=include_reexports,
+            use_wrapper=wrapper,
             settings=settings,
         )
+
+
+def _generate_with_wrapper(
+    package_name: str,
+    output_path: Path,
+    server_name: str,
+    include_private: bool = False,
+) -> None:
+    """Generate MCP server using wrapper generator for C extensions.
+
+    This uses the wrapper generator to properly handle C extension modules,
+    including:
+    - Parsing signatures from __text_signature__ and docstrings
+    - Handle-based storage for non-serializable types (Connection, Cursor, etc.)
+    - Proper method wrapping for classes
+
+    Args:
+        package_name: Name of the package to generate from
+        output_path: Path to write the generated server
+        server_name: Name for the MCP server
+        include_private: Whether to include private methods
+    """
+    from auto_mcp.wrapper.generator import WrapperGenerator
+
+    try:
+        module = importlib.import_module(package_name)
+    except ImportError as e:
+        raise click.ClickException(f"Cannot import package '{package_name}': {e}") from None
+
+    console.print(f"[green]✓[/green] Loaded module: {package_name}")
+
+    # Create wrapper generator
+    wrapper_gen = WrapperGenerator(
+        include_private=include_private,
+        include_dunder=False,
+    )
+
+    # Check if it's a C extension
+    is_c_ext = wrapper_gen.is_c_extension_module(module)
+    if is_c_ext:
+        console.print("[dim]Detected C extension module, using wrapper generator[/dim]")
+
+    # Analyze module
+    with console.status("[bold blue]Analyzing module..."):
+        functions, classes = wrapper_gen.analyze_module(module)
+
+    console.print(f"[green]✓[/green] Found {len(functions)} functions and {len(classes)} classes")
+
+    # Generate MCP server code
+    with console.status("[bold blue]Generating MCP server..."):
+        code = _generate_wrapper_mcp_server(
+            module_name=package_name,
+            server_name=server_name,
+            functions=functions,
+            classes=classes,
+            wrapper_gen=wrapper_gen,
+        )
+
+    # Write to file
+    output_path.write_text(code)
+
+    console.print(f"[green]✓[/green] Generated server at: {output_path}")
+    console.print(f"\n[dim]To run: python {output_path}[/dim]")
+
+
+def _generate_wrapper_mcp_server(
+    module_name: str,
+    server_name: str,
+    functions: list,
+    classes: list,
+    wrapper_gen: Any,
+) -> str:
+    """Generate MCP server code from wrapper analysis.
+
+    Args:
+        module_name: Name of the module
+        server_name: Name for the MCP server
+        functions: List of CallableInfo for functions
+        classes: List of ClassInfo for classes
+        wrapper_gen: WrapperGenerator instance
+
+    Returns:
+        Generated MCP server code
+    """
+    lines = [
+        '"""Auto-generated MCP server with wrapper support.',
+        "",
+        f"Module: {module_name}",
+        f"Server: {server_name}",
+        '"""',
+        "",
+        "from typing import Any",
+        "",
+        "from mcp.server.fastmcp import FastMCP",
+        "",
+        f"import {module_name}",
+        "",
+        "# Object store for handle-based types",
+        "_object_store: dict[str, Any] = {}",
+        "_handle_counter: int = 0",
+        "",
+        "",
+        "def _store_object(obj: Any, type_name: str) -> str:",
+        '    """Store an object and return a handle string."""',
+        "    global _handle_counter",
+        "    _handle_counter += 1",
+        '    handle = f"{type_name}_{_handle_counter}"',
+        "    _object_store[handle] = obj",
+        "    return handle",
+        "",
+        "",
+        "def _get_object(handle: str) -> Any:",
+        '    """Retrieve an object by its handle."""',
+        "    obj = _object_store.get(handle)",
+        "    if obj is None:",
+        '        raise ValueError(f"Invalid or expired handle: {handle}")',
+        "    return obj",
+        "",
+        "",
+        f'mcp = FastMCP(name="{server_name}")',
+        "",
+    ]
+
+    # Collect all class names for handle type detection
+    class_names = {cls.name for cls in classes}
+
+    # Build factory inference map (e.g., connect -> Connection)
+    factory_map = _build_factory_map(class_names)
+
+    # Build method return type map (e.g., execute -> Cursor)
+    method_return_map = _build_method_return_map(class_names)
+
+    # Generate function wrappers
+    for func in functions:
+        func_lines = _generate_wrapper_tool(
+            func, module_name, class_names, factory_map, is_method=False
+        )
+        lines.extend(func_lines)
+        lines.append("")
+
+    # Generate class method wrappers
+    for cls in classes:
+        for method in cls.methods:
+            # Skip dunder methods except __init__
+            if method.name.startswith("__") and method.name != "__init__":
+                continue
+
+            method_lines = _generate_wrapper_tool(
+                method, module_name, class_names, method_return_map,
+                is_method=True, class_name=cls.name
+            )
+            lines.extend(method_lines)
+            lines.append("")
+
+    # Generate main entry point
+    lines.extend([
+        "",
+        'if __name__ == "__main__":',
+        "    mcp.run()",
+    ])
+
+    return "\n".join(lines)
+
+
+def _build_factory_map(class_names: set[str]) -> dict[str, str]:
+    """Build map of function names to class names they likely return."""
+    factory_map = {}
+    for class_name in class_names:
+        lower = class_name.lower()
+        # connect -> Connection
+        if lower.endswith("ion"):
+            factory_map[lower[:-3]] = class_name
+        # cursor -> Cursor
+        factory_map[lower] = class_name
+    return factory_map
+
+
+def _build_method_return_map(class_names: set[str]) -> dict[str, str]:
+    """Build map of method names to class names they likely return."""
+    method_map = {}
+    class_names_lower = {c.lower(): c for c in class_names}
+
+    known_methods = {
+        "execute": "Cursor",
+        "executemany": "Cursor",
+        "executescript": "Cursor",
+        "cursor": "Cursor",
+    }
+
+    for method, ret_type in known_methods.items():
+        if ret_type.lower() in class_names_lower:
+            method_map[method] = class_names_lower[ret_type.lower()]
+
+    return method_map
+
+
+def _generate_wrapper_tool(
+    callable_info: Any,
+    module_name: str,
+    class_names: set[str],
+    return_type_map: dict[str, str],
+    is_method: bool = False,
+    class_name: str | None = None,
+) -> list[str]:
+    """Generate a single tool wrapper."""
+    lines = []
+    sig = callable_info.signature
+
+    # Determine tool name
+    if is_method and class_name:
+        tool_name = f"{class_name.lower()}_{callable_info.name}"
+    else:
+        tool_name = callable_info.name
+
+    # Build parameters
+    params = []
+    call_args = []
+
+    # Add instance parameter for methods
+    if is_method and class_name:
+        params.append(f"{class_name.lower()}: str")
+
+    # Add other parameters from signature
+    if sig:
+        for param in sig.parameters:
+            type_str = param.type_str if param.type_str != "Any" else "Any"
+            if param.has_default:
+                params.append(f"{param.name}: {type_str} = {param.default_repr}")
+            else:
+                params.append(f"{param.name}: {type_str}")
+            call_args.append(f"{param.name}={param.name}")
+
+    params_str = ", ".join(params)
+    call_args_str = ", ".join(call_args)
+
+    # Determine return type
+    returns_handle = False
+    handle_type = None
+
+    if sig and sig.return_is_handle:
+        returns_handle = True
+        handle_type = sig.return_handle_type
+    elif callable_info.name.lower() in return_type_map:
+        returns_handle = True
+        handle_type = return_type_map[callable_info.name.lower()]
+
+    return_type = "str" if returns_handle else "Any"
+
+    # Generate decorator and function
+    lines.append(f'@mcp.tool(name="{tool_name}")')
+    lines.append(f"def {tool_name}({params_str}) -> {return_type}:")
+
+    # Docstring
+    doc = callable_info.docstring or f"Tool: {tool_name}"
+    doc_first_line = doc.split("\n")[0] if doc else f"Tool: {tool_name}"
+    lines.append(f'    """{doc_first_line}"""')
+
+    # Function body
+    if is_method and class_name:
+        lines.append(f"    _instance = _get_object({class_name.lower()})")
+        if returns_handle and handle_type:
+            lines.append(f"    result = _instance.{callable_info.name}({call_args_str})")
+            lines.append(f'    return _store_object(result, "{handle_type}")')
+        else:
+            lines.append(f"    return _instance.{callable_info.name}({call_args_str})")
+    else:
+        call_target = f"{module_name}.{callable_info.name}"
+        if returns_handle and handle_type:
+            lines.append(f"    result = {call_target}({call_args_str})")
+            lines.append(f'    return _store_object(result, "{handle_type}")')
+        else:
+            lines.append(f"    return {call_target}({call_args_str})")
+
+    return lines
 
 
 def _generate_from_file(
@@ -461,6 +742,7 @@ def _generate_from_package(
     max_depth: int | None,
     public_api_only: bool,
     include_reexports: bool,
+    use_wrapper: bool,
     settings: Settings,
 ) -> None:
     """Generate MCP server from an installed package."""
@@ -598,7 +880,31 @@ def _generate_from_package(
             console.print(f"[green]✓[/green] Generated server at: {result}")
             console.print(f"\n[dim]To run: python {result}[/dim]")
         else:
-            # Local execution (original flow)
+            # Local execution
+            # First, check if this is a C extension module (auto-detect)
+            try:
+                module = importlib.import_module(package_name)
+            except ImportError as e:
+                raise click.ClickException(f"Cannot import package '{package_name}': {e}") from None
+
+            # Auto-detect C extension modules and use wrapper generator
+            from auto_mcp.wrapper.generator import WrapperGenerator
+            wrapper_gen = WrapperGenerator()
+            is_c_ext = wrapper_gen.is_c_extension_module(module)
+
+            if use_wrapper or is_c_ext:
+                if is_c_ext and not use_wrapper:
+                    console.print("[dim]Auto-detected C extension module, using wrapper generator[/dim]")
+                # Wrapper-based generation for C extensions
+                _generate_with_wrapper(
+                    package_name=package_name,
+                    output_path=output_path,
+                    server_name=server_name,
+                    include_private=include_private,
+                )
+                return
+
+            # Standard generation (original flow)
             # Create LLM provider if enabled
             llm = None
             if not no_llm:

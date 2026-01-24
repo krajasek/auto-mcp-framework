@@ -13,6 +13,8 @@ Automatically generate MCP (Model Context Protocol) servers from Python modules 
 - [Quick Start](#quick-start)
 - [MCP Transports](#mcp-transports)
 - [Package Analysis](#package-analysis)
+- [Manifest-Based Generation](#manifest-based-generation)
+- [Wrapper for C Extensions](#wrapper-for-c-extensions)
 - [Type Serialization System](#type-serialization-system)
 - [CLI Reference](#cli-reference)
 - [Python API Reference](#python-api-reference)
@@ -41,7 +43,7 @@ Automatically generate MCP (Model Context Protocol) servers from Python modules 
 - **Package Analysis**: Recursively analyze installed packages (requests, pandas, etc.)
 - **LLM-Powered Descriptions**: Uses local (Ollama) or cloud (OpenAI, Anthropic) LLMs to generate tool descriptions
 - **Multiple Output Formats**: Standalone file, Python package, or in-memory server
-- **Multiple Transports**: stdio, SSE, and Streamable HTTP with stateless/stateful modes
+- **Multiple Transports**: stdio and SSE for different deployment scenarios
 - **Type Serialization**: Handle complex Python types (datetime, Path, UUID, pandas DataFrames, etc.)
 - **Compression Support**: Automatic compression for large data with gzip, zlib, or lz4
 - **Object Store**: Server-side handle-based storage for stateful objects (sessions, connections)
@@ -149,7 +151,7 @@ server.run(transport="stdio")  # explicit
 {
   "mcpServers": {
     "my-tools": {
-      "command": "auto-mcp",
+      "command": "auto-mcp-tool",
       "args": ["serve", "mymodule.py", "--no-llm"]
     }
   }
@@ -181,86 +183,12 @@ server.run(transport="sse")
 # http://localhost:8080/sse
 ```
 
-### Streamable HTTP
-
-Modern HTTP transport with streaming support. Supports both stateless and stateful modes.
-
-**CLI:**
-```bash
-# Streamable HTTP (stateless by default)
-auto-mcp-tool serve mymodule.py --transport streamable-http
-
-# With custom settings
-auto-mcp-tool serve mymodule.py --transport streamable-http --port 8080
-```
-
-**Python API:**
-```python
-server = auto.create_server([mymodule])
-server.run(transport="streamable-http")
-```
-
-### Stateless vs Stateful HTTP
-
-MCP HTTP transports can operate in two modes:
-
-#### Stateless Mode (Default)
-
-Each request is independent. No session state is maintained between requests.
-
-```python
-from mcp.server.fastmcp import FastMCP
-
-mcp = FastMCP(name="my-server", stateless_http=True)  # Default
-
-# Or via auto-mcp
-server = auto.create_server([mymodule])
-server.run(transport="streamable-http")  # Stateless by default
-```
-
-**Characteristics:**
-- Each request is independent
-- No session management overhead
-- Scales horizontally easily
-- Best for simple, stateless tools
-
-#### Stateful Mode
-
-Maintains session state across requests. Useful for tools that need context.
-
-```python
-from mcp.server.fastmcp import FastMCP
-
-mcp = FastMCP(name="my-server", stateless_http=False)
-
-# For more control, use the underlying server directly
-from mcp.server.fastmcp import FastMCP
-
-mcp = FastMCP(name="stateful-server")
-
-@mcp.tool()
-def increment_counter() -> int:
-    """Increment and return the session counter."""
-    # State is maintained per session
-    if not hasattr(increment_counter, '_count'):
-        increment_counter._count = 0
-    increment_counter._count += 1
-    return increment_counter._count
-```
-
-**Characteristics:**
-- Session state persists across requests
-- Requires session management
-- Better for conversational or contextual tools
-- Higher memory usage per session
-
 ### Transport Comparison
 
 | Transport | Protocol | Streaming | Use Case |
 |-----------|----------|-----------|----------|
 | `stdio` | stdin/stdout | Yes | CLI tools, Claude Desktop |
 | `sse` | HTTP + SSE | Yes | Web clients, browsers |
-| `streamable-http` | HTTP | Yes | Modern HTTP clients, APIs |
 
 ### Environment Variables for Transports
 
@@ -268,7 +196,7 @@ def increment_counter() -> int:
 # Default transport
 AUTO_MCP_TRANSPORT=stdio
 
-# HTTP settings (for sse and streamable-http)
+# HTTP settings (for sse transport)
 AUTO_MCP_HOST=0.0.0.0
 AUTO_MCP_PORT=8080
 ```
@@ -329,9 +257,6 @@ auto-mcp-tool package serve json --no-llm
 
 # Serve with SSE transport
 auto-mcp-tool package serve requests --transport sse --port 3000
-
-# Serve with streamable HTTP
-auto-mcp-tool package serve json --transport streamable-http
 
 # With options
 auto-mcp-tool package serve requests \
@@ -443,11 +368,209 @@ auto-mcp-tool package serve json --no-llm
 {
   "mcpServers": {
     "json-tools": {
-      "command": "auto-mcp",
+      "command": "auto-mcp-tool",
       "args": ["package", "serve", "json", "--no-llm"]
     }
   }
 }
+```
+
+---
+
+## Manifest-Based Generation
+
+Manifests provide fine-grained control over which functions from a module or package are exposed as MCP tools. Instead of exposing everything, you can selectively choose specific functions and provide custom descriptions.
+
+### Manifest File Format
+
+Create a YAML manifest file to define your server:
+
+```yaml
+# sqlite3_manifest.yaml
+server_name: sqlite-server
+
+# Automatically include functions that return types used by listed tools
+auto_include_dependencies: true
+
+tools:
+  # Top-level functions
+  - function: connect
+    description: "Open a connection to an SQLite database. Use ':memory:' for in-memory."
+
+  # Instance methods with custom names
+  - function: Connection.execute
+    name: connection_execute
+    description: "Execute a single SQL statement. Returns a Cursor."
+
+  - function: Connection.commit
+    name: connection_commit
+    description: "Commit the current transaction."
+
+  - function: Cursor.fetchall
+    name: cursor_fetchall
+    description: "Fetch all remaining rows from the query result."
+
+  - function: Cursor.fetchone
+    name: cursor_fetchone
+    description: "Fetch the next row, or None if no more rows."
+```
+
+### Using Manifests
+
+**CLI:**
+```bash
+# Generate from manifest
+auto-mcp-tool generate sqlite3 --manifest sqlite3_manifest.yaml -o sqlite_server.py
+
+# The manifest selects which functions to expose
+# Only the listed tools will be in the generated server
+```
+
+**Manifest Fields:**
+
+| Field | Description |
+|-------|-------------|
+| `server_name` | Name for the generated MCP server |
+| `auto_include_dependencies` | Auto-include functions that produce types needed by listed tools |
+| `tools` | List of tool definitions |
+
+**Tool Entry Fields:**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `function` | Yes | Function path (e.g., `connect`, `Connection.execute`, `Cursor.fetchall`) |
+| `name` | No | Custom tool name (defaults to function name) |
+| `description` | No | Custom description (defaults to docstring) |
+
+### Handle-Based Object Storage
+
+When exposing instance methods (like `Connection.execute`), the generator automatically:
+
+1. Stores non-serializable objects (connections, cursors) in an in-memory object store
+2. Returns handles (like `"Connection_1"`) that reference the stored objects
+3. Accepts handles as parameters to retrieve and use the original objects
+
+```python
+# Generated code pattern:
+_object_store: dict[str, Any] = {}
+
+def connect(database: str) -> str:
+    result = sqlite3.connect(database)
+    return _store_object(result, "Connection")  # Returns "Connection_1"
+
+def connection_execute(connection: str, sql: str) -> str:
+    _instance = _get_object(connection)  # Retrieves actual Connection
+    result = _instance.execute(sql)
+    return _store_object(result, "Cursor")  # Returns "Cursor_1"
+```
+
+### Example: SQLite Manifest
+
+See `examples/sqlite3_manifest.yaml` for a complete SQLite database server manifest with:
+- Connection management (connect, close)
+- Transaction control (commit, rollback)
+- Query execution (execute, executemany, executescript)
+- Cursor operations (fetchone, fetchall, fetchmany)
+
+### Example: Pandas Manifest
+
+See `examples/pandas_manifest.yaml` for a comprehensive pandas data analysis manifest with:
+- Data reading (read_csv, read_excel, read_json, read_parquet)
+- DataFrame operations (head, tail, describe, groupby)
+- Data transformation (merge, concat, pivot_table, melt)
+- Statistics (sum, mean, median, std, corr)
+
+---
+
+## Wrapper for C Extensions
+
+Some Python modules (like `sqlite3`, `_json`, certain parts of `numpy`) are implemented as C extensions and cannot be directly introspected. The wrapper generator creates pure Python wrappers that delegate to these modules.
+
+### When to Use Wrappers
+
+Use the wrapper command when:
+- The module is a C extension (built-in or compiled)
+- Direct `generate` command fails due to unintrospectable callables
+- You need MCP tools from stdlib modules like `sqlite3`
+
+### Generating Wrappers
+
+**CLI:**
+```bash
+# Generate wrapper for sqlite3 (stdlib)
+auto-mcp-tool wrapper generate sqlite3 -o sqlite3_wrapper.py
+
+# Then generate MCP server from the wrapper
+auto-mcp-tool generate sqlite3_wrapper.py -o sqlite_server.py
+
+# Or use --wrapper flag directly on generate
+auto-mcp-tool generate sqlite3 --wrapper -o sqlite_server.py
+```
+
+**Check for C extension callables:**
+```bash
+# See which callables in a module are C extensions
+auto-mcp-tool wrapper check sqlite3
+```
+
+**Options:**
+| Option | Description |
+|--------|-------------|
+| `-o, --output` | Output path for generated wrapper file |
+| `--with` | Package name if different from module (e.g., `--with Pillow` for `PIL`) |
+| `--version` | Specific package version for uvx isolation |
+| `--no-isolated` | Disable uvx isolation (requires local installation) |
+| `--include-private` | Include private methods (starting with `_`) |
+| `--include-dunder` | Include dunder methods (`__init__`, etc.) |
+
+### How It Works
+
+The wrapper generator:
+
+1. **Inspects the C extension** - Examines callable objects in the module
+2. **Infers signatures** - Uses docstrings and heuristics to determine parameters
+3. **Generates delegating code** - Creates Python functions that call the original C functions
+4. **Adds type hints** - Provides type annotations where possible
+
+**Example generated wrapper:**
+```python
+# sqlite3_wrapper.py (generated)
+import sqlite3 as _original_module
+
+def connect(
+    database: str,
+    timeout: float = 5.0,
+    detect_types: int = 0,
+    isolation_level: str | None = "",
+    check_same_thread: bool = True,
+    cached_statements: int = 128,
+    uri: bool = False,
+) -> "Connection":
+    """Open a connection to an SQLite database."""
+    return _original_module.connect(
+        database=database,
+        timeout=timeout,
+        detect_types=detect_types,
+        isolation_level=isolation_level,
+        check_same_thread=check_same_thread,
+        cached_statements=cached_statements,
+        uri=uri,
+    )
+```
+
+### Combining with Manifests
+
+For maximum control, combine wrappers with manifests:
+
+```bash
+# 1. Generate wrapper for C extension
+auto-mcp-tool wrapper generate sqlite3 -o sqlite3_wrapper.py
+
+# 2. Create manifest selecting specific functions
+# (see examples/sqlite3_manifest.yaml)
+
+# 3. Generate server from manifest
+auto-mcp-tool generate sqlite3 --manifest sqlite3_manifest.yaml -o server.py
 ```
 
 ---
@@ -685,6 +808,102 @@ print(handle)  # "obj_..."
 result = use_wrapper.call({"session": handle})
 ```
 
+### Deployment Considerations for Handle-Based Storage
+
+The object store uses in-memory storage within a single Python process. This design has important implications for how you deploy MCP servers.
+
+#### When Handle-Based Storage Works
+
+| Transport/Deployment | Supported | Notes |
+|---------------------|-----------|-------|
+| stdio | Yes | Single process, used by Claude Desktop |
+| SSE (single process) | Yes | Persistent connection to single server |
+| HTTP (single process) | Yes | All requests handled by same process |
+| HTTP (multi-worker) | No | Workers have separate object stores |
+| Serverless (Lambda, Cloud Functions) | No | New process per invocation |
+| Load-balanced cluster | No* | Requests may hit different servers |
+
+*Can work with sticky sessions that route all requests from a client to the same backend.
+
+#### The Problem Explained
+
+When you call `connect()`, it returns a handle like `"Connection_1"`. This handle references an object stored in the server's memory:
+
+```python
+# Request 1 to Worker A:
+handle = connect(":memory:")  # Returns "Connection_1", stored in Worker A
+
+# Request 2 to Worker B:
+connection_execute("Connection_1", "SELECT ...")  # Worker B doesn't have this handle!
+```
+
+#### Recommended Solutions
+
+**1. Single-Process Deployment (Recommended)**
+
+For most use cases, run your MCP server as a single process:
+
+```bash
+# This works - single process handles all requests
+python my_server.py
+```
+
+The default `mcp.run()` runs a single-process server, which is suitable for:
+- Local development
+- Claude Desktop integration
+- Single-user deployments
+- Tools that don't need horizontal scaling
+
+**2. Sticky Sessions for Load Balancing**
+
+If you need multiple server instances, configure your load balancer to use sticky sessions (session affinity). This ensures all requests from the same client go to the same backend server.
+
+**3. Write Custom Stateless Methods**
+
+For truly stateless deployments, you can write wrapper methods that combine multiple operations:
+
+```python
+# Instead of: connect() -> execute() -> fetchall() -> close()
+# Write a single stateless function:
+
+def query_database(database: str, sql: str, parameters: list = None) -> list:
+    """Execute a query and return results (stateless)."""
+    conn = sqlite3.connect(database)
+    try:
+        cursor = conn.execute(sql, parameters or [])
+        return cursor.fetchall()
+    finally:
+        conn.close()
+```
+
+This approach:
+- Works in serverless environments
+- Works with any load balancer
+- No handle management needed
+- Each call is independent
+
+**4. Extend Generated Servers**
+
+You can add custom stateless methods to generated servers:
+
+```python
+# my_sqlite_server.py
+from generated_sqlite_server import mcp, connect, connection_execute, cursor_fetchall, connection_close
+
+@mcp.tool(name="query")
+def query(database: str, sql: str) -> list:
+    """Execute a query and return all results (stateless convenience method)."""
+    conn_handle = connect(database)
+    try:
+        cursor_handle = connection_execute(conn_handle, sql)
+        return cursor_fetchall(cursor_handle)
+    finally:
+        connection_close(conn_handle)
+
+if __name__ == "__main__":
+    mcp.run()
+```
+
 ### Compression
 
 For large data, auto-mcp supports automatic compression:
@@ -856,35 +1075,46 @@ print(info.json_schema)  # {"type": "string", "format": "date-time"}
 
 ### `auto-mcp-tool generate`
 
-Generate MCP server code from Python modules.
+Generate MCP server code from Python files or installed packages.
 
 ```bash
-# Generate standalone file
+# Generate from a Python file
 auto-mcp-tool generate mymodule.py -o server.py
+
+# Generate from an installed package
+auto-mcp-tool generate pandas -o pandas_server.py --no-llm
 
 # Generate with custom server name
 auto-mcp-tool generate mymodule.py -o server.py --name my-server
 
-# Generate a complete Python package
-auto-mcp-tool generate mymodule.py --package myserver -o ./dist
+# Use a manifest for selective tool exposure
+auto-mcp-tool generate sqlite3 --manifest sqlite3_manifest.yaml -o server.py
 
-# Generate from multiple modules
-auto-mcp-tool generate module1.py module2.py -o server.py
+# Use wrapper mode for C extension modules
+auto-mcp-tool generate sqlite3 --wrapper -o sqlite_server.py
 
 # Use LLM for better descriptions
 auto-mcp-tool generate mymodule.py -o server.py --llm-provider ollama --llm-model qwen2.5-coder:7b
+
+# Include re-exported functions (for pandas, numpy, etc.)
+auto-mcp-tool generate pandas -o server.py --no-llm --include-reexports
 ```
 
 **Options:**
 | Option | Description |
 |--------|-------------|
 | `-o, --output` | Output file path (required) |
+| `--manifest` | YAML manifest for selective tool exposure |
 | `--name` | Server name (default: auto-mcp-server) |
-| `--package` | Generate as package with this name |
+| `--wrapper` | Use wrapper generator for C extension modules |
 | `--llm-provider` | LLM provider: ollama, openai, anthropic |
 | `--llm-model` | Model name for the LLM provider |
+| `--no-llm` | Disable LLM description generation |
 | `--no-cache` | Disable caching |
 | `--include-private` | Include private functions (starting with _) |
+| `--max-depth` | Maximum recursion depth for package submodule discovery |
+| `--public-api-only` | Only expose functions in `__all__` |
+| `--include-reexports` | Include functions re-exported from submodules |
 | `--enable-sessions` | Enable session lifecycle support |
 | `--session-ttl` | Session TTL in seconds (default: 3600) |
 | `--max-sessions` | Maximum concurrent sessions (default: 100) |
@@ -900,9 +1130,6 @@ auto-mcp-tool serve mymodule.py
 # With SSE transport
 auto-mcp-tool serve mymodule.py --transport sse --port 8080
 
-# With streamable HTTP transport
-auto-mcp-tool serve mymodule.py --transport streamable-http --port 3000
-
 # With hot-reload for development
 auto-mcp-tool serve mymodule.py --watch
 
@@ -914,7 +1141,7 @@ auto-mcp-tool serve mymodule.py --llm-provider ollama --llm-model qwen2.5-coder:
 | Option | Description |
 |--------|-------------|
 | `--name` | Server name |
-| `--transport` | Transport: stdio, sse, streamable-http (default: stdio) |
+| `--transport` | Transport: stdio, sse (default: stdio) |
 | `--port` | Port for HTTP transports (default: 8080) |
 | `--host` | Host for HTTP transports (default: 0.0.0.0) |
 | `--watch` | Enable hot-reload on file changes |
@@ -1115,7 +1342,7 @@ auto-mcp-tool package serve pandas --no-llm --include-reexports
 | Option | Description |
 |--------|-------------|
 | `--name` | Server name |
-| `--transport` | Transport: stdio, sse, streamable-http |
+| `--transport` | Transport: stdio, sse |
 | `--max-depth` | Maximum recursion depth |
 | `--public-api-only` | Only expose `__all__` exports (default: True) |
 | `--include PATTERN` | Glob pattern for modules to include |
@@ -1123,6 +1350,58 @@ auto-mcp-tool package serve pandas --no-llm --include-reexports
 | `--include-reexports` | Include functions re-exported from submodules |
 | `--llm-provider` | LLM provider |
 | `--no-llm` | Disable LLM descriptions |
+
+### `auto-mcp-tool wrapper`
+
+Commands for generating Python wrappers for C extension modules.
+
+#### `auto-mcp-tool wrapper generate`
+
+Generate a Python wrapper for a C extension module.
+
+```bash
+# Generate wrapper for sqlite3 (stdlib)
+auto-mcp-tool wrapper generate sqlite3 -o sqlite3_wrapper.py
+
+# Generate wrapper for third-party package (auto-installs via uvx)
+auto-mcp-tool wrapper generate requests -o requests_wrapper.py
+
+# Package name differs from module name
+auto-mcp-tool wrapper generate PIL --with Pillow -o pil_wrapper.py
+
+# Specific version
+auto-mcp-tool wrapper generate requests --version 2.28.0 -o wrapper.py
+
+# Then generate MCP server from the wrapper
+auto-mcp-tool generate sqlite3_wrapper.py -o sqlite_server.py
+```
+
+**Options:**
+| Option | Description |
+|--------|-------------|
+| `-o, --output` | Output path for generated wrapper file (required) |
+| `--with` | Package name if different from module name |
+| `--version` | Package version to use with uvx isolation |
+| `--no-isolated` | Disable uvx isolation (require local installation) |
+| `--include-private` | Include private methods (starting with `_`) |
+| `--include-dunder` | Include dunder methods (`__init__`, etc.) |
+
+#### `auto-mcp-tool wrapper check`
+
+Check a module for C extension callables.
+
+```bash
+# Check which callables are C extensions
+auto-mcp-tool wrapper check sqlite3
+
+# Include private methods in check
+auto-mcp-tool wrapper check sqlite3 --include-private
+```
+
+**Options:**
+| Option | Description |
+|--------|-------------|
+| `--include-private` | Include private methods in check |
 
 ---
 
@@ -1698,7 +1977,7 @@ All settings can be configured via environment variables with the `AUTO_MCP_` pr
 | `AUTO_MCP_CACHE_ENABLED` | `true` | Enable prompt caching |
 | `AUTO_MCP_CACHE_DIR` | | Custom cache directory |
 | `AUTO_MCP_SERVER_NAME` | `auto-mcp-server` | Default server name |
-| `AUTO_MCP_TRANSPORT` | `stdio` | Transport: stdio, sse, streamable-http |
+| `AUTO_MCP_TRANSPORT` | `stdio` | Transport: stdio, sse |
 | `AUTO_MCP_HOST` | `0.0.0.0` | Server host for HTTP transports |
 | `AUTO_MCP_PORT` | `8080` | Server port for HTTP transports |
 | `AUTO_MCP_INCLUDE_PRIVATE` | `false` | Include private functions |
@@ -2808,7 +3087,7 @@ Or for direct serving:
 {
   "mcpServers": {
     "my-tools": {
-      "command": "auto-mcp",
+      "command": "auto-mcp-tool",
       "args": ["serve", "/path/to/mymodule.py"]
     }
   }

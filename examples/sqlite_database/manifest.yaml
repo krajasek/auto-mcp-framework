@@ -1,0 +1,95 @@
+# SQLite3 MCP Server Manifest
+# A minimal but complete manifest for SQLite database operations
+
+server_name: sqlite-server
+
+# Auto-include Cursor.fetchone since we use Cursor.fetchall
+auto_include_dependencies: true
+
+tools:
+  # =============================================================================
+  # CONNECTION MANAGEMENT
+  # =============================================================================
+
+  - function: connect
+    description: "Open a connection to an SQLite database. Use ':memory:' for an in-memory database."
+
+  - function: Connection.close
+    name: connection_close
+    description: "Close the database connection."
+
+  # =============================================================================
+  # TRANSACTION CONTROL
+  # =============================================================================
+
+  - function: Connection.commit
+    name: connection_commit
+    description: "Commit the current transaction to the database."
+
+  - function: Connection.rollback
+    name: connection_rollback
+    description: "Roll back any changes since the last commit."
+
+  # =============================================================================
+  # QUERY EXECUTION
+  # =============================================================================
+
+  - function: Connection.execute
+    name: connection_execute
+    description: "Execute a single SQL statement. Returns a Cursor for fetching results."
+
+  - function: Connection.executemany
+    name: connection_executemany
+    description: "Execute an SQL statement for each item in a sequence of parameters."
+
+  - function: Connection.executescript
+    name: connection_executescript
+    description: "Execute multiple SQL statements in a single call (for scripts)."
+
+  # =============================================================================
+  # CURSOR OPERATIONS
+  # =============================================================================
+
+  - function: Connection.cursor
+    name: connection_cursor
+    description: "Create a new Cursor object for executing queries."
+
+  - function: Cursor.execute
+    name: cursor_execute
+    description: "Execute an SQL statement on this cursor."
+
+  - function: Cursor.executemany
+    name: cursor_executemany
+    description: "Execute an SQL statement for each item in a sequence."
+
+  # =============================================================================
+  # FETCHING RESULTS
+  # =============================================================================
+
+  - function: Cursor.fetchone
+    name: cursor_fetchone
+    description: "Fetch the next row from the query result, or None if no more rows."
+
+  - function: Cursor.fetchall
+    name: cursor_fetchall
+    description: "Fetch all remaining rows from the query result as a list."
+
+  - function: Cursor.fetchmany
+    name: cursor_fetchmany
+    description: "Fetch up to n rows from the query result."
+
+  - function: Cursor.close
+    name: cursor_close
+    description: "Close the cursor."
+
+  # =============================================================================
+  # UTILITY
+  # =============================================================================
+
+  - function: Connection.iterdump
+    name: connection_iterdump
+    description: "Return an iterator of SQL statements to recreate the database."
+
+  - function: Connection.backup
+    name: connection_backup
+    description: "Create a backup of the database to another connection."
