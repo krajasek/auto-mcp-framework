@@ -2111,68 +2111,53 @@ auto-mcp-tool serve examples/class_service/todo_service.py
 
 ### Pandas Analytics (`examples/pandas_analytics/`)
 
-Demonstrates generating MCP servers from installed packages with re-exported functions, DataFrame serialization, and aggregation operations.
+Demonstrates manifest-based generation for selective tool exposure from large packages like pandas.
 
 ```bash
-# Generate the pandas MCP server (530+ tools)
-auto-mcp-tool package generate pandas -o examples/pandas_analytics/pandas_server.py \
-    --no-llm --max-depth 0 --include-reexports
-
-# Run the test script to verify DataFrame serialization
-python examples/pandas_analytics/test_pandas_mcp.py
+# Generate from manifest (selects 97 tools from 500+)
+auto-mcp-tool generate pandas --manifest examples/pandas_analytics/manifest.yaml \
+    -o examples/pandas_analytics/server.py
 
 # Start the pandas server
-python examples/pandas_analytics/pandas_server.py
+python examples/pandas_analytics/server.py
 ```
 
 **Key features demonstrated:**
-- Using `--include-reexports` to expose pandas functions (concat, merge, read_csv, etc.)
-- DataFrame serialization/deserialization through the type system
-- Aggregation operations (pivot_table, crosstab, groupby)
+- Manifest-based selective tool exposure (97 tools from 500+ available)
+- DataFrame serialization/deserialization through handle-based storage
+- Custom tool descriptions for better LLM understanding
 
 **Example pandas tools exposed:**
 | Tool | Description |
 |------|-------------|
-| `concat` | Concatenate pandas objects along an axis |
-| `merge` | Merge DataFrame objects with database-style join |
 | `read_csv` | Read CSV file into DataFrame |
 | `read_json` | Read JSON into DataFrame |
-| `pivot_table` | Create spreadsheet-style pivot table |
-| `crosstab` | Compute cross-tabulation of factors |
-| `melt` | Unpivot DataFrame from wide to long format |
-| `get_dummies` | Convert categorical to dummy/indicator variables |
+| `dataframe_head` | Return the first n rows |
+| `dataframe_groupby` | Group DataFrame by columns |
+| `dataframe_merge` | Merge DataFrame with another DataFrame |
+| `dataframe_pivot_table` | Create spreadsheet-style pivot table |
+| `dataframe_to_csv` | Export DataFrame to CSV |
+| `dataframe_describe` | Generate descriptive statistics |
 
-```python
-# Using the Python API
-from auto_mcp import AutoMCP
-
-auto = AutoMCP(
-    use_llm=False,
-    include_reexports=True,  # Required for pandas
-    max_depth=0,
-)
-
-# Create server from pandas
-server = auto.create_server_from_package("pandas")
-```
+See `examples/pandas_analytics/manifest.yaml` for the complete list of exposed tools.
 
 ---
 
 ## Pandas MCP Server Setup Guide
 
-The pandas MCP server (`examples/pandas_analytics/`) exposes 100+ pandas functions as MCP tools for data analysis, manipulation, and I/O operations. This section covers setup for various AI coding tools and example conversations.
+The pandas MCP server (`examples/pandas_analytics/`) exposes 97 pandas functions as MCP tools for data analysis, manipulation, and I/O operations. This section covers setup for various AI coding tools and example conversations.
 
 ### Generating the Server
 
-Generate the pandas MCP server with re-exports enabled (required for pandas):
+Generate the pandas MCP server using a manifest for selective tool exposure:
 
 ```bash
-# Generate the server with all pandas functions
-auto-mcp-tool package generate pandas -o examples/pandas_analytics/pandas_server.py \
-    --no-llm --max-depth 0 --include-reexports
+# Generate from manifest (97 tools selected from 500+)
+auto-mcp-tool generate pandas --manifest examples/pandas_analytics/manifest.yaml \
+    -o examples/pandas_analytics/server.py
 
 # Or use the pre-generated server directly
-python examples/pandas_analytics/pandas_server.py
+python examples/pandas_analytics/server.py
 ```
 
 ### Available Tool Categories
@@ -2202,7 +2187,7 @@ Add the pandas MCP server to your Claude Code configuration:
   "mcpServers": {
     "pandas-analytics": {
       "command": "uv",
-      "args": ["run", "python", "/path/to/auto-mcp-framework/examples/pandas_analytics/pandas_server.py"]
+      "args": ["run", "python", "/path/to/auto-mcp-framework/examples/pandas_analytics/server.py"]
     }
   }
 }
@@ -2215,7 +2200,7 @@ Add the pandas MCP server to your Claude Code configuration:
   "mcpServers": {
     "pandas-analytics": {
       "command": "python",
-      "args": ["/path/to/auto-mcp-framework/examples/pandas_analytics/pandas_server.py"]
+      "args": ["/path/to/auto-mcp-framework/examples/pandas_analytics/server.py"]
     }
   }
 }
@@ -2224,7 +2209,7 @@ Add the pandas MCP server to your Claude Code configuration:
 **Option 3: Using the CLI**
 
 ```bash
-claude mcp add pandas-analytics -- python /path/to/pandas_server.py
+claude mcp add pandas-analytics -- python /path/to/server.py
 ```
 
 #### Cursor
@@ -2236,7 +2221,7 @@ Add to your Cursor MCP configuration file (`~/.cursor/mcp.json`):
   "mcpServers": {
     "pandas-analytics": {
       "command": "python",
-      "args": ["/path/to/auto-mcp-framework/examples/pandas_analytics/pandas_server.py"]
+      "args": ["/path/to/auto-mcp-framework/examples/pandas_analytics/server.py"]
     }
   }
 }
@@ -2253,7 +2238,7 @@ Add to your Windsurf MCP configuration (`~/.windsurf/mcp.json` or via Settings >
   "mcpServers": {
     "pandas-analytics": {
       "command": "python",
-      "args": ["/path/to/auto-mcp-framework/examples/pandas_analytics/pandas_server.py"]
+      "args": ["/path/to/auto-mcp-framework/examples/pandas_analytics/server.py"]
     }
   }
 }
@@ -2270,7 +2255,7 @@ Add to `.vscode/settings.json` or user settings:
   "mcp.servers": {
     "pandas-analytics": {
       "command": "python",
-      "args": ["/path/to/auto-mcp-framework/examples/pandas_analytics/pandas_server.py"]
+      "args": ["/path/to/auto-mcp-framework/examples/pandas_analytics/server.py"]
     }
   }
 }
@@ -2286,7 +2271,7 @@ Add to `~/.continue/config.json`:
     {
       "name": "pandas-analytics",
       "command": "python",
-      "args": ["/path/to/auto-mcp-framework/examples/pandas_analytics/pandas_server.py"]
+      "args": ["/path/to/auto-mcp-framework/examples/pandas_analytics/server.py"]
     }
   ]
 }
@@ -2301,7 +2286,7 @@ If using uv with pandas dependencies:
   "mcpServers": {
     "pandas-analytics": {
       "command": "uv",
-      "args": ["run", "--directory", "/path/to/auto-mcp-framework", "python", "examples/pandas_analytics/pandas_server.py"],
+      "args": ["run", "--directory", "/path/to/auto-mcp-framework", "python", "examples/pandas_analytics/server.py"],
       "env": {
         "UV_PROJECT_ENVIRONMENT": "/path/to/auto-mcp-framework/.venv"
       }
@@ -2626,7 +2611,7 @@ Your transformation is correct.
 **Server not starting:**
 - Ensure pandas is installed: `pip install pandas`
 - Check Python path and environment configuration
-- Run `python pandas_server.py` manually to see error messages
+- Run `python server.py` manually to see error messages
 
 **Tools not appearing:**
 - Restart your AI tool after configuration changes
@@ -2647,45 +2632,39 @@ Your transformation is correct.
 
 ### SQLite Database (`examples/sqlite_database/`)
 
-Demonstrates creating MCP tools for database operations with SQLite.
+Demonstrates manifest-based generation for SQLite database operations.
 
 ```bash
-# Run the test script
-python examples/sqlite_database/test_sqlite_mcp.py
+# Generate from manifest
+auto-mcp-tool generate sqlite3 --manifest examples/sqlite_database/manifest.yaml \
+    -o examples/sqlite_database/server.py
 
 # Start the SQLite MCP server
-python examples/sqlite_database/sqlite_server.py
+python examples/sqlite_database/server.py
 ```
 
 **Key features demonstrated:**
-- Database connection management
-- CRUD operations (Create, Read, Update, Delete)
-- Raw SQL query execution
-- Aggregation queries (SUM, AVG, COUNT, MIN, MAX)
-- JOIN operations between tables
-- Sample data generation
+- Manifest-based selective tool exposure from sqlite3 module
+- Handle-based storage for Connection and Cursor objects
+- Database connection and transaction management
 
-**Available tools (18):**
+**Available tools (14):**
 | Tool | Description |
 |------|-------------|
-| `connect_database` | Connect to SQLite database (memory or file) |
-| `disconnect_database` | Close database connection |
-| `execute_query` | Execute SQL and return results |
-| `execute_script` | Execute multi-statement SQL scripts |
-| `create_table` | Create a new table with schema |
-| `drop_table` | Drop a table |
-| `list_tables` | List all tables in database |
-| `describe_table` | Get table schema |
-| `insert_row` | Insert a single row |
-| `insert_many` | Bulk insert multiple rows |
-| `select_all` | Select all rows with pagination |
-| `select_where` | Select rows matching conditions |
-| `update_rows` | Update rows matching conditions |
-| `delete_rows` | Delete rows matching conditions |
-| `count_rows` | Count rows in a table |
-| `aggregate_query` | Run aggregate functions |
-| `join_query` | Execute JOIN between tables |
-| `create_sample_data` | Generate sample users/products/orders |
+| `connect` | Open a connection to an SQLite database |
+| `connection_close` | Close the database connection |
+| `connection_commit` | Commit the current transaction |
+| `connection_rollback` | Roll back changes since last commit |
+| `connection_execute` | Execute a single SQL statement |
+| `connection_executemany` | Execute SQL for each item in a sequence |
+| `connection_executescript` | Execute multiple SQL statements |
+| `connection_cursor` | Create a new Cursor object |
+| `cursor_execute` | Execute SQL on a cursor |
+| `cursor_executemany` | Execute SQL for each item in a sequence |
+| `cursor_fetchone` | Fetch the next row |
+| `cursor_fetchall` | Fetch all remaining rows |
+| `cursor_fetchmany` | Fetch up to n rows |
+| `cursor_close` | Close the cursor |
 
 ---
 
@@ -2695,15 +2674,15 @@ The SQLite MCP server example (`examples/sqlite_database/`) provides a fully-fun
 
 ### Generating the Server
 
-First, generate the MCP server from the SQLite tools module:
+Generate the MCP server using a manifest for selective tool exposure:
 
 ```bash
-# Generate the server
-cd examples/sqlite_database
-uv run auto-mcp-tool generate sqlite_tools.py -o sqlite_server.py --no-llm --name sqlite-tools
+# Generate from manifest
+auto-mcp-tool generate sqlite3 --manifest examples/sqlite_database/manifest.yaml \
+    -o examples/sqlite_database/server.py
 ```
 
-Or use the pre-generated `sqlite_server.py` directly.
+Or use the pre-generated `server.py` directly.
 
 ### Tool Configuration
 
@@ -2720,7 +2699,7 @@ Create or edit `.claude/settings.local.json` in your project root:
   "mcpServers": {
     "sqlite-tools": {
       "command": "uv",
-      "args": ["run", "python", "/path/to/auto-mcp-framework/examples/sqlite_database/sqlite_server.py"]
+      "args": ["run", "python", "/path/to/auto-mcp-framework/examples/sqlite_database/server.py"]
     }
   }
 }
@@ -2733,7 +2712,7 @@ Create or edit `.claude/settings.local.json` in your project root:
   "mcpServers": {
     "sqlite-tools": {
       "command": "python",
-      "args": ["/path/to/auto-mcp-framework/examples/sqlite_database/sqlite_server.py"]
+      "args": ["/path/to/auto-mcp-framework/examples/sqlite_database/server.py"]
     }
   }
 }
@@ -2742,7 +2721,7 @@ Create or edit `.claude/settings.local.json` in your project root:
 **Option 3: Using the CLI**
 
 ```bash
-claude mcp add sqlite-tools -- python /path/to/sqlite_server.py
+claude mcp add sqlite-tools -- python /path/to/server.py
 ```
 
 #### Cursor
@@ -2754,7 +2733,7 @@ Add to your Cursor MCP configuration file (`~/.cursor/mcp.json`):
   "mcpServers": {
     "sqlite-tools": {
       "command": "python",
-      "args": ["/path/to/auto-mcp-framework/examples/sqlite_database/sqlite_server.py"]
+      "args": ["/path/to/auto-mcp-framework/examples/sqlite_database/server.py"]
     }
   }
 }
@@ -2771,7 +2750,7 @@ Add to your Windsurf MCP configuration (`~/.windsurf/mcp.json` or via Settings >
   "mcpServers": {
     "sqlite-tools": {
       "command": "python",
-      "args": ["/path/to/auto-mcp-framework/examples/sqlite_database/sqlite_server.py"]
+      "args": ["/path/to/auto-mcp-framework/examples/sqlite_database/server.py"]
     }
   }
 }
@@ -2796,7 +2775,7 @@ Add to `.vscode/settings.json` or user settings:
   "mcp.servers": {
     "sqlite-tools": {
       "command": "python",
-      "args": ["/path/to/auto-mcp-framework/examples/sqlite_database/sqlite_server.py"]
+      "args": ["/path/to/auto-mcp-framework/examples/sqlite_database/server.py"]
     }
   }
 }
@@ -2812,7 +2791,7 @@ Add to `~/.continue/config.json`:
     {
       "name": "sqlite-tools",
       "command": "python",
-      "args": ["/path/to/auto-mcp-framework/examples/sqlite_database/sqlite_server.py"]
+      "args": ["/path/to/auto-mcp-framework/examples/sqlite_database/server.py"]
     }
   ]
 }
@@ -2827,7 +2806,7 @@ If using uv, ensure the correct Python environment:
   "mcpServers": {
     "sqlite-tools": {
       "command": "uv",
-      "args": ["run", "--directory", "/path/to/auto-mcp-framework", "python", "examples/sqlite_database/sqlite_server.py"],
+      "args": ["run", "--directory", "/path/to/auto-mcp-framework", "python", "examples/sqlite_database/server.py"],
       "env": {
         "UV_PROJECT_ENVIRONMENT": "/path/to/auto-mcp-framework/.venv"
       }
@@ -3052,8 +3031,7 @@ Created inventory_log table with columns:
 
 **Server not starting:**
 - Ensure Python path is correct and the environment has `mcp` installed
-- Check that `sqlite_tools.py` is in the same directory as `sqlite_server.py`
-- Run `python sqlite_server.py` manually to see error messages
+- Run `python server.py` manually to see error messages
 
 **Tools not appearing:**
 - Restart your AI tool after configuration changes
