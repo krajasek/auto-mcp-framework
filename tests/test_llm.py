@@ -152,6 +152,29 @@ class TestBaseLLMProvider:
         # Should not raise
         provider.shutdown()
 
+    def test_build_resource_prompt(
+        self, sample_method_metadata: MethodMetadata
+    ) -> None:
+        """Test resource prompt building."""
+        provider = BaseProvider("test-model")
+        prompt = provider._build_resource_prompt(
+            sample_method_metadata, "resource://{name}"
+        )
+
+        assert "sample_func" in prompt
+        assert "resource://{name}" in prompt
+        assert "Process the given name" in prompt
+
+    def test_build_prompt_template_prompt(
+        self, sample_method_metadata: MethodMetadata
+    ) -> None:
+        """Test prompt template prompt building."""
+        provider = BaseProvider("test-model")
+        prompt = provider._build_prompt_template_prompt(sample_method_metadata)
+
+        assert "sample_func" in prompt
+        assert "Process the given name" in prompt
+
 
 class TestOllamaProvider:
     """Tests for OllamaProvider."""
@@ -396,3 +419,13 @@ class TestFallbackDescriptions:
         """Test parameter fallback makes readable name."""
         result = get_fallback_parameter_description("user_name")
         assert "user name" in result
+
+    def test_resource_fallback_no_docstring(self) -> None:
+        """Test resource fallback when no docstring provided."""
+        result = get_fallback_resource_description("my_resource", None)
+        assert "my_resource" in result
+
+    def test_prompt_fallback_no_docstring(self) -> None:
+        """Test prompt fallback when no docstring provided."""
+        result = get_fallback_prompt_description("my_prompt", None)
+        assert "my_prompt" in result

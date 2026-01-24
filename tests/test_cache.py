@@ -251,6 +251,16 @@ class TestPromptCache:
         result = cache.get_parameter_descriptions(sample_method)
         assert result == params
 
+    def test_parameter_descriptions_invalid_json(
+        self, cache: PromptCache, sample_method: MethodMetadata
+    ) -> None:
+        """Test that invalid JSON in parameter descriptions returns None."""
+        # Directly set an invalid JSON string as the cached value
+        cache.set(sample_method, "not valid json", cache_type="params")
+
+        result = cache.get_parameter_descriptions(sample_method)
+        assert result is None
+
     def test_invalidate_module(
         self,
         cache: PromptCache,
@@ -371,6 +381,15 @@ class TestPromptCachePersistence:
         cache.invalidate("test_module")
         assert not cache_file.exists()
 
+    def test_save_nonexistent_module(self, tmp_path: Path) -> None:
+        """Test that saving a non-existent module does nothing."""
+        cache = PromptCache(cache_dir=tmp_path)
+        # Save a module that was never added - should not raise
+        cache.save("nonexistent_module")
+        # No file should be created
+        cache_file = tmp_path / "nonexistent_module_cache.json"
+        assert not cache_file.exists()
+
     def test_load_invalid_json(self, tmp_path: Path) -> None:
         """Test that loading invalid JSON is handled gracefully."""
         cache_file = tmp_path / "bad_module_cache.json"
@@ -411,3 +430,14 @@ class TestPromptCacheHashing:
         """Test cache key format."""
         key = cache._get_cache_key(sample_method)
         assert key == "test_module:sample_func"
+
+    def test_get_cache_file_path_module_import_failure(self) -> None:
+        """Test cache file path when module cannot be imported."""
+        # Create cache without explicit cache_dir
+        cache = PromptCache(cache_dir=None)
+        # Use a module name that cannot be imported
+        path = cache._get_cache_file_path("nonexistent_module_xyz123")
+        # Should fallback to current directory
+        from pathlib import Path
+
+        assert path == Path.cwd() / cache.cache_file_name
