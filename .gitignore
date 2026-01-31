@@ -79,3 +79,9 @@ dmypy.json
 
 # Database files
 *.db
+
+# macOS
+.DS_Store
+
+# MCP local config
+.mcp.json

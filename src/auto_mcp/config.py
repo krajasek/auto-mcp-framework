@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     # Server settings
     server_name: str = "auto-mcp-server"
     transport: Literal["stdio", "sse", "streamable-http"] = "stdio"
-    host: str = "0.0.0.0"
+    host: str = "127.0.0.1"
     port: int = 8080
 
     # Hot reload

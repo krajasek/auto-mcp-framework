@@ -403,6 +403,22 @@ class MCPGenerator:
 
         return output_path
 
+    def _escape_docstring(self, docstring: str) -> str:
+        """Escape a docstring for safe inclusion in generated triple-quoted strings.
+
+        Handles backslashes (which could form unintended escape sequences)
+        and triple-quote sequences that would terminate the docstring.
+
+        Args:
+            docstring: The raw docstring text
+
+        Returns:
+            Escaped string safe for use inside triple-quoted strings
+        """
+        result = docstring.replace("\\", "\\\\")
+        result = result.replace('"""', '\\"\\"\\"')
+        return result
+
     def _sanitize_type_str(self, type_str: str | None) -> str | None:
         """Sanitize a type string for use in generated code.
 
@@ -520,10 +536,7 @@ class MCPGenerator:
             params.append(param_def)
 
             # Build call argument
-            if kind == "KEYWORD_ONLY":
-                call_args.append(f"{name}={name}")
-            else:
-                call_args.append(f"{name}={name}")
+            call_args.append(f"{name}={name}")
 
         signature_params = ", ".join(params)
         call_args_str = ", ".join(call_args)
@@ -648,7 +661,7 @@ class MCPGenerator:
         for tool in tools:
             module_name = tool.metadata.module_name
             func_name = tool.metadata.qualified_name
-            desc = tool.description.replace('"""', '\\"\\"\\"')
+            desc = self._escape_docstring(tool.description)
             safe_name = tool.name.replace(".", "_")
 
             # Generate proper signature with named parameters
@@ -668,7 +681,7 @@ def {safe_name}({sig_params}):
         for resource in resources:
             module_name = resource.metadata.module_name
             func_name = resource.metadata.qualified_name
-            desc = resource.description.replace('"""', '\\"\\"\\"')
+            desc = self._escape_docstring(resource.description)
             safe_name = resource.name.replace(".", "_")
 
             # Generate proper signature
@@ -688,7 +701,7 @@ def resource_{safe_name}({sig_params}):
         for prompt in prompts:
             module_name = prompt.metadata.module_name
             func_name = prompt.metadata.qualified_name
-            desc = prompt.description.replace('"""', '\\"\\"\\"')
+            desc = self._escape_docstring(prompt.description)
             safe_name = prompt.name.replace(".", "_")
 
             # Generate proper signature
@@ -1261,7 +1274,7 @@ if __name__ == "__main__":
             safe_name = tool.name.replace(".", "_").replace("-", "_")
 
             # Escape description for string
-            desc = tool.description.replace('"""', '\\"\\"\\"')
+            desc = self._escape_docstring(tool.description)
 
             # Generate proper signature with named parameters
             sig_params, call_args = self._generate_function_signature(tool.metadata)
@@ -1280,7 +1293,7 @@ def {safe_name}({sig_params}):
         for resource in resources:
             module_name = resource.metadata.module_name
             func_name = resource.metadata.qualified_name
-            desc = resource.description.replace('"""', '\\"\\"\\"')
+            desc = self._escape_docstring(resource.description)
             safe_name = resource.name.replace(".", "_").replace("-", "_")
 
             # Generate proper signature
@@ -1300,7 +1313,7 @@ def resource_{safe_name}({sig_params}):
         for prompt in prompts:
             module_name = prompt.metadata.module_name
             func_name = prompt.metadata.qualified_name
-            desc = prompt.description.replace('"""', '\\"\\"\\"')
+            desc = self._escape_docstring(prompt.description)
             safe_name = prompt.name.replace(".", "_").replace("-", "_")
 
             # Generate proper signature

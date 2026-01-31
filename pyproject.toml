@@ -100,6 +100,9 @@ warn_unused_ignores = true
 asyncio_mode = "auto"
 testpaths = ["tests"]
 addopts = "--cov=src/auto_mcp --cov-report=term-missing --cov-report=html"
+markers = [
+    "integration: tests requiring a running Ollama instance (not run in CI)",
+]
 
 [tool.coverage.run]
 source = ["src/auto_mcp"]
