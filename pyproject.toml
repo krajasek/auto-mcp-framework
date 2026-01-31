@@ -99,7 +99,7 @@ warn_unused_ignores = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-addopts = "--cov=src/auto_mcp --cov-report=term-missing --cov-report=html"
+addopts = ""
 markers = [
     "integration: tests requiring a running Ollama instance (not run in CI)",
 ]

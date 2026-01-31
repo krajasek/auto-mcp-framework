@@ -21,11 +21,6 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
 
 
-def pytest_configure(config: pytest.Config) -> None:
-    """Disable coverage when running integration tests."""
-    config.option.no_cov = True
-
-
 @pytest.fixture(scope="session")
 def ollama_model(request: pytest.FixtureRequest) -> str:
     """Get the Ollama model name from CLI option."""
