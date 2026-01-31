@@ -115,8 +115,7 @@ class TestGenerateToolsWithLLM:
 class TestGenerateFileWithLLM:
     """Test standalone file generation with real LLM descriptions."""
 
-    @pytest.mark.asyncio
-    async def test_generated_file_contains_llm_descriptions(
+    def test_generated_file_contains_llm_descriptions(
         self,
         ollama_model: str,
         tmp_path: Path,
